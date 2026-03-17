@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retro T-Rex Runner</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f7f7f7;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: sans-serif;
+      }
+      #game-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #2a2a2a;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      }
+      h1 {
+        color: #fff;
+        margin-top: 0;
+        font-size: 24px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-shadow: 2px 2px 0 #000;
+      }
+      canvas {
+        background: #9bbc0f; /* Gameboy green */
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+      }
+      p {
+        color: #88c0d0;
+        margin-bottom: 0;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <h1>Dino Run: Retro Edition</h1>
+      <canvas id="game"></canvas>
+      <p>Press 'Z' to Jump!</p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

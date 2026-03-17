@@ -1,0 +1,17 @@
+[package]
+name = "retro-platform-native"
+version = "0.1.0"
+edition = "2021"
+authors = ["Retro Engine Contributors"]
+
+[[bin]]
+name = "retro-native"
+path = "src/main.rs"
+
+[dependencies]
+retro-core = { path = "../core" }
+winit = "0.28"
+pixels = "0.13"
+cpal = "0.15"
+log = { workspace = true }
+serde_json = { workspace = true }

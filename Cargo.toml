@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/platform-web", "crates/platform-native"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Retro Engine Contributors"]
+description = "A modern game engine with the look and feel of NES / Game Boy / NeoGeo games."
+repository = "https://github.com/retro-engine/retro-engine"
+license = "MIT"
+
+[workspace.dependencies]
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+glam = { version = "0.27", features = ["serde"] }
+hecs = "0.10"

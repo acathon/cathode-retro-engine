@@ -1,0 +1,22 @@
+{
+  "name": "@retro-engine/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "retro": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "fs-extra": "^11.2.0",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.14.9",
+    "typescript": "^5.5.0"
+  }
+}
