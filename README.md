@@ -38,18 +38,18 @@
 
 ## 🎮 Examples
 
-### 🦖 T-Rex Runner
-A side-scrolling endless runner with parallax background, physics, progressive difficulty, and screen shake on collision.
+### 🧱 Tetris
+A faithful Game Boy-style Tetris implementation with SRS rotation, hard/soft drops, line clearing, and level progression.
 
 <p align="center">
-  <img src="./docs/assets/demo.webp" alt="T-Rex Runner" width="480" />
+  <img src="./docs/assets/tetris.png" alt="Tetris Game" width="480" />
 </p>
 
 ```bash
-cd examples/trex-game && bun dev   # http://localhost:3002
+cd examples/tetris && bun dev   # http://localhost:3005
 ```
 
-**Controls:** `Z` — Jump · `Enter` — Restart
+**Controls:** `← →` — Move · `↑` — Rotate · `↓` — Soft Drop · `Z` — Hard Drop · `Enter` — Start / Restart
 
 ---
 
