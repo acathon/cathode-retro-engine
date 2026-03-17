@@ -129,13 +129,16 @@ impl Renderer {
         let mag = self.shake_intensity * progress;
         // Simple deterministic pseudo-random based on timer
         let seed = (self.shake_timer * 1000.0) as u32;
-        let sx = ((seed.wrapping_mul(1103515245).wrapping_add(12345) >> 16) % 200) as f32 / 100.0 - 1.0;
-        let sy = ((seed.wrapping_mul(214013).wrapping_add(2531011) >> 16) % 200) as f32 / 100.0 - 1.0;
+        let sx =
+            ((seed.wrapping_mul(1103515245).wrapping_add(12345) >> 16) % 200) as f32 / 100.0 - 1.0;
+        let sy =
+            ((seed.wrapping_mul(214013).wrapping_add(2531011) >> 16) % 200) as f32 / 100.0 - 1.0;
         Vec2::new(sx * mag, sy * mag)
     }
 
     pub fn render(&mut self, world: &World, assets: &AssetStore) -> &FrameBuffer {
-        self.framebuffer.clear(self.bg_color.0, self.bg_color.1, self.bg_color.2);
+        self.framebuffer
+            .clear(self.bg_color.0, self.bg_color.1, self.bg_color.2);
 
         // Compute shake offset and add to camera
         let shake_off = self.update_shake(1.0 / 60.0);
@@ -162,7 +165,7 @@ impl Renderer {
                                 continue;
                             }
                             let tile_index = tile_id - 1; // 1-based to 0-based
-                            
+
                             let src_x = (tile_index as u32 % cols_in_sheet) * map.tile_width;
                             let src_y = (tile_index as u32 / cols_in_sheet) * map.tile_height;
 
@@ -276,7 +279,8 @@ impl Renderer {
                     let b = sheet.pixels[s_idx + 2];
                     let a = sheet.pixels[s_idx + 3];
 
-                    if a > 0 { // Simple alpha test
+                    if a > 0 {
+                        // Simple alpha test
                         let dx = (dest_x + px as i32) as u32;
                         let dy = (dest_y + py as i32) as u32;
                         framebuffer.set_pixel(dx, dy, r, g, b, a);

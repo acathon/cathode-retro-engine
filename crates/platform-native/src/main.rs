@@ -1,3 +1,4 @@
+use pixels::{Pixels, SurfaceTexture};
 use retro_core::config::EngineConfig;
 use retro_core::ecs::GamepadState;
 use retro_core::renderer::tilemap::TileMap;
@@ -5,10 +6,9 @@ use retro_core::Engine;
 use std::env;
 use std::time::Instant;
 use winit::dpi::LogicalSize;
-use winit::event::{Event, VirtualKeyCode, WindowEvent, ElementState};
+use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
-use pixels::{Pixels, SurfaceTexture};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -30,12 +30,14 @@ fn main() {
             config.width as f64 * 4.0,
             config.height as f64 * 4.0,
         ))
-        .build(&event_loop).expect("Failed to build window");
+        .build(&event_loop)
+        .expect("Failed to build window");
 
     let mut pixels = {
         let window_size = window.inner_size();
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
-        Pixels::new(config.width, config.height, surface_texture).expect("Failed to create pixel buffer")
+        Pixels::new(config.width, config.height, surface_texture)
+            .expect("Failed to create pixel buffer")
     };
 
     let mut engine = Engine::new(config.clone());

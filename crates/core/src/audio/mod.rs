@@ -54,7 +54,11 @@ impl Channel {
                     let bit = (self.noise_state ^ (self.noise_state >> 1)) & 1;
                     self.noise_state = (self.noise_state >> 1) | (bit << 14);
                 }
-                if (self.noise_state & 1) == 1 { 1.0 } else { -1.0 }
+                if (self.noise_state & 1) == 1 {
+                    1.0
+                } else {
+                    -1.0
+                }
             }
             Waveform::Pulse50 => {
                 let v = if self.phase < 0.5 { 1.0 } else { -1.0 };

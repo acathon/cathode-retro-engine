@@ -32,7 +32,12 @@ pub fn step(world: &mut World, dt: f32) {
     for (e, mut pos, mut vel, col) in bodies {
         pos.0 += vel.0 * dt;
 
-        let bounds = (pos.0.x + col.offset.x, pos.0.y + col.offset.y, col.size.x, col.size.y);
+        let bounds = (
+            pos.0.x + col.offset.x,
+            pos.0.y + col.offset.y,
+            col.size.x,
+            col.size.y,
+        );
 
         for (_se, spos, scol) in &solids {
             let sb = (

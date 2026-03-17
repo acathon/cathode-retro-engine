@@ -48,7 +48,8 @@ impl InputState {
 
     pub fn just_pressed(&self, idx: usize, btn: Button) -> bool {
         if idx < 2 {
-            Self::check_btn(&self.players[idx], btn) && !Self::check_btn(&self.prev_players[idx], btn)
+            Self::check_btn(&self.players[idx], btn)
+                && !Self::check_btn(&self.prev_players[idx], btn)
         } else {
             false
         }
@@ -56,7 +57,8 @@ impl InputState {
 
     pub fn just_released(&self, idx: usize, btn: Button) -> bool {
         if idx < 2 {
-            !Self::check_btn(&self.players[idx], btn) && Self::check_btn(&self.prev_players[idx], btn)
+            !Self::check_btn(&self.players[idx], btn)
+                && Self::check_btn(&self.prev_players[idx], btn)
         } else {
             false
         }

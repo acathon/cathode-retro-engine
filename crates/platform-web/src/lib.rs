@@ -63,7 +63,7 @@ impl WebEngine {
             ((timestamp - self.last_ts) / 1000.0) as f32
         };
         self.last_ts = timestamp;
-        
+
         self.engine.update(delta);
         self.engine.delta()
     }
@@ -99,21 +99,15 @@ impl WebEngine {
     }
 
     #[wasm_bindgen]
-    pub fn upload_sheet(
-        &mut self,
-        w: u32,
-        h: u32,
-        tw: u32,
-        th: u32,
-        pixels: Vec<u8>,
-    ) -> u32 {
+    pub fn upload_sheet(&mut self, w: u32, h: u32, tw: u32, th: u32, pixels: Vec<u8>) -> u32 {
         let sheet = retro_core::assets::SpriteSheet::from_rgba(w, h, tw, th, pixels);
         self.engine.assets.add_sheet(sheet)
     }
 
     #[wasm_bindgen]
     pub fn load_tilemap(&mut self, json: &str) -> Result<u32, JsValue> {
-        let map: TileMap = serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let map: TileMap =
+            serde_json::from_str(json).map_err(|e| JsValue::from_str(&e.to_string()))?;
         self.engine.renderer.tilemaps.push(map);
         Ok((self.engine.renderer.tilemaps.len() - 1) as u32)
     }
