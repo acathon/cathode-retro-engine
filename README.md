@@ -42,7 +42,7 @@
 A faithful Game Boy-style Tetris implementation with SRS rotation, hard/soft drops, line clearing, and level progression.
 
 <p align="center">
-  <img src="./docs/assets/tetris.png" alt="Tetris Game" width="480" />
+  <img src="./docs/assets/tetris_demo.webp" alt="Tetris Game" width="480" />
 </p>
 
 ```bash
