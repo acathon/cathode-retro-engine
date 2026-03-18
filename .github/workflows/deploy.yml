@@ -37,8 +37,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -54,18 +54,6 @@ jobs:
       - name: Build Tetris
         working-directory: examples/tetris
         run: npx vite build --base /retor-engine/tetris/ --outDir ../../_site/tetris
-
-      - name: Build Metal Slug
-        working-directory: examples/metal-slug
-        run: npx vite build --base /retor-engine/metal-slug/ --outDir ../../_site/metal-slug
-
-      - name: Build Demo Game
-        working-directory: examples/demo-game
-        run: npx vite build --base /retor-engine/demo-game/ --outDir ../../_site/demo-game
-
-      - name: Build T-Rex Runner
-        working-directory: examples/trex-game
-        run: npx vite build --base /retor-engine/trex-game/ --outDir ../../_site/trex-game
 
       - name: Copy landing page
         run: cp examples/landing.html _site/index.html
