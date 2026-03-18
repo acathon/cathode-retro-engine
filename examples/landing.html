@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retro Engine — Live Demos</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    header {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+      background: linear-gradient(135deg, #1a0a2e 0%, #0a1628 100%);
+      border-bottom: 2px solid #333;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      color: #00ff88;
+      text-shadow: 0 0 20px rgba(0,255,136,0.3);
+      letter-spacing: 0.15em;
+    }
+    header p {
+      margin-top: 0.5rem;
+      color: #888;
+      font-size: 0.95rem;
+    }
+    header a {
+      color: #66aaff;
+      text-decoration: none;
+    }
+    header a:hover { text-decoration: underline; }
+    .games {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      max-width: 1000px;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem;
+    }
+    .card {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .card:hover {
+      border-color: #00ff88;
+      transform: translateY(-3px);
+    }
+    .card-img {
+      height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+    }
+    .card-body {
+      padding: 1rem 1.2rem 1.2rem;
+    }
+    .card-body h2 {
+      font-size: 1.15rem;
+      color: #00ff88;
+      margin-bottom: 0.3rem;
+    }
+    .card-body p {
+      font-size: 0.82rem;
+      color: #999;
+      line-height: 1.4;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      background: #1a2a1a;
+      color: #00cc66;
+      padding: 2px 8px;
+      border-radius: 3px;
+      margin-top: 0.5rem;
+    }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #555;
+      font-size: 0.8rem;
+      border-top: 1px solid #222;
+    }
+    footer a { color: #66aaff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🕹️ RETRO ENGINE</h1>
+    <p>A Rust + WASM retro game engine — <a href="https://github.com/acathon/retor-engine">Source on GitHub</a></p>
+  </header>
+
+  <div class="games">
+    <a class="card" href="./space-game/">
+      <div class="card-img" style="background:#0a0a2a;">👾</div>
+      <div class="card-body">
+        <h2>Space Invaders</h2>
+        <p>Classic alien shooter with procedural pixel art. Game Boy resolution, chiptune SFX.</p>
+        <span class="tag">160×144 · Game Boy</span>
+      </div>
+    </a>
+
+    <a class="card" href="./tetris/">
+      <div class="card-img" style="background:#0f380f;">🧱</div>
+      <div class="card-body">
+        <h2>Tetris</h2>
+        <p>Game Boy Tetris with Korobeiniki melody, ghost piece, wall kicks, and 7-bag randomizer.</p>
+        <span class="tag">160×144 · Game Boy</span>
+      </div>
+    </a>
+
+    <a class="card" href="./metal-slug/">
+      <div class="card-img" style="background:#1a1a0a;">🔫</div>
+      <div class="card-body">
+        <h2>Metal Slug</h2>
+        <p>Run-and-gun side-scroller with 3 enemy types, grenades, scrolling levels, and pickups.</p>
+        <span class="tag">256×240 · NES</span>
+      </div>
+    </a>
+
+    <a class="card" href="./trex-game/">
+      <div class="card-img" style="background:#f7f7f7; color:#535353;">🦕</div>
+      <div class="card-body">
+        <h2>T-Rex Runner</h2>
+        <p>Chrome-style endless runner with cacti, pterodactyls, and day/night cycle.</p>
+        <span class="tag">256×240 · NES</span>
+      </div>
+    </a>
+
+    <a class="card" href="./demo-game/">
+      <div class="card-img" style="background:#1a0a28;">⭐</div>
+      <div class="card-body">
+        <h2>Demo Game</h2>
+        <p>Engine showcase with sprite animation, tilemap, and input handling.</p>
+        <span class="tag">256×240 · NES</span>
+      </div>
+    </a>
+  </div>
+
+  <footer>
+    Built with Rust + WebAssembly · <a href="https://github.com/acathon/retor-engine">GitHub</a>
+  </footer>
+</body>
+</html>
