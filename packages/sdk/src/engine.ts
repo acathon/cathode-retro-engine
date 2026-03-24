@@ -1,5 +1,7 @@
 import { InputReader } from './input';
 import { WaveformType, Preset, EngineConfig } from './types';
+import type { Tween } from './tween';
+import type { GameTimer } from './timer';
 
 // WebEngine type to avoid importing from unbuilt WASM in TS
 // It matches the methods exposed by wasm_bindgen
@@ -8,23 +10,26 @@ type WebEngine = any;
 export class RetroEngine {
   public raw: WebEngine | null = null;
   public input: InputReader;
-  
+
   private wasmModule: any = null;
   private canvas: HTMLCanvasElement;
   private rafId = 0;
   private paused = false;
   private loopCb?: (dt: number) => void;
-  
+
   // Audio context handling
   private audioCtx: AudioContext | null = null;
   private audioNode: ScriptProcessorNode | null = null;
 
+  // Managed tweens and timers
+  private _tweens: Set<Tween> = new Set();
+  private _timers: Set<GameTimer> = new Set();
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.input = new InputReader();
-    
+
     this.canvas.style.imageRendering = 'pixelated';
-    // Remove pointer events warning / allow clicking
     this.canvas.style.touchAction = 'none';
   }
 
@@ -72,10 +77,10 @@ export class RetroEngine {
     }
 
     this.input.attach(this.raw!);
-    
+
     this.canvas.style.width = `${this.width * scale}px`;
     this.canvas.style.height = `${this.height * scale}px`;
-    
+
     this.initAudio();
   }
 
@@ -84,27 +89,26 @@ export class RetroEngine {
       if (!this.audioCtx) {
         this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         this.audioNode = this.audioCtx.createScriptProcessor(2048, 0, 2);
-        
+
         this.audioNode.onaudioprocess = (e) => {
           if (!this.raw || this.paused) return;
           const left = e.outputBuffer.getChannelData(0);
           const right = e.outputBuffer.getChannelData(1);
-          
-          // Temporary buffer to hold interleaved stereo from wasm
+
           const buf = new Float32Array(left.length * 2);
           this.raw.audio_fill_stereo(buf);
-          
+
           for (let i = 0; i < left.length; i++) {
             left[i] = buf[i * 2];
             right[i] = buf[i * 2 + 1];
           }
         };
-        
+
         this.audioNode.connect(this.audioCtx.destination);
       } else if (this.audioCtx.state === 'suspended') {
         this.audioCtx.resume();
       }
-      
+
       window.removeEventListener('click', interactInit);
       window.removeEventListener('keydown', interactInit);
       window.removeEventListener('touchstart', interactInit);
@@ -126,6 +130,20 @@ export class RetroEngine {
     const step = (ts: number) => {
       if (!this.paused && this.raw) {
         const dt = this.raw.tick(ts);
+
+        // Update managed tweens
+        for (const tween of this._tweens) {
+          tween._tick();
+        }
+
+        // Check fired timers
+        const firedTimers: number[] = this.raw.poll_fired_timers?.() ?? [];
+        if (firedTimers.length > 0) {
+          for (const timer of this._timers) {
+            timer._checkFired(firedTimers);
+          }
+        }
+
         cb(dt);
         this.raw.render_to_canvas(this.canvas);
       }
@@ -159,20 +177,35 @@ export class RetroEngine {
         if (!ctx) return reject("Failed to get 2d context for spritesheet");
         ctx.drawImage(img, 0, 0);
         const imgData = ctx.getImageData(0, 0, img.width, img.height);
-        
-        // Pass Uint8Array to WASM
+
         const handle = this.raw!.upload_sheet(
-          img.width, 
-          img.height, 
-          tileWidth, 
-          tileHeight, 
-          new Uint8Array(imgData.data.buffer) // clone to avoid detachment errs
+          img.width,
+          img.height,
+          tileWidth,
+          tileHeight,
+          new Uint8Array(imgData.data.buffer)
         );
         resolve(handle);
       };
       img.onerror = reject;
       img.src = url;
     });
+  }
+
+  loadSheetFromCanvas(canvas: HTMLCanvasElement, tileWidth: number, tileHeight: number): number {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to get 2d context for spritesheet canvas');
+    }
+
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return this.raw!.upload_sheet(
+      canvas.width,
+      canvas.height,
+      tileWidth,
+      tileHeight,
+      new Uint8Array(imgData.data.buffer),
+    );
   }
 
   loadTileMap(json: string): number {
@@ -192,7 +225,7 @@ export class RetroEngine {
   }
 
   spawnSprite(x: number, y: number, sheet: number, frame: number, layer: number): bigint {
-    return typeof this.raw!.spawn_sprite === 'function' 
+    return typeof this.raw!.spawn_sprite === 'function'
       ? BigInt(this.raw!.spawn_sprite(x, y, sheet, frame, layer))
       : 0n;
   }
@@ -211,5 +244,23 @@ export class RetroEngine {
 
   shake(intensity: number, duration: number) {
     if (this.raw) this.raw.shake(intensity, duration);
+  }
+
+  // --- Internal tween/timer management ---
+
+  _registerTween(tween: Tween): void {
+    this._tweens.add(tween);
+  }
+
+  _unregisterTween(tween: Tween): void {
+    this._tweens.delete(tween);
+  }
+
+  _registerTimer(timer: GameTimer): void {
+    this._timers.add(timer);
+  }
+
+  _unregisterTimer(timer: GameTimer): void {
+    this._timers.delete(timer);
   }
 }

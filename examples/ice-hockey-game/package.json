@@ -1,7 +1,7 @@
 {
-  "name": "@retro-engine/pac-man-game",
-  "version": "0.1.0",
+  "name": "@retro-engine/ice-hockey-game",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

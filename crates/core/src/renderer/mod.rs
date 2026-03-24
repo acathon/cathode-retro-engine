@@ -2,6 +2,7 @@ pub mod palette;
 pub mod sprite;
 pub mod tilemap;
 
+use crate::config::HardwareProfile;
 use glam::Vec2;
 use hecs::World;
 
@@ -69,6 +70,40 @@ impl FrameBuffer {
         }
     }
 
+    pub fn apply_palette(&mut self, palette: &Palette) {
+        let colors: Vec<Color> = palette
+            .colors
+            .iter()
+            .copied()
+            .filter(|color| color.3 > 0)
+            .collect();
+
+        if colors.is_empty() {
+            return;
+        }
+
+        for chunk in self.pixels.chunks_exact_mut(4) {
+            let mut best = colors[0];
+            let mut best_dist = u32::MAX;
+
+            for color in &colors {
+                let dr = chunk[0] as i32 - color.0 as i32;
+                let dg = chunk[1] as i32 - color.1 as i32;
+                let db = chunk[2] as i32 - color.2 as i32;
+                let dist = (dr * dr + dg * dg + db * db) as u32;
+                if dist < best_dist {
+                    best_dist = dist;
+                    best = *color;
+                }
+            }
+
+            chunk[0] = best.0;
+            chunk[1] = best.1;
+            chunk[2] = best.2;
+            chunk[3] = 255;
+        }
+    }
+
     pub fn as_ptr(&self) -> *const u8 {
         self.pixels.as_ptr()
     }
@@ -88,27 +123,47 @@ pub struct Renderer {
     pub camera: Vec2,
     pub bg_color: Color,
     pub scanlines: bool,
+    pub palette: Option<Palette>,
     pub framebuffer: FrameBuffer,
     pub tilemaps: Vec<TileMap>,
     // Screen shake
     pub shake_intensity: f32,
     pub shake_duration: f32,
     shake_timer: f32,
+    /// When true, skip clearing the framebuffer (e.g. raycaster already drew)
+    pub skip_clear: bool,
 }
 
 impl Renderer {
-    pub fn new(width: u32, height: u32, sprite_limit: u32, scanlines: bool) -> Self {
+    pub fn new(
+        width: u32,
+        height: u32,
+        sprite_limit: u32,
+        scanlines: bool,
+        profile: HardwareProfile,
+    ) -> Self {
+        let palette = match profile {
+            HardwareProfile::GameBoy => Some(Palette::gameboy()),
+            _ => None,
+        };
+        let bg_color = palette
+            .as_ref()
+            .map(|palette| palette.get(1))
+            .unwrap_or(Color::BLACK);
+
         Self {
             resolution: (width, height),
             sprite_limit,
             camera: Vec2::ZERO,
-            bg_color: Color::BLACK,
+            bg_color,
             scanlines,
+            palette,
             framebuffer: FrameBuffer::new(width, height),
             tilemaps: Vec::new(),
             shake_intensity: 0.0,
             shake_duration: 0.0,
             shake_timer: 0.0,
+            skip_clear: false,
         }
     }
 
@@ -137,8 +192,11 @@ impl Renderer {
     }
 
     pub fn render(&mut self, world: &World, assets: &AssetStore) -> &FrameBuffer {
-        self.framebuffer
-            .clear(self.bg_color.0, self.bg_color.1, self.bg_color.2);
+        if !self.skip_clear {
+            self.framebuffer
+                .clear(self.bg_color.0, self.bg_color.1, self.bg_color.2);
+        }
+        self.skip_clear = false;
 
         // Compute shake offset and add to camera
         let shake_off = self.update_shake(1.0 / 60.0);
@@ -233,6 +291,10 @@ impl Renderer {
         // scanlines post-process
         if self.scanlines {
             self.framebuffer.apply_scanlines(0.25);
+        }
+
+        if let Some(palette) = &self.palette {
+            self.framebuffer.apply_palette(palette);
         }
 
         &self.framebuffer

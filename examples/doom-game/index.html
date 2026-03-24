@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retro DOOM</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: monospace;
+      color: #aaa;
+    }
+
+    #game-container {
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    .info {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="game-container">
+    <canvas id="game"></canvas>
+    <div class="info">WASD: Move &amp; Strafe | Q/E: Turn | Arrows: Move &amp; Turn | Z: Shoot</div>
+  </div>
+  <script>window.onerror = function (m, s, l, c, e) { document.body.style.color = '#f00'; document.body.innerText = 'ERR: ' + m + ' @ ' + s + ':' + l; }; window.addEventListener('unhandledrejection', function (e) { document.body.style.color = '#f00'; document.body.innerText = 'REJECT: ' + e.reason; });</script>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

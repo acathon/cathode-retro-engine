@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retro Ice Hockey</title>
+  <style>
+    :root {
+      --page: #08111f;
+      --panel: #102746;
+      --line: #7dc3ff;
+      --ice: #e4f4ff;
+      --ink: #091320;
+      --glow: #f8d35f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top, rgba(125, 195, 255, 0.2), transparent 35%),
+        linear-gradient(180deg, #102746 0%, #08111f 58%, #040812 100%);
+      color: #f3f8ff;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    #game-shell {
+      width: min(960px, calc(100vw - 24px));
+      padding: 18px;
+      border: 3px solid var(--line);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(16, 39, 70, 0.96), rgba(6, 17, 32, 0.98)),
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 6px);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.45);
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      font-size: clamp(22px, 3vw, 34px);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--glow);
+      text-shadow: 0 0 18px rgba(248, 211, 95, 0.28);
+    }
+
+    .subtitle {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #b6daff;
+    }
+
+    #screen-wrap {
+      position: relative;
+      width: 768px;
+      height: 720px;
+      max-width: 100%;
+      margin: 0 auto;
+      border: 4px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0b1d36;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    #game {
+      z-index: 1;
+    }
+
+    #overlay {
+      z-index: 2;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      color: #b6daff;
+      font-size: 13px;
+    }
+
+    .footer strong {
+      color: #fff7c4;
+    }
+
+    @media (max-width: 840px) {
+      #screen-wrap {
+        width: calc(100vw - 64px);
+        height: calc((100vw - 64px) * 0.9375);
+      }
+
+      .footer {
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="game-shell">
+    <div class="topline">
+      <div class="brand">Retro Ice Hockey</div>
+      <div class="subtitle">Arcade Exhibition Mode</div>
+    </div>
+    <div id="screen-wrap">
+      <canvas id="game"></canvas>
+      <canvas id="overlay" width="256" height="240"></canvas>
+    </div>
+    <div class="footer">
+      <div><strong>Move:</strong> Arrow Keys</div>
+      <div><strong>Shoot / Check:</strong> Z</div>
+      <div><strong>Pass / Switch:</strong> X</div>
+      <div><strong>Start / Pause:</strong> Enter</div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

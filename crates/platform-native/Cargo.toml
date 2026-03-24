@@ -13,5 +13,6 @@ retro-core = { path = "../core" }
 winit = "0.28"
 pixels = "0.13"
 cpal = "0.15"
+gilrs = "0.10"
 log = { workspace = true }
 serde_json = { workspace = true }

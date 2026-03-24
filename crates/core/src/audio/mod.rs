@@ -1,3 +1,7 @@
+pub mod envelope;
+pub mod sequencer;
+
+use self::envelope::Envelope;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -17,6 +21,7 @@ pub struct Channel {
     pub active: bool,
     pub phase: f32,
     pub noise_state: u16,
+    pub envelope: Envelope,
 }
 
 impl Default for Channel {
@@ -28,6 +33,7 @@ impl Default for Channel {
             active: false,
             phase: 0.0,
             noise_state: 1, // Must be non-zero for LFSR
+            envelope: Envelope::default_envelope(),
         }
     }
 }
@@ -39,12 +45,28 @@ impl Channel {
 
     pub fn sample(&mut self, sample_rate: f32) -> f32 {
         if !self.active || self.volume <= 0.0 {
+            // still tick envelope during release phase
+            if !self.envelope.is_done() {
+                let env = self.envelope.tick(1.0 / sample_rate);
+                if env <= 0.0 {
+                    return 0.0;
+                }
+                // Generate waveform even during release
+                let inc = self.frequency / sample_rate;
+                let raw = self.generate_waveform(inc);
+                return raw * self.volume * env;
+            }
             return 0.0;
         }
 
         let inc = self.frequency / sample_rate;
+        let env = self.envelope.tick(1.0 / sample_rate);
+        let raw = self.generate_waveform(inc);
+        raw * self.volume * env
+    }
 
-        let out = match self.waveform {
+    fn generate_waveform(&mut self, inc: f32) -> f32 {
+        match self.waveform {
             Waveform::Noise => {
                 // 15-bit Galois LFSR
                 // step at frequency rate, not sample rate, to control pitch
@@ -89,9 +111,7 @@ impl Channel {
                 self.phase = (self.phase + inc).fract();
                 v
             }
-        };
-
-        out * self.volume
+        }
     }
 }
 
@@ -120,14 +140,14 @@ impl AudioMixer {
             channel.waveform = waveform;
             channel.volume = vol.clamp(0.0, 1.0);
             channel.active = true;
-            // dont reset phase to avoid clicks, unless newly started
-            // channel.phase = 0.0;
+            channel.envelope.note_on();
         }
     }
 
     pub fn stop(&mut self, ch: usize) {
         if let Some(channel) = self.channels.get_mut(ch) {
             channel.active = false;
+            channel.envelope.note_off();
         }
     }
 

@@ -1,9 +1,12 @@
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use gilrs::{Button, Event as GilrsEvent, Gilrs};
 use pixels::{Pixels, SurfaceTexture};
 use retro_core::config::EngineConfig;
 use retro_core::ecs::GamepadState;
 use retro_core::renderer::tilemap::TileMap;
 use retro_core::Engine;
 use std::env;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
@@ -40,39 +43,65 @@ fn main() {
             .expect("Failed to create pixel buffer")
     };
 
-    let mut engine = Engine::new(config.clone());
+    let engine = Arc::new(Mutex::new(Engine::new(config.clone())));
 
     // Demo scene setup
-    let mut pixels_data = vec![0u8; 64 * 4];
-    for i in 0..64 {
-        let (r, g, b, a) = if (i % 8 + i / 8) % 2 == 0 {
-            (255, 0, 255, 255) // Magenta
-        } else {
-            (0, 0, 0, 255) // Black
-        };
-        pixels_data[i * 4] = r;
-        pixels_data[i * 4 + 1] = g;
-        pixels_data[i * 4 + 2] = b;
-        pixels_data[i * 4 + 3] = a;
-    }
-
-    let sheet = retro_core::assets::SpriteSheet::from_rgba(8, 8, 8, 8, pixels_data);
-    let sheet_handle = engine.assets.add_sheet(sheet);
-
-    let mut map = TileMap::new("Demo".to_string(), 10, 10, 8, 8);
-    let layer = map.add_layer("Background".to_string(), sheet_handle, false);
-    for row in 0..10 {
-        for col in 0..10 {
-            map.set_tile(layer, col, row, 1);
+    {
+        let mut eng = engine.lock().unwrap();
+        let mut pixels_data = vec![0u8; 64 * 4];
+        for i in 0..64 {
+            let (r, g, b, a) = if (i % 8 + i / 8) % 2 == 0 {
+                (255, 0, 255, 255)
+            } else {
+                (0, 0, 0, 255)
+            };
+            pixels_data[i * 4] = r;
+            pixels_data[i * 4 + 1] = g;
+            pixels_data[i * 4 + 2] = b;
+            pixels_data[i * 4 + 3] = a;
         }
+
+        let sheet = retro_core::assets::SpriteSheet::from_rgba(8, 8, 8, 8, pixels_data);
+        let sheet_handle = eng.assets.add_sheet(sheet);
+
+        let mut map = TileMap::new("Demo".to_string(), 10, 10, 8, 8);
+        let layer = map.add_layer("Background".to_string(), sheet_handle, false);
+        for row in 0..10 {
+            for col in 0..10 {
+                map.set_tile(layer, col, row, 1);
+            }
+        }
+        eng.renderer.tilemaps.push(map);
     }
-    engine.renderer.tilemaps.push(map);
+
+    // Setup CPAL audio
+    let audio_engine = Arc::clone(&engine);
+    let _audio_stream = setup_cpal_audio(audio_engine);
+
+    // Setup gilrs
+    let mut gilrs = Gilrs::new().ok();
 
     let mut last_update = Instant::now();
     let mut gamepad = GamepadState::default();
+    let mut gamepad_hw = GamepadState::default();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
+
+        // Poll gilrs events
+        if let Some(ref mut g) = gilrs {
+            while let Some(GilrsEvent { id: _, event, .. }) = g.next_event() {
+                match event {
+                    gilrs::EventType::ButtonPressed(btn, _) => {
+                        map_gilrs_button(&mut gamepad_hw, btn, true);
+                    }
+                    gilrs::EventType::ButtonReleased(btn, _) => {
+                        map_gilrs_button(&mut gamepad_hw, btn, false);
+                    }
+                    _ => {}
+                }
+            }
+        }
 
         match event {
             Event::WindowEvent { event, .. } => match event {
@@ -110,13 +139,18 @@ fn main() {
                 let dt = now.duration_since(last_update).as_secs_f32();
                 last_update = now;
 
-                engine.input.set_state(0, gamepad);
-                engine.update(dt);
+                // Merge keyboard and gamepad inputs
+                let merged = merge_gamepads(&gamepad, &gamepad_hw);
+
+                let mut eng = engine.lock().unwrap();
+                eng.input.set_state(0, merged);
+                eng.update(dt);
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
                 let frame = pixels.frame_mut();
-                let engine_fb = engine.render();
+                let mut eng = engine.lock().unwrap();
+                let engine_fb = eng.render();
                 frame.copy_from_slice(&engine_fb.pixels);
 
                 if let Err(err) = pixels.render() {
@@ -127,4 +161,75 @@ fn main() {
             _ => {}
         }
     });
+}
+
+fn setup_cpal_audio(engine: Arc<Mutex<Engine>>) -> Option<cpal::Stream> {
+    let host = cpal::default_host();
+    let device = host.default_output_device()?;
+    let supported_config = device.default_output_config().ok()?;
+    let sample_rate = supported_config.sample_rate().0;
+
+    {
+        let mut eng = engine.lock().unwrap();
+        eng.audio.sample_rate = sample_rate as f32;
+    }
+
+    let stream = device
+        .build_output_stream(
+            &cpal::StreamConfig {
+                channels: 2,
+                sample_rate: cpal::SampleRate(sample_rate),
+                buffer_size: cpal::BufferSize::Default,
+            },
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                if let Ok(mut eng) = engine.lock() {
+                    eng.audio.fill_stereo(data);
+                } else {
+                    data.fill(0.0);
+                }
+            },
+            |err| {
+                eprintln!("Audio stream error: {}", err);
+            },
+            None,
+        )
+        .ok()?;
+
+    stream.play().ok()?;
+    Some(stream)
+}
+
+fn map_gilrs_button(state: &mut GamepadState, btn: Button, pressed: bool) {
+    match btn {
+        Button::South => state.a = pressed,
+        Button::East => state.b = pressed,
+        Button::West => state.y = pressed,
+        Button::North => state.x = pressed,
+        Button::DPadUp => state.up = pressed,
+        Button::DPadDown => state.down = pressed,
+        Button::DPadLeft => state.left = pressed,
+        Button::DPadRight => state.right = pressed,
+        Button::Start => state.start = pressed,
+        Button::Select => state.select = pressed,
+        Button::LeftTrigger => state.l = pressed,
+        Button::RightTrigger => state.r = pressed,
+        _ => {}
+    }
+}
+
+fn merge_gamepads(kbd: &GamepadState, hw: &GamepadState) -> GamepadState {
+    GamepadState {
+        up: kbd.up || hw.up,
+        down: kbd.down || hw.down,
+        left: kbd.left || hw.left,
+        right: kbd.right || hw.right,
+        a: kbd.a || hw.a,
+        b: kbd.b || hw.b,
+        x: kbd.x || hw.x,
+        y: kbd.y || hw.y,
+        start: kbd.start || hw.start,
+        select: kbd.select || hw.select,
+        l: kbd.l || hw.l,
+        r: kbd.r || hw.r,
+    }
 }
