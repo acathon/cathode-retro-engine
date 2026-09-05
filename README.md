@@ -24,7 +24,7 @@ Choose the shortest path for what you want to do:
 
 | Area | Included |
 | --- | --- |
-| Engine core | Rust ECS, software renderer, audio synth, collision, camera, particles, tweens, timers |
+| Engine core | Rust ECS, software renderer, audio synth, physics, collision, camera, particles, tweens, timers |
 | Runtime targets | Browser via WASM and native desktop via winit/pixels/cpal |
 | SDK | TypeScript APIs for scenes, sprites, tilemaps, input, audio, text, save data, raycasting |
 | Tooling | CLI scaffolding, example games, browser editor, desktop editor |
@@ -99,6 +99,8 @@ These are the most useful commands for daily work:
 | Run the web editor | `bun run dev:editor` |
 | Run the demo example | `bun run dev:demo` |
 | Build an example | `cd examples/doom-game && bun run build` |
+| Run the test suite | `make test` |
+| Run linters and formatting checks | `make lint` |
 
 ## Monorepo Map
 
