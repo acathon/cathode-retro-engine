@@ -17,8 +17,8 @@
     "build:all": "npm run build:wasm && npm run build:sdk && npm run build:cli",
     "dev:editor": "npm run dev --workspace=@retro-engine/editor",
     "dev:demo": "npm run dev --workspace=@retro-engine/demo-game",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
