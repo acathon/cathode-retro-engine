@@ -99,11 +99,28 @@ These are the most useful commands for daily work:
 | Build CLI package | `bun run build:cli` |
 | Build everything exposed by root scripts | `bun run build:all` |
 | Run the web editor | `bun run dev:editor` |
-|  Run Retro Studio | `bun run dev:studio` |
+|  Run Retro Studio | `bun run dev:studio` (needs `build:wasm` + `build:sdk` first) |
 | Run the demo example | `bun run dev:demo` |
 | Build an example | `cd examples/doom-game && bun run build` |
 | Run the test suite | `make test` |
 | Run linters and formatting checks | `make lint` |
+
+## Retro Studio
+
+A visual editor laid out like Godot: a scene tree on the left, an inspector on
+the right, a live viewport in the middle, and a tabbed dock underneath holding
+the block editor, a pixel sprite editor, a sound maker, the generated
+TypeScript, and an output log.
+
+```bash
+bun run build:wasm && bun run build:sdk   # the studio runs the real engine
+bun run dev:studio
+```
+
+Each sprite owns its own pixels and its own stack of blocks, the way Scratch
+works. Blocks are not a dead end: the Code tab shows the TypeScript your
+blocks generate, in the same style as the examples in this repo, so a project
+can graduate to hand-written code without starting over.
 
 ## Monorepo Map
 
