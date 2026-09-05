@@ -44,7 +44,9 @@ pub struct Engine {
     pub delta_secs: f32,
     pub collisions: CollisionQueue,
     pub camera: Camera,
-    pub emitters: Vec<ParticleEmitter>,
+    /// Particle emitters, addressed by stable handles. Slots are reused after
+    /// `destroy_emitter`, so handles held by callers never shift.
+    pub emitters: Vec<Option<ParticleEmitter>>,
     pub tweens: TweenPool,
     pub fonts: FontRegistry,
     pub timers: TimerPool,
@@ -106,7 +108,7 @@ impl Engine {
         self.renderer.camera = self.camera.pos;
 
         // Update particles
-        for emitter in &mut self.emitters {
+        for emitter in self.emitters.iter_mut().flatten() {
             emitter.update(self.delta_secs);
         }
 
@@ -151,7 +153,7 @@ impl Engine {
 
         // Render particles on top
         let cam = self.renderer.camera;
-        for emitter in &self.emitters {
+        for emitter in self.emitters.iter().flatten() {
             emitter.render(&mut self.renderer.framebuffer, cam);
         }
 
@@ -175,7 +177,38 @@ impl Engine {
     }
 
     pub fn particle_count(&self) -> usize {
-        self.emitters.iter().map(|e| e.particle_count()).sum()
+        self.emitters
+            .iter()
+            .flatten()
+            .map(|e| e.particle_count())
+            .sum()
+    }
+
+    /// Create a particle emitter and return a stable handle to it.
+    pub fn create_emitter(&mut self, max_particles: usize) -> u32 {
+        let emitter = ParticleEmitter::new(max_particles);
+        for (i, slot) in self.emitters.iter_mut().enumerate() {
+            if slot.is_none() {
+                *slot = Some(emitter);
+                return i as u32;
+            }
+        }
+        self.emitters.push(Some(emitter));
+        (self.emitters.len() - 1) as u32
+    }
+
+    /// Destroy an emitter. The handle's slot is reused by later
+    /// `create_emitter` calls; other emitters keep their handles.
+    pub fn destroy_emitter(&mut self, handle: u32) {
+        if let Some(slot) = self.emitters.get_mut(handle as usize) {
+            *slot = None;
+        }
+    }
+
+    pub fn emitter_mut(&mut self, handle: u32) -> Option<&mut ParticleEmitter> {
+        self.emitters
+            .get_mut(handle as usize)
+            .and_then(|s| s.as_mut())
     }
 
     /// Draw an overlay rect (used for transitions, flash effects, etc.)
@@ -189,46 +222,36 @@ impl Engine {
         }
     }
 
-    /// Draw a debug rect outline
+    /// Draw a debug rect outline, in world space.
+    #[allow(clippy::too_many_arguments)]
     pub fn debug_draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32, r: u8, g: u8, b: u8) {
-        let cam_x = self.renderer.camera.x as i32;
-        let cam_y = self.renderer.camera.y as i32;
-        let sx = x - cam_x;
-        let sy = y - cam_y;
-
-        // Top and bottom
-        for dx in 0..w {
-            let px = sx + dx;
-            if px >= 0 {
-                self.renderer
-                    .framebuffer
-                    .set_pixel(px as u32, sy.max(0) as u32, r, g, b, 255);
-                self.renderer.framebuffer.set_pixel(
-                    px as u32,
-                    (sy + h - 1).max(0) as u32,
-                    r,
-                    g,
-                    b,
-                    255,
-                );
-            }
+        if w <= 0 || h <= 0 {
+            return;
         }
-        // Left and right
-        for dy in 0..h {
-            let py = sy + dy;
-            if py >= 0 {
-                self.renderer
-                    .framebuffer
-                    .set_pixel(sx.max(0) as u32, py as u32, r, g, b, 255);
-                self.renderer.framebuffer.set_pixel(
-                    (sx + w - 1).max(0) as u32,
-                    py as u32,
-                    r,
-                    g,
-                    b,
-                    255,
-                );
+
+        let cam = self.renderer.camera;
+        let sx = x - cam.x as i32;
+        let sy = y - cam.y as i32;
+        let right = sx + w - 1;
+        let bottom = sy + h - 1;
+        let fb = &mut self.renderer.framebuffer;
+
+        // Edges that fall outside the framebuffer are skipped rather than
+        // clamped to it: clamping used to smear a box's border along the top
+        // or left edge of the screen whenever it scrolled partly out of view.
+        let mut plot = |px: i32, py: i32| {
+            if px >= 0 && py >= 0 {
+                fb.set_pixel(px as u32, py as u32, r, g, b, 255);
             }
+        };
+
+        for dx in 0..w {
+            plot(sx + dx, sy);
+            plot(sx + dx, bottom);
+        }
+        for dy in 0..h {
+            plot(sx, sy + dy);
+            plot(right, sy + dy);
         }
     }
 }

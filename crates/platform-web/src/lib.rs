@@ -365,14 +365,12 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn create_emitter(&mut self, max_particles: u32) -> u32 {
-        let emitter = retro_core::particles::ParticleEmitter::new(max_particles as usize);
-        self.engine.emitters.push(emitter);
-        (self.engine.emitters.len() - 1) as u32
+        self.engine.create_emitter(max_particles as usize)
     }
 
     #[wasm_bindgen]
     pub fn emitter_burst(&mut self, handle: u32, x: f32, y: f32, count: u32, config_json: &str) {
-        if let Some(emitter) = self.engine.emitters.get_mut(handle as usize) {
+        if let Some(emitter) = self.engine.emitter_mut(handle) {
             let config: retro_core::particles::EmitConfig =
                 serde_json::from_str(config_json).unwrap_or_default();
             emitter.burst(glam::Vec2::new(x, y), count, &config);
@@ -381,16 +379,14 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn emitter_set_pos(&mut self, handle: u32, x: f32, y: f32) {
-        if let Some(emitter) = self.engine.emitters.get_mut(handle as usize) {
+        if let Some(emitter) = self.engine.emitter_mut(handle) {
             emitter.pos = glam::Vec2::new(x, y);
         }
     }
 
     #[wasm_bindgen]
     pub fn destroy_emitter(&mut self, handle: u32) {
-        if (handle as usize) < self.engine.emitters.len() {
-            self.engine.emitters.remove(handle as usize);
-        }
+        self.engine.destroy_emitter(handle);
     }
 
     // --- Tweens ---
@@ -683,6 +679,7 @@ impl WebEngine {
     }
 
     #[wasm_bindgen]
+    #[allow(clippy::too_many_arguments)]
     pub fn debug_draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32, r: u8, g: u8, b: u8) {
         self.engine.debug_draw_rect(x, y, w, h, r, g, b);
     }
@@ -699,6 +696,26 @@ impl WebEngine {
                     size: glam::Vec2::new(w, h),
                 },
             );
+        }
+    }
+
+    /// Opt an entity into gravity. `scale` multiplies the engine's base
+    /// gravity: 1.0 is a normal fall, 0.35 is floaty, 0.0 disables it.
+    /// Entities never fall unless this is called.
+    #[wasm_bindgen]
+    pub fn set_gravity(&mut self, id: u64, scale: f32) {
+        if let Some(e) = self.find_entity(id) {
+            let _ = self
+                .engine
+                .world
+                .insert_one(e, retro_core::ecs::Gravity(scale));
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn clear_gravity(&mut self, id: u64) {
+        if let Some(e) = self.find_entity(id) {
+            let _ = self.engine.world.remove_one::<retro_core::ecs::Gravity>(e);
         }
     }
 

@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/platform-web", "crates/platform-native", "packages/editor-desktop/src-tauri"]
+members = ["crates/core", "crates/platform-web", "crates/platform-native"]
+# The Tauri desktop editor is its own workspace. It pulls in GTK/WebKit system
+# libraries that the engine itself never needs, and keeping it here meant
+# `cargo test --workspace` failed on any machine without a desktop GUI
+# toolchain installed. Build it from packages/editor-desktop instead.
+exclude = ["packages/editor-desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

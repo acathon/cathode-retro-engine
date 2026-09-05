@@ -22,8 +22,11 @@ jobs:
           targets: wasm32-unknown-unknown
           components: clippy, rustfmt
           
+      # retro-platform-native links against ALSA (cpal) and libudev (gamepad
+      # enumeration). The Tauri desktop editor is a separate workspace, so its
+      # GTK/WebKit dependencies are deliberately not needed here.
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libdbus-1-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev libdbus-1-dev pkg-config
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2

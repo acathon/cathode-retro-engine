@@ -40,6 +40,20 @@ pub struct GamepadState {
     pub r: bool,
 }
 
+/// Opt-in downward acceleration. The inner value scales
+/// [`crate::physics::GRAVITY`], so `Gravity(1.0)` falls at the default rate,
+/// `Gravity(0.35)` is floaty, and a negative value floats upward. Entities
+/// without this component are never pulled down, which is what top-down
+/// genres want.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Gravity(pub f32);
+
+impl Default for Gravity {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Solid;
 

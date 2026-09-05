@@ -151,3 +151,77 @@ impl Default for Palette {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_hex_parses_rgb_and_rgba_with_optional_hash() {
+        assert_eq!(Color::from_hex("#FF8000"), Some(Color(255, 128, 0, 255)));
+        assert_eq!(Color::from_hex("FF8000"), Some(Color(255, 128, 0, 255)));
+        assert_eq!(Color::from_hex("#FF800080"), Some(Color(255, 128, 0, 128)));
+    }
+
+    #[test]
+    fn from_hex_rejects_malformed_input() {
+        assert_eq!(Color::from_hex("#FFF"), None);
+        assert_eq!(Color::from_hex("#GGGGGG"), None);
+        assert_eq!(Color::from_hex(""), None);
+        assert_eq!(Color::from_hex("#FF80001"), None);
+    }
+
+    #[test]
+    fn to_hex_round_trips_through_from_hex() {
+        let c = Color(18, 52, 86, 240);
+        assert_eq!(Color::from_hex(&c.to_hex()), Some(c));
+        assert_eq!(Color::BLACK.to_hex(), "#000000FF");
+    }
+
+    #[test]
+    fn lerp_hits_endpoints_and_midpoint() {
+        let a = Color::BLACK;
+        let b = Color::WHITE;
+        assert_eq!(a.lerp(&b, 0.0), a);
+        assert_eq!(a.lerp(&b, 1.0), b);
+        let mid = a.lerp(&b, 0.5);
+        assert!((126..=128).contains(&mid.0));
+        // t is clamped.
+        assert_eq!(a.lerp(&b, 5.0), b);
+        assert_eq!(a.lerp(&b, -5.0), a);
+    }
+
+    #[test]
+    fn palette_set_extends_and_get_defaults_to_transparent() {
+        let mut p = Palette::new("test".to_string());
+        assert_eq!(p.len(), 1);
+
+        // Appending at exactly len().
+        p.set(1, Color::RED);
+        assert_eq!(p.get(1), Color::RED);
+
+        // Setting past the end pads with black.
+        p.set(4, Color::GREEN);
+        assert_eq!(p.len(), 5);
+        assert_eq!(p.get(2), Color::BLACK);
+        assert_eq!(p.get(4), Color::GREEN);
+
+        // Overwriting in place.
+        p.set(1, Color::BLUE);
+        assert_eq!(p.get(1), Color::BLUE);
+
+        // Out-of-range reads are transparent, not panics.
+        assert_eq!(p.get(100), Color::TRANSPARENT);
+    }
+
+    #[test]
+    fn builtin_palettes_have_expected_shapes() {
+        assert_eq!(Palette::gameboy().colors.len(), 5);
+        assert_eq!(Palette::nes().colors.len(), 65);
+        assert_eq!(Palette::default().colors.len(), 17);
+        // Index 0 is reserved for transparency in all of them.
+        assert_eq!(Palette::gameboy().get(0), Color::TRANSPARENT);
+        assert_eq!(Palette::nes().get(0), Color::TRANSPARENT);
+        assert_eq!(Palette::default().get(0), Color::TRANSPARENT);
+    }
+}

@@ -29,11 +29,8 @@ impl FrameBuffer {
     }
 
     pub fn clear(&mut self, r: u8, g: u8, b: u8) {
-        for chunk in self.pixels.chunks_exact_mut(4) {
-            chunk[0] = r;
-            chunk[1] = g;
-            chunk[2] = b;
-            chunk[3] = 255;
+        for px in self.pixels.as_chunks_mut::<4>().0 {
+            *px = [r, g, b, 255];
         }
     }
 
@@ -62,10 +59,10 @@ impl FrameBuffer {
         for y in (1..self.height).step_by(2) {
             let row_start = (y * self.width * 4) as usize;
             let row_end = row_start + (self.width * 4) as usize;
-            for chunk in self.pixels[row_start..row_end].chunks_exact_mut(4) {
-                chunk[0] = (chunk[0] as f32 * inv) as u8;
-                chunk[1] = (chunk[1] as f32 * inv) as u8;
-                chunk[2] = (chunk[2] as f32 * inv) as u8;
+            for px in self.pixels[row_start..row_end].as_chunks_mut::<4>().0 {
+                px[0] = (px[0] as f32 * inv) as u8;
+                px[1] = (px[1] as f32 * inv) as u8;
+                px[2] = (px[2] as f32 * inv) as u8;
             }
         }
     }
@@ -82,14 +79,14 @@ impl FrameBuffer {
             return;
         }
 
-        for chunk in self.pixels.chunks_exact_mut(4) {
+        for px in self.pixels.as_chunks_mut::<4>().0 {
             let mut best = colors[0];
             let mut best_dist = u32::MAX;
 
             for color in &colors {
-                let dr = chunk[0] as i32 - color.0 as i32;
-                let dg = chunk[1] as i32 - color.1 as i32;
-                let db = chunk[2] as i32 - color.2 as i32;
+                let dr = px[0] as i32 - color.0 as i32;
+                let dg = px[1] as i32 - color.1 as i32;
+                let db = px[2] as i32 - color.2 as i32;
                 let dist = (dr * dr + dg * dg + db * db) as u32;
                 if dist < best_dist {
                     best_dist = dist;
@@ -97,10 +94,7 @@ impl FrameBuffer {
                 }
             }
 
-            chunk[0] = best.0;
-            chunk[1] = best.1;
-            chunk[2] = best.2;
-            chunk[3] = 255;
+            *px = [best.0, best.1, best.2, 255];
         }
     }
 
@@ -350,5 +344,275 @@ impl Renderer {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assets::SpriteSheet;
+    use crate::ecs::{Position, SpriteIndex};
+
+    fn pixel(fb: &FrameBuffer, x: u32, y: u32) -> [u8; 4] {
+        let i = ((y * fb.width + x) * 4) as usize;
+        [
+            fb.pixels[i],
+            fb.pixels[i + 1],
+            fb.pixels[i + 2],
+            fb.pixels[i + 3],
+        ]
+    }
+
+    #[test]
+    fn framebuffer_clear_fills_every_pixel_opaque() {
+        let mut fb = FrameBuffer::new(4, 3);
+        assert_eq!(fb.len(), 4 * 3 * 4);
+        fb.clear(10, 20, 30);
+        for y in 0..3 {
+            for x in 0..4 {
+                assert_eq!(pixel(&fb, x, y), [10, 20, 30, 255]);
+            }
+        }
+    }
+
+    #[test]
+    fn set_pixel_ignores_out_of_bounds_writes() {
+        let mut fb = FrameBuffer::new(2, 2);
+        fb.set_pixel(2, 0, 255, 0, 0, 255);
+        fb.set_pixel(0, 2, 255, 0, 0, 255);
+        fb.set_pixel(999, 999, 255, 0, 0, 255);
+        assert!(fb.pixels.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn set_pixel_blends_partial_alpha_over_background() {
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(0, 0, 0);
+        fb.set_pixel(0, 0, 255, 255, 255, 128);
+        let p = pixel(&fb, 0, 0);
+        assert!((126..=129).contains(&p[0]), "got {}", p[0]);
+        assert_eq!(p[3], 255);
+
+        // Zero alpha leaves the pixel untouched.
+        let before = pixel(&fb, 0, 0);
+        fb.set_pixel(0, 0, 0, 255, 0, 0);
+        assert_eq!(pixel(&fb, 0, 0), before);
+    }
+
+    #[test]
+    fn scanlines_darken_only_odd_rows() {
+        let mut fb = FrameBuffer::new(2, 4);
+        fb.clear(100, 100, 100);
+        fb.apply_scanlines(0.5);
+        assert_eq!(pixel(&fb, 0, 0)[0], 100);
+        assert_eq!(pixel(&fb, 0, 1)[0], 50);
+        assert_eq!(pixel(&fb, 0, 2)[0], 100);
+        assert_eq!(pixel(&fb, 0, 3)[0], 50);
+    }
+
+    #[test]
+    fn apply_palette_snaps_to_nearest_opaque_color() {
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(100, 100, 100);
+        let mut palette = Palette::new("test".to_string());
+        palette.set(1, Color::BLACK);
+        palette.set(2, Color::WHITE);
+        fb.apply_palette(&palette);
+        // (100,100,100) is nearer to black than white; the transparent
+        // index 0 must not participate in matching.
+        assert_eq!(pixel(&fb, 0, 0), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn apply_palette_with_no_opaque_colors_is_a_no_op() {
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(42, 42, 42);
+        let palette = Palette::new("empty".to_string()); // only transparent
+        fb.apply_palette(&palette);
+        assert_eq!(pixel(&fb, 0, 0), [42, 42, 42, 255]);
+    }
+
+    fn test_renderer(w: u32, h: u32) -> Renderer {
+        Renderer::new(w, h, 64, false, HardwareProfile::Custom)
+    }
+
+    fn solid_sheet(w: u32, h: u32, tw: u32, th: u32, rgba: [u8; 4]) -> SpriteSheet {
+        let mut pixels = Vec::with_capacity((w * h * 4) as usize);
+        for _ in 0..(w * h) {
+            pixels.extend_from_slice(&rgba);
+        }
+        SpriteSheet::from_rgba(w, h, tw, th, pixels)
+    }
+
+    fn sprite_world(x: f32, y: f32, sheet: u32, layer: u8) -> World {
+        let mut world = World::new();
+        world.spawn((
+            Position(Vec2::new(x, y)),
+            SpriteIndex {
+                sheet,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer,
+            },
+        ));
+        world
+    }
+
+    #[test]
+    fn render_draws_a_sprite_at_its_world_position() {
+        let mut renderer = test_renderer(8, 8);
+        let mut assets = AssetStore::new();
+        assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let world = sprite_world(3.0, 2.0, 0, 0);
+        renderer.render(&world, &assets);
+
+        assert_eq!(pixel(&renderer.framebuffer, 3, 2), [255, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_applies_camera_offset() {
+        let mut renderer = test_renderer(8, 8);
+        renderer.camera = Vec2::new(2.0, 1.0);
+        let mut assets = AssetStore::new();
+        assets.add_sheet(solid_sheet(1, 1, 1, 1, [0, 255, 0, 255]));
+
+        let world = sprite_world(3.0, 2.0, 0, 0);
+        renderer.render(&world, &assets);
+
+        assert_eq!(pixel(&renderer.framebuffer, 1, 1), [0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn render_clips_sprites_that_hang_off_screen_edges() {
+        let mut renderer = test_renderer(4, 4);
+        let mut assets = AssetStore::new();
+        assets.add_sheet(solid_sheet(2, 2, 2, 2, [255, 0, 0, 255]));
+
+        let world = sprite_world(-1.0, -1.0, 0, 0);
+        renderer.render(&world, &assets);
+
+        // Only the bottom-right pixel of the 2x2 sprite is on screen.
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [255, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 1, 0), [0, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 0, 1), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_ignores_missing_sheets() {
+        let mut renderer = test_renderer(4, 4);
+        let assets = AssetStore::new();
+        let world = sprite_world(0.0, 0.0, 99, 0);
+        renderer.render(&world, &assets); // must not panic
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_orders_sprites_by_layer() {
+        let mut renderer = test_renderer(4, 4);
+        let mut assets = AssetStore::new();
+        let red = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+        let blue = assets.add_sheet(solid_sheet(1, 1, 1, 1, [0, 0, 255, 255]));
+
+        let mut world = World::new();
+        // Spawn the high layer first to prove ordering comes from `layer`,
+        // not spawn order.
+        world.spawn((
+            Position(Vec2::new(1.0, 1.0)),
+            SpriteIndex {
+                sheet: blue,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer: 5,
+            },
+        ));
+        world.spawn((
+            Position(Vec2::new(1.0, 1.0)),
+            SpriteIndex {
+                sheet: red,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer: 0,
+            },
+        ));
+
+        renderer.render(&world, &assets);
+        assert_eq!(pixel(&renderer.framebuffer, 1, 1), [0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn render_respects_the_sprite_limit() {
+        let mut renderer = Renderer::new(4, 4, 1, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        for x in 0..3 {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer: 0,
+                },
+            ));
+        }
+
+        renderer.render(&world, &assets);
+        let drawn = (0..3)
+            .filter(|&x| pixel(&renderer.framebuffer, x, 0) == [255, 0, 0, 255])
+            .count();
+        assert_eq!(drawn, 1);
+    }
+
+    #[test]
+    fn render_draws_tilemap_tiles_one_based() {
+        let mut renderer = test_renderer(4, 4);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(2, 2, 2, 2, [0, 255, 0, 255]));
+
+        let mut map = TileMap::new("map".to_string(), 2, 2, 2, 2);
+        let layer = map.add_layer("bg".to_string(), sheet, false);
+        // Tile id 0 = empty, id 1 = first tile in the sheet.
+        map.set_tile(layer, 1, 1, 1);
+        renderer.tilemaps.push(map);
+
+        let world = World::new();
+        renderer.render(&world, &assets);
+
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [0, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 2, 2), [0, 255, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 3, 3), [0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn gameboy_profile_installs_its_palette() {
+        let renderer = Renderer::new(8, 8, 40, false, HardwareProfile::GameBoy);
+        assert!(renderer.palette.is_some());
+        assert_eq!(renderer.bg_color, Palette::gameboy().get(1));
+
+        let plain = test_renderer(8, 8);
+        assert!(plain.palette.is_none());
+        assert_eq!(plain.bg_color, Color::BLACK);
+    }
+
+    #[test]
+    fn shake_offsets_decay_back_to_zero() {
+        let mut renderer = test_renderer(8, 8);
+        renderer.shake(5.0, 0.1);
+        let world = World::new();
+        let assets = AssetStore::new();
+        // Render enough frames (at the internal 60fps step) to outlast the
+        // shake duration.
+        for _ in 0..20 {
+            renderer.render(&world, &assets);
+        }
+        assert!(renderer.shake_timer <= 0.0);
     }
 }

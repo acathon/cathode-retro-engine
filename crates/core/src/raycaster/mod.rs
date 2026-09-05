@@ -40,7 +40,7 @@ impl Default for RaycastCamera {
         Self {
             pos: Vec2::new(2.0, 2.0),
             angle: 0.0,
-            fov: 1.0472, // 60 degrees
+            fov: std::f32::consts::FRAC_PI_3, // 60 degrees
             move_speed: 3.0,
             turn_speed: 2.5,
             fog_dist: 10.0,

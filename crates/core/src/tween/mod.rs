@@ -188,10 +188,8 @@ impl TweenPool {
     }
 
     pub fn update_all(&mut self, dt: f32) {
-        for slot in &mut self.tweens {
-            if let Some(tween) = slot {
-                tween.update(dt);
-            }
+        for tween in self.tweens.iter_mut().flatten() {
+            tween.update(dt);
         }
     }
 
@@ -221,5 +219,126 @@ impl TweenPool {
         if let Some(slot) = self.tweens.get_mut(handle as usize) {
             *slot = None;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn linear_tween_interpolates_and_completes() {
+        let mut tw = Tween::new(0.0, 10.0, 1.0, EaseFn::Linear);
+        assert_eq!(tw.value(), 0.0);
+        assert!((tw.update(0.5) - 5.0).abs() < 1e-4);
+        assert!(!tw.is_complete());
+        assert!((tw.update(0.6) - 10.0).abs() < 1e-4);
+        assert!(tw.is_complete());
+        // Further updates stay clamped at the end value.
+        assert!((tw.update(1.0) - 10.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn zero_duration_tween_jumps_to_end() {
+        let mut tw = Tween::new(2.0, 8.0, 0.0, EaseFn::Linear);
+        assert_eq!(tw.value(), 8.0);
+        tw.update(0.016);
+        assert!(tw.is_complete());
+        assert_eq!(tw.value(), 8.0);
+    }
+
+    #[test]
+    fn all_ease_functions_hit_both_endpoints() {
+        let eases = [
+            EaseFn::Linear,
+            EaseFn::EaseIn,
+            EaseFn::EaseOut,
+            EaseFn::EaseInOut,
+            EaseFn::BounceOut,
+            EaseFn::ElasticOut,
+            EaseFn::BackOut,
+        ];
+        for ease in eases {
+            assert!(
+                apply_ease(0.0, &ease).abs() < 1e-4,
+                "{ease:?} should start at 0"
+            );
+            assert!(
+                (apply_ease(1.0, &ease) - 1.0).abs() < 1e-3,
+                "{ease:?} should end at 1"
+            );
+        }
+    }
+
+    #[test]
+    fn ease_from_id_maps_known_and_unknown_ids() {
+        assert_eq!(EaseFn::from_id(0), EaseFn::Linear);
+        assert_eq!(EaseFn::from_id(4), EaseFn::BounceOut);
+        assert_eq!(EaseFn::from_id(200), EaseFn::Linear);
+    }
+
+    #[test]
+    fn repeating_tween_wraps_instead_of_completing() {
+        let mut tw = Tween::new(0.0, 1.0, 1.0, EaseFn::Linear);
+        tw.repeat = true;
+        tw.update(1.25);
+        assert!(!tw.is_complete());
+        assert!((tw.value() - 0.25).abs() < 1e-4);
+    }
+
+    #[test]
+    fn yoyo_tween_reverses_direction_on_each_wrap() {
+        let mut tw = Tween::new(0.0, 10.0, 1.0, EaseFn::Linear);
+        tw.repeat = true;
+        tw.yoyo = true;
+        // Forward half.
+        assert!((tw.update(0.5) - 5.0).abs() < 1e-4);
+        // Wrap: now moving backward, half way back down.
+        tw.update(0.5);
+        assert!((tw.update(0.5) - 5.0).abs() < 1e-4);
+        // Second wrap: forward again from the start.
+        tw.update(0.5);
+        assert!((tw.update(0.25) - 2.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn reset_restarts_a_completed_tween() {
+        let mut tw = Tween::new(0.0, 10.0, 1.0, EaseFn::Linear);
+        tw.update(2.0);
+        assert!(tw.is_complete());
+        tw.reset();
+        assert!(!tw.is_complete());
+        assert_eq!(tw.value(), 0.0);
+    }
+
+    #[test]
+    fn pool_reuses_destroyed_slots_and_keeps_handles_stable() {
+        let mut pool = TweenPool::new();
+        let a = pool.create(0.0, 1.0, 1.0, EaseFn::Linear, false, false);
+        let b = pool.create(5.0, 6.0, 1.0, EaseFn::Linear, false, false);
+        assert_eq!((a, b), (0, 1));
+
+        pool.destroy(a);
+        // b keeps its handle and value even after a is destroyed.
+        assert_eq!(pool.value(b), 5.0);
+        let c = pool.create(9.0, 9.0, 1.0, EaseFn::Linear, false, false);
+        assert_eq!(c, a, "destroyed slot should be reused");
+    }
+
+    #[test]
+    fn pool_handles_out_of_range_lookups() {
+        let pool = TweenPool::new();
+        assert_eq!(pool.value(42), 0.0);
+        assert!(pool.is_complete(42));
+    }
+
+    #[test]
+    fn pool_update_advances_every_live_tween() {
+        let mut pool = TweenPool::new();
+        let a = pool.create(0.0, 10.0, 1.0, EaseFn::Linear, false, false);
+        let b = pool.create(0.0, 20.0, 1.0, EaseFn::Linear, false, false);
+        pool.update_all(0.5);
+        assert!((pool.value(a) - 5.0).abs() < 1e-4);
+        assert!((pool.value(b) - 10.0).abs() < 1e-4);
     }
 }
