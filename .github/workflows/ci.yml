@@ -98,6 +98,11 @@ jobs:
       - name: Build CLI
         run: npm run build:cli
 
+      # Runs the block-language unit tests. --if-present skips the workspaces
+      # that define no test script.
+      - name: Run TypeScript tests
+        run: npm test
+
   release:
     name: Release
     runs-on: ubuntu-latest

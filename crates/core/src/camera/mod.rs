@@ -32,7 +32,12 @@ impl Camera {
     pub fn new(screen_w: f32, screen_h: f32) -> Self {
         Self {
             pos: Vec2::ZERO,
-            target: Vec2::ZERO,
+            // The camera centres its target, so it settles at
+            // `target - screen/2`. Aiming at the middle of the screen keeps
+            // an untouched camera at the world origin; leaving the target at
+            // zero made it drift half a screen negative, silently shifting
+            // every sprite in a game that never asked for a camera at all.
+            target: Vec2::new(screen_w * 0.5, screen_h * 0.5),
             lerp_speed: 0.1,
             dead_zone: None,
             bounds: None,
@@ -125,6 +130,22 @@ mod tests {
         assert_eq!(cam.zoom, 1.0);
         assert!(cam.bounds.is_none());
         assert!(cam.dead_zone.is_none());
+    }
+
+    #[test]
+    fn an_untouched_camera_stays_at_the_world_origin() {
+        // Regression: the default target of (0,0) made the camera converge on
+        // -screen/2, so a game that never set a camera found every sprite
+        // displaced by half a screen.
+        let mut cam = camera();
+        for _ in 0..240 {
+            cam.update(1.0 / 60.0);
+        }
+        assert!(
+            cam.pos.length() < 0.01,
+            "expected to rest at the origin, got {:?}",
+            cam.pos
+        );
     }
 
     #[test]

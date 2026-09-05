@@ -27,7 +27,7 @@ Choose the shortest path for what you want to do:
 | Engine core | Rust ECS, software renderer, audio synth, physics, collision, camera, particles, tweens, timers |
 | Runtime targets | Browser via WASM and native desktop via winit/pixels/cpal |
 | SDK | TypeScript APIs for scenes, sprites, tilemaps, input, audio, text, save data, raycasting |
-| Tooling | CLI scaffolding, example games, browser editor, desktop editor |
+| Tooling | CLI scaffolding, example games, browser editor, desktop editor, Scratch-style block editor |
 | Learning material | Setup guide, first-game tutorial, T-Rex walkthrough, architecture reference |
 
 ## Quick Start
@@ -99,6 +99,7 @@ These are the most useful commands for daily work:
 | Build CLI package | `bun run build:cli` |
 | Build everything exposed by root scripts | `bun run build:all` |
 | Run the web editor | `bun run dev:editor` |
+| Run the block editor | `cd packages/block-editor && bun dev` |
 | Run the demo example | `bun run dev:demo` |
 | Build an example | `cd examples/doom-game && bun run build` |
 | Run the test suite | `make test` |
@@ -116,7 +117,9 @@ retor-engine/
 │   ├── sdk/                # TypeScript game SDK
 │   ├── cli/                # retro CLI
 │   ├── editor/             # Browser-based editor
-│   └── editor-desktop/     # Tauri desktop editor
+│   ├── editor-desktop/     # Tauri desktop editor
+│   ├── blocks/             # Block language: IR, interpreter, TypeScript codegen
+│   └── block-editor/       # Scratch-style visual builder (Blockly)
 ├── examples/               # Reference games and demos
 └── docs/                   # Onboarding, tutorials, architecture, contribution docs
 ```
