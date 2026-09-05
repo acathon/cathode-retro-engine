@@ -53,7 +53,9 @@ impl Camera {
         }
 
         let factor = 1.0 - self.lerp_speed.powf(dt * 60.0);
-        self.pos = self.pos + (self.target - self.pos - Vec2::new(self.screen_w * 0.5, self.screen_h * 0.5)) * factor;
+        self.pos = self.pos
+            + (self.target - self.pos - Vec2::new(self.screen_w * 0.5, self.screen_h * 0.5))
+                * factor;
 
         // When lerp_speed is 0, snap instantly
         if self.lerp_speed <= 0.0001 {
@@ -70,7 +72,14 @@ impl Camera {
         }
     }
 
-    pub fn follow(&mut self, pos: Vec2, _entity_w: f32, _entity_h: f32, screen_w: f32, screen_h: f32) {
+    pub fn follow(
+        &mut self,
+        pos: Vec2,
+        _entity_w: f32,
+        _entity_h: f32,
+        screen_w: f32,
+        screen_h: f32,
+    ) {
         self.screen_w = screen_w;
         self.screen_h = screen_h;
         self.target = pos;

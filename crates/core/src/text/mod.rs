@@ -145,8 +145,13 @@ impl FontRegistry {
         first_char: u8,
     ) -> u32 {
         let handle = self.fonts.len() as u32;
-        self.fonts
-            .push(BitmapFont::new(sheet_handle, char_w, char_h, cols, first_char));
+        self.fonts.push(BitmapFont::new(
+            sheet_handle,
+            char_w,
+            char_h,
+            cols,
+            first_char,
+        ));
         handle
     }
 

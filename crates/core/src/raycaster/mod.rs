@@ -150,13 +150,19 @@ impl RaycastRenderer {
             let (step_x, mut side_dist_x) = if ray_dir.x < 0.0 {
                 (-1, (self.camera.pos.x - map_pos.0 as f32) * delta_dist_x)
             } else {
-                (1, (map_pos.0 as f32 + 1.0 - self.camera.pos.x) * delta_dist_x)
+                (
+                    1,
+                    (map_pos.0 as f32 + 1.0 - self.camera.pos.x) * delta_dist_x,
+                )
             };
 
             let (step_y, mut side_dist_y) = if ray_dir.y < 0.0 {
                 (-1, (self.camera.pos.y - map_pos.1 as f32) * delta_dist_y)
             } else {
-                (1, (map_pos.1 as f32 + 1.0 - self.camera.pos.y) * delta_dist_y)
+                (
+                    1,
+                    (map_pos.1 as f32 + 1.0 - self.camera.pos.y) * delta_dist_y,
+                )
             };
 
             let mut hit = 0u8;
@@ -318,12 +324,10 @@ impl RaycastRenderer {
                             let tex = &self.textures[tex_idx];
                             let tx = ((stripe - (-sprite_width / 2 + sprite_screen_x)) as f32
                                 / sprite_width as f32
-                                * tex.size as f32)
-                                as u32;
+                                * tex.size as f32) as u32;
                             let ty = ((y - (-sprite_height / 2 + screen_h as i32 / 2)) as f32
                                 / sprite_height as f32
-                                * tex.size as f32)
-                                as u32;
+                                * tex.size as f32) as u32;
                             let tx = tx.min(tex.size.saturating_sub(1));
                             let ty = ty.min(tex.size.saturating_sub(1));
                             let pi = ((ty * tex.size + tx) * 4) as usize;

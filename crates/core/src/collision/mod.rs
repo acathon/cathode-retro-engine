@@ -90,10 +90,10 @@ pub fn detect_collisions(world: &hecs::World, queue: &mut CollisionQueue) {
                 let dyn_center = dyn_pos + dyn_size * 0.5;
                 let sol_center = sol_pos + sol_size * 0.5;
 
-                let pen_x = (dyn_size.x * 0.5 + sol_size.x * 0.5)
-                    - (dyn_center.x - sol_center.x).abs();
-                let pen_y = (dyn_size.y * 0.5 + sol_size.y * 0.5)
-                    - (dyn_center.y - sol_center.y).abs();
+                let pen_x =
+                    (dyn_size.x * 0.5 + sol_size.x * 0.5) - (dyn_center.x - sol_center.x).abs();
+                let pen_y =
+                    (dyn_size.y * 0.5 + sol_size.y * 0.5) - (dyn_center.y - sol_center.y).abs();
 
                 let side = if pen_x < pen_y {
                     if dyn_center.x < sol_center.x {

@@ -39,7 +39,10 @@ pub async fn export_desktop(
     out_dir: String,
     window: Window,
 ) -> Result<(), String> {
-    let _ = window.emit("build-log", format!("Cross-compiling for {}...", target_triple));
+    let _ = window.emit(
+        "build-log",
+        format!("Cross-compiling for {}...", target_triple),
+    );
 
     let mut child = Command::new("cargo")
         .args([
@@ -110,7 +113,12 @@ pub async fn export_rom_ready(
     match platform.as_str() {
         "gb" => generate_gb_scaffold(out)?,
         "nes" => generate_nes_scaffold(out)?,
-        _ => return Err(format!("Unknown ROM platform: {}. Use 'gb' or 'nes'.", platform)),
+        _ => {
+            return Err(format!(
+                "Unknown ROM platform: {}. Use 'gb' or 'nes'.",
+                platform
+            ))
+        }
     }
 
     Ok(())
@@ -277,4 +285,3 @@ make
 
     Ok(())
 }
-

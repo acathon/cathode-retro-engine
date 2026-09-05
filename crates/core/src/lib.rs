@@ -128,7 +128,8 @@ impl Engine {
                     4 => audio::Waveform::Noise,
                     _ => audio::Waveform::Sine,
                 };
-                self.audio.play(evt.channel as usize, evt.note, wf, evt.volume);
+                self.audio
+                    .play(evt.channel as usize, evt.note, wf, evt.volume);
             } else {
                 self.audio.stop(evt.channel as usize);
             }
@@ -199,16 +200,34 @@ impl Engine {
         for dx in 0..w {
             let px = sx + dx;
             if px >= 0 {
-                self.renderer.framebuffer.set_pixel(px as u32, sy.max(0) as u32, r, g, b, 255);
-                self.renderer.framebuffer.set_pixel(px as u32, (sy + h - 1).max(0) as u32, r, g, b, 255);
+                self.renderer
+                    .framebuffer
+                    .set_pixel(px as u32, sy.max(0) as u32, r, g, b, 255);
+                self.renderer.framebuffer.set_pixel(
+                    px as u32,
+                    (sy + h - 1).max(0) as u32,
+                    r,
+                    g,
+                    b,
+                    255,
+                );
             }
         }
         // Left and right
         for dy in 0..h {
             let py = sy + dy;
             if py >= 0 {
-                self.renderer.framebuffer.set_pixel(sx.max(0) as u32, py as u32, r, g, b, 255);
-                self.renderer.framebuffer.set_pixel((sx + w - 1).max(0) as u32, py as u32, r, g, b, 255);
+                self.renderer
+                    .framebuffer
+                    .set_pixel(sx.max(0) as u32, py as u32, r, g, b, 255);
+                self.renderer.framebuffer.set_pixel(
+                    (sx + w - 1).max(0) as u32,
+                    py as u32,
+                    r,
+                    g,
+                    b,
+                    255,
+                );
             }
         }
     }

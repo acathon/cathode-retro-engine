@@ -46,7 +46,10 @@ fn preset_project(name: &str, preset: &str) -> RetroProject {
         name: name.to_string(),
         version: "0.1.0".to_string(),
         preset: preset.to_string(),
-        resolution: Resolution { width: w, height: h },
+        resolution: Resolution {
+            width: w,
+            height: h,
+        },
         target_fps: 60,
         audio_channels: 4,
         sprite_limit: 64,
@@ -104,7 +107,11 @@ pub async fn save_project(path: String, project: RetroProject) -> Result<(), Str
 }
 
 #[tauri::command]
-pub async fn new_project(path: String, name: String, preset: String) -> Result<RetroProject, String> {
+pub async fn new_project(
+    path: String,
+    name: String,
+    preset: String,
+) -> Result<RetroProject, String> {
     let project_dir = Path::new(&path);
     std::fs::create_dir_all(project_dir)
         .map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -126,8 +133,8 @@ pub async fn new_project(path: String, name: String, preset: String) -> Result<R
     let project = preset_project(&name, &preset);
 
     // Write project file
-    let content = serde_json::to_string_pretty(&project)
-        .map_err(|e| format!("Serialize error: {}", e))?;
+    let content =
+        serde_json::to_string_pretty(&project).map_err(|e| format!("Serialize error: {}", e))?;
     std::fs::write(project_dir.join("retro.project.json"), content)
         .map_err(|e| format!("Write error: {}", e))?;
 
@@ -151,7 +158,8 @@ pub async fn new_project(path: String, name: String, preset: String) -> Result<R
     });
     std::fs::write(
         project_dir.join("package.json"),
-        serde_json::to_string_pretty(&package_json).map_err(|e| format!("Package serialize error: {}", e))?,
+        serde_json::to_string_pretty(&package_json)
+            .map_err(|e| format!("Package serialize error: {}", e))?,
     )
     .map_err(|e| format!("Write package.json error: {}", e))?;
 
@@ -201,8 +209,11 @@ export default defineConfig({
     )
     .map_err(|e| format!("Write index.html error: {}", e))?;
 
-    std::fs::write(project_dir.join("src/main.ts"), starter_main_ts(&preset, &name))
-        .map_err(|e| format!("Write src/main.ts error: {}", e))?;
+    std::fs::write(
+        project_dir.join("src/main.ts"),
+        starter_main_ts(&preset, &name),
+    )
+    .map_err(|e| format!("Write src/main.ts error: {}", e))?;
 
     std::fs::write(
         project_dir.join("scripts/player.ts"),
@@ -283,13 +294,19 @@ pub async fn list_assets(project_dir: String) -> Result<Vec<AssetInfo>, String> 
     Ok(results)
 }
 
-fn collect_assets(dir: &Path, project_root: &Path, results: &mut Vec<AssetInfo>) -> Result<(), String> {
-    let entries =
-        std::fs::read_dir(dir).map_err(|e| format!("Failed to read dir {}: {}", dir.display(), e))?;
+fn collect_assets(
+    dir: &Path,
+    project_root: &Path,
+    results: &mut Vec<AssetInfo>,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read dir {}: {}", dir.display(), e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("Dir entry error: {}", e))?;
-        let ft = entry.file_type().map_err(|e| format!("File type error: {}", e))?;
+        let ft = entry
+            .file_type()
+            .map_err(|e| format!("File type error: {}", e))?;
         let path = entry.path();
 
         if ft.is_dir() {
@@ -307,7 +324,8 @@ fn collect_assets(dir: &Path, project_root: &Path, results: &mut Vec<AssetInfo>)
                 _ => "other",
             };
 
-            let metadata = std::fs::metadata(&path).map_err(|e| format!("Metadata error: {}", e))?;
+            let metadata =
+                std::fs::metadata(&path).map_err(|e| format!("Metadata error: {}", e))?;
 
             results.push(AssetInfo {
                 name: path
@@ -333,7 +351,8 @@ pub async fn read_script(path: String) -> Result<String, String> {
 #[tauri::command]
 pub async fn write_script(path: String, content: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&path).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dir: {}", e))?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create parent dir: {}", e))?;
     }
     std::fs::write(&path, &content).map_err(|e| format!("Failed to write script: {}", e))?;
     Ok(())
@@ -342,7 +361,8 @@ pub async fn write_script(path: String, content: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn copy_file(src: String, dest: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&dest).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dir: {}", e))?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create parent dir: {}", e))?;
     }
     std::fs::copy(&src, &dest).map_err(|e| format!("Failed to copy file: {}", e))?;
     Ok(())

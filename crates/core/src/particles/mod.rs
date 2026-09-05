@@ -165,7 +165,9 @@ impl ParticleEmitter {
                     let px = sx + dx;
                     let py = sy + dy;
                     if px >= 0 && py >= 0 {
-                        fb.set_pixel(px as u32, py as u32, p.color[0], p.color[1], p.color[2], p.color[3]);
+                        fb.set_pixel(
+                            px as u32, py as u32, p.color[0], p.color[1], p.color[2], p.color[3],
+                        );
                     }
                 }
             }

@@ -1,5 +1,5 @@
 use retro_core::config::EngineConfig;
-use retro_core::ecs::{GamepadState, Position, SpriteIndex, Velocity, Collider};
+use retro_core::ecs::{Collider, GamepadState, Position, SpriteIndex, Velocity};
 use retro_core::renderer::tilemap::TileMap;
 use retro_core::Engine;
 use wasm_bindgen::prelude::*;
@@ -243,9 +243,17 @@ impl WebEngine {
     }
 
     #[wasm_bindgen]
-    pub fn audio_set_envelope(&mut self, ch: usize, attack: f32, decay: f32, sustain: f32, release: f32) {
+    pub fn audio_set_envelope(
+        &mut self,
+        ch: usize,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+    ) {
         if let Some(channel) = self.engine.audio.channels.get_mut(ch) {
-            channel.envelope = retro_core::audio::envelope::Envelope::new(attack, decay, sustain, release);
+            channel.envelope =
+                retro_core::audio::envelope::Envelope::new(attack, decay, sustain, release);
         }
     }
 
@@ -398,7 +406,9 @@ impl WebEngine {
         yoyo: bool,
     ) -> u32 {
         let ease = retro_core::tween::EaseFn::from_id(ease_id);
-        self.engine.tweens.create(from, to, duration_secs, ease, repeat, yoyo)
+        self.engine
+            .tweens
+            .create(from, to, duration_secs, ease, repeat, yoyo)
     }
 
     #[wasm_bindgen]
@@ -432,7 +442,9 @@ impl WebEngine {
         cols: u32,
         first_char: u8,
     ) -> u32 {
-        self.engine.fonts.register(sheet_handle, char_w, char_h, cols, first_char)
+        self.engine
+            .fonts
+            .register(sheet_handle, char_w, char_h, cols, first_char)
     }
 
     #[wasm_bindgen]
