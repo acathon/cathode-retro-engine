@@ -19,7 +19,7 @@
     "dev:demo": "npm run dev --workspace=@retro-engine/demo-game",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "dev:blocks": "npm run dev --workspace=@retro-engine/block-editor"
+    "dev:studio": "npm run dev --workspace=@retro-engine/studio"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
