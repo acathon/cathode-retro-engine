@@ -357,58 +357,51 @@ impl RaycastRenderer {
         }
     }
 
-    pub fn move_forward(&mut self, dt: f32) {
-        let dx = self.camera.angle.cos() * self.camera.move_speed * dt;
-        let dy = self.camera.angle.sin() * self.camera.move_speed * dt;
+    /// Move by (dx, dy), sliding along whichever axis is blocked.
+    ///
+    /// Cells are picked with `floor`, matching the DDA in `render`. Casting
+    /// straight to i32 truncates toward zero, so a position of -0.3 resolved
+    /// to cell 0 and let the player walk out through the map's west and north
+    /// edges.
+    fn try_move(&mut self, dx: f32, dy: f32) {
         let new_x = self.camera.pos.x + dx;
         let new_y = self.camera.pos.y + dy;
-        if self.map.get(new_x as i32, self.camera.pos.y as i32) == 0 {
+        let row = self.camera.pos.y.floor() as i32;
+
+        if self.map.get(new_x.floor() as i32, row) == 0 {
             self.camera.pos.x = new_x;
         }
-        if self.map.get(self.camera.pos.x as i32, new_y as i32) == 0 {
+
+        let col = self.camera.pos.x.floor() as i32;
+        if self.map.get(col, new_y.floor() as i32) == 0 {
             self.camera.pos.y = new_y;
         }
+    }
+
+    /// Distance travelled in one step at the camera's move speed.
+    fn step_along(&self, angle: f32, dt: f32) -> (f32, f32) {
+        let dist = self.camera.move_speed * dt;
+        (angle.cos() * dist, angle.sin() * dist)
+    }
+
+    pub fn move_forward(&mut self, dt: f32) {
+        let (dx, dy) = self.step_along(self.camera.angle, dt);
+        self.try_move(dx, dy);
     }
 
     pub fn move_backward(&mut self, dt: f32) {
-        let dx = self.camera.angle.cos() * self.camera.move_speed * dt;
-        let dy = self.camera.angle.sin() * self.camera.move_speed * dt;
-        let new_x = self.camera.pos.x - dx;
-        let new_y = self.camera.pos.y - dy;
-        if self.map.get(new_x as i32, self.camera.pos.y as i32) == 0 {
-            self.camera.pos.x = new_x;
-        }
-        if self.map.get(self.camera.pos.x as i32, new_y as i32) == 0 {
-            self.camera.pos.y = new_y;
-        }
+        let (dx, dy) = self.step_along(self.camera.angle, dt);
+        self.try_move(-dx, -dy);
     }
 
     pub fn strafe_left(&mut self, dt: f32) {
-        let strafe_angle = self.camera.angle - std::f32::consts::FRAC_PI_2;
-        let dx = strafe_angle.cos() * self.camera.move_speed * dt;
-        let dy = strafe_angle.sin() * self.camera.move_speed * dt;
-        let new_x = self.camera.pos.x + dx;
-        let new_y = self.camera.pos.y + dy;
-        if self.map.get(new_x as i32, self.camera.pos.y as i32) == 0 {
-            self.camera.pos.x = new_x;
-        }
-        if self.map.get(self.camera.pos.x as i32, new_y as i32) == 0 {
-            self.camera.pos.y = new_y;
-        }
+        let (dx, dy) = self.step_along(self.camera.angle - std::f32::consts::FRAC_PI_2, dt);
+        self.try_move(dx, dy);
     }
 
     pub fn strafe_right(&mut self, dt: f32) {
-        let strafe_angle = self.camera.angle + std::f32::consts::FRAC_PI_2;
-        let dx = strafe_angle.cos() * self.camera.move_speed * dt;
-        let dy = strafe_angle.sin() * self.camera.move_speed * dt;
-        let new_x = self.camera.pos.x + dx;
-        let new_y = self.camera.pos.y + dy;
-        if self.map.get(new_x as i32, self.camera.pos.y as i32) == 0 {
-            self.camera.pos.x = new_x;
-        }
-        if self.map.get(self.camera.pos.x as i32, new_y as i32) == 0 {
-            self.camera.pos.y = new_y;
-        }
+        let (dx, dy) = self.step_along(self.camera.angle + std::f32::consts::FRAC_PI_2, dt);
+        self.try_move(dx, dy);
     }
 
     pub fn turn_left(&mut self, dt: f32) {
@@ -441,4 +434,203 @@ impl RaycastRenderer {
 
 fn lerp_u8(a: u8, b: u8, t: f32) -> u8 {
     (a as f32 + (b as f32 - a as f32) * t) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A 4x4 room: solid border, open interior.
+    fn room() -> RaycastMap {
+        let mut cells = vec![0u8; 16];
+        for i in 0..4 {
+            cells[i] = 1; // top row
+            cells[12 + i] = 1; // bottom row
+            cells[i * 4] = 1; // left column
+            cells[i * 4 + 3] = 1; // right column
+        }
+        RaycastMap::new(4, 4, cells)
+    }
+
+    fn renderer_at(x: f32, y: f32, angle: f32) -> RaycastRenderer {
+        let mut rc = RaycastRenderer::new(room());
+        rc.camera.pos = Vec2::new(x, y);
+        rc.camera.angle = angle;
+        rc
+    }
+
+    #[test]
+    fn map_lookups_treat_out_of_bounds_as_wall() {
+        let map = room();
+        assert_eq!(map.get(1, 1), 0, "interior is open");
+        assert_eq!(map.get(0, 0), 1, "border is solid");
+        assert_eq!(map.get(-1, 1), 1);
+        assert_eq!(map.get(1, -1), 1);
+        assert_eq!(map.get(4, 1), 1);
+        assert_eq!(map.get(1, 4), 1);
+    }
+
+    #[test]
+    fn turning_changes_the_camera_angle() {
+        let mut rc = renderer_at(1.5, 1.5, 0.0);
+        rc.turn_right(1.0);
+        assert!((rc.camera.angle - rc.camera.turn_speed).abs() < 1e-4);
+        rc.turn_left(1.0);
+        assert!(rc.camera.angle.abs() < 1e-4);
+    }
+
+    #[test]
+    fn moving_through_open_space_advances_the_camera() {
+        // Facing +x from the middle of the west interior cell.
+        let mut rc = renderer_at(1.5, 1.5, 0.0);
+        rc.camera.move_speed = 1.0;
+        rc.move_forward(0.5);
+        assert!((rc.camera.pos.x - 2.0).abs() < 1e-4);
+        assert!((rc.camera.pos.y - 1.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn walls_block_forward_movement() {
+        // Facing +x, right up against the east wall at column 3.
+        let mut rc = renderer_at(2.9, 1.5, 0.0);
+        rc.camera.move_speed = 10.0;
+        rc.move_forward(1.0);
+        assert!(rc.camera.pos.x < 3.0, "should not enter the wall column");
+    }
+
+    #[test]
+    fn a_blocked_axis_still_slides_along_the_other() {
+        // Moving diagonally into the east wall: x is blocked, y is free.
+        let mut rc = renderer_at(2.9, 1.5, std::f32::consts::FRAC_PI_4);
+        rc.camera.move_speed = 1.0;
+        let before_y = rc.camera.pos.y;
+
+        rc.move_forward(0.1);
+
+        assert!(rc.camera.pos.x < 3.0, "x stays out of the wall");
+        assert!(rc.camera.pos.y > before_y, "y still slides");
+    }
+
+    #[test]
+    fn backward_and_strafe_respect_walls_too() {
+        let mut rc = renderer_at(1.5, 1.5, 0.0);
+        rc.camera.move_speed = 100.0;
+
+        rc.move_backward(1.0);
+        rc.strafe_left(1.0);
+        rc.strafe_right(1.0);
+
+        // Whatever the combination, the camera never leaves the open interior.
+        let col = rc.camera.pos.x.floor() as i32;
+        let row = rc.camera.pos.y.floor() as i32;
+        assert_eq!(
+            rc.map.get(col, row),
+            0,
+            "ended inside a wall at {col},{row}"
+        );
+    }
+
+    #[test]
+    fn the_player_cannot_clip_through_the_west_or_north_edge() {
+        // Regression test: collision cells were selected with `as i32`, which
+        // truncates toward zero, so a position of -0.3 resolved to cell 0 and
+        // the player escaped into the negative strip outside the map.
+        let open = RaycastMap::new(4, 4, vec![0u8; 16]);
+
+        let mut rc = RaycastRenderer::new(open);
+        rc.camera.pos = Vec2::new(0.5, 0.5);
+        rc.camera.move_speed = 1.0;
+
+        // Walk west (angle = PI) and north for a long while.
+        rc.camera.angle = std::f32::consts::PI;
+        for _ in 0..60 {
+            rc.move_forward(1.0 / 60.0);
+        }
+        rc.camera.angle = -std::f32::consts::FRAC_PI_2;
+        for _ in 0..60 {
+            rc.move_forward(1.0 / 60.0);
+        }
+
+        assert!(
+            rc.camera.pos.x >= 0.0,
+            "escaped west to {}",
+            rc.camera.pos.x
+        );
+        assert!(
+            rc.camera.pos.y >= 0.0,
+            "escaped north to {}",
+            rc.camera.pos.y
+        );
+    }
+
+    #[test]
+    fn billboards_can_be_added_moved_and_removed() {
+        let mut rc = renderer_at(1.5, 1.5, 0.0);
+        rc.add_billboard(1, 2.0, 2.0, 0, 1.0);
+        rc.add_billboard(2, 3.0, 3.0, 0, 1.0);
+        assert_eq!(rc.billboards.len(), 2);
+
+        rc.update_billboard(1, 2.5, 2.5);
+        assert_eq!(rc.billboards[0].pos, Vec2::new(2.5, 2.5));
+
+        // Unknown ids are ignored rather than panicking.
+        rc.update_billboard(99, 0.0, 0.0);
+        rc.remove_billboard(99);
+        assert_eq!(rc.billboards.len(), 2);
+
+        rc.remove_billboard(1);
+        assert_eq!(rc.billboards.len(), 1);
+        assert_eq!(rc.billboards[0].id, 2);
+    }
+
+    #[test]
+    fn rendering_fills_the_framebuffer() {
+        let mut rc = renderer_at(1.5, 1.5, 0.0);
+        rc.floor_color = [10, 20, 30];
+        rc.ceiling_color = [40, 50, 60];
+
+        let mut fb = FrameBuffer::new(32, 24);
+        rc.render(&mut fb);
+
+        // Every pixel is written: ceiling above, floor below, walls between.
+        assert!(fb.pixels.chunks(4).all(|p| p[3] == 255));
+        // Some wall colour appears in the middle band.
+        let mid = ((12 * fb.width + 16) * 4) as usize;
+        assert!(fb.pixels[mid] > 0);
+    }
+
+    #[test]
+    fn rendering_survives_a_resize_between_frames() {
+        let mut rc = renderer_at(1.5, 1.5, 0.0);
+        let mut small = FrameBuffer::new(16, 16);
+        rc.render(&mut small);
+
+        let mut large = FrameBuffer::new(64, 48);
+        rc.render(&mut large);
+
+        let mut small_again = FrameBuffer::new(16, 16);
+        rc.render(&mut small_again);
+    }
+
+    #[test]
+    fn rendering_inside_a_wall_does_not_panic() {
+        let mut rc = renderer_at(0.5, 0.5, 0.0); // standing in the border
+        let mut fb = FrameBuffer::new(16, 16);
+        rc.render(&mut fb);
+    }
+
+    #[test]
+    fn a_default_camera_faces_east_with_a_60_degree_field_of_view() {
+        let cam = RaycastCamera::default();
+        assert_eq!(cam.angle, 0.0);
+        assert!((cam.fov - std::f32::consts::FRAC_PI_3).abs() < 1e-6);
+        assert!(cam.fog_dist > 0.0);
+    }
+
+    #[test]
+    fn lerp_u8_hits_both_ends() {
+        assert_eq!(lerp_u8(0, 255, 0.0), 0);
+        assert_eq!(lerp_u8(0, 255, 1.0), 255);
+        assert!((126..=128).contains(&lerp_u8(0, 255, 0.5)));
+    }
 }

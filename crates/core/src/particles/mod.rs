@@ -8,6 +8,9 @@ pub struct Particle {
     pub vel: Vec2,
     pub color: [u8; 4],
     pub size: f32,
+    /// The size the particle spawned at, kept so `shrink` can scale from a
+    /// fixed origin instead of reconstructing it from the current size.
+    pub size_start: f32,
     pub life: f32,
     pub max_life: f32,
     pub gravity: f32,
@@ -95,6 +98,7 @@ impl ParticleEmitter {
             vel,
             color: config.color_start,
             size,
+            size_start: size,
             life,
             max_life: life,
             gravity: config.gravity,
@@ -144,9 +148,10 @@ impl ParticleEmitter {
             }
 
             if p.shrink {
-                let orig_size =
-                    p.size / (1.0 - ((p.max_life - p.life - dt) / p.max_life).clamp(0.0, 0.99));
-                p.size = orig_size * (1.0 - t);
+                // Scale from the spawn size. This used to divide the current
+                // size by last frame's shrink factor to recover the original,
+                // which only held for a perfectly constant dt.
+                p.size = p.size_start * (1.0 - t);
             }
 
             true
@@ -176,5 +181,209 @@ impl ParticleEmitter {
 
     pub fn particle_count(&self) -> usize {
         self.particles.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn steady_config() -> EmitConfig {
+        // No spread or speed variance, so positions are exactly predictable.
+        EmitConfig {
+            angle: 0.0,
+            spread: 0.0,
+            speed_min: 10.0,
+            speed_max: 10.0,
+            life_min: 1.0,
+            life_max: 1.0,
+            size_min: 4.0,
+            size_max: 4.0,
+            gravity: 0.0,
+            color_start: [255, 255, 255, 255],
+            color_end: [255, 255, 255, 0],
+            fade: false,
+            shrink: false,
+        }
+    }
+
+    #[test]
+    fn burst_spawns_the_requested_count() {
+        let mut em = ParticleEmitter::new(100);
+        assert_eq!(em.particle_count(), 0);
+        em.burst(Vec2::ZERO, 10, &steady_config());
+        assert_eq!(em.particle_count(), 10);
+    }
+
+    #[test]
+    fn burst_is_capped_at_max_particles() {
+        let mut em = ParticleEmitter::new(5);
+        em.burst(Vec2::ZERO, 50, &steady_config());
+        assert_eq!(em.particle_count(), 5);
+    }
+
+    #[test]
+    fn emit_accumulates_fractional_spawns_over_time() {
+        let mut em = ParticleEmitter::new(100);
+        let cfg = steady_config();
+        // 10 per second for a tenth of a second is one particle.
+        em.emit(Vec2::ZERO, 10.0, 0.05, &cfg);
+        assert_eq!(em.particle_count(), 0, "half a particle is not a particle");
+        em.emit(Vec2::ZERO, 10.0, 0.05, &cfg);
+        assert_eq!(em.particle_count(), 1);
+    }
+
+    #[test]
+    fn particles_move_by_their_velocity() {
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::new(50.0, 50.0), 1, &steady_config());
+        em.update(0.5);
+        // angle 0 with speed 10 travels +x.
+        assert!((em.particles[0].pos.x - 55.0).abs() < 1e-3);
+        assert!((em.particles[0].pos.y - 50.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn gravity_pulls_particles_down() {
+        let mut cfg = steady_config();
+        cfg.gravity = 100.0;
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::ZERO, 1, &cfg);
+        em.update(0.5);
+        assert!(em.particles[0].vel.y > 0.0);
+        assert!(em.particles[0].pos.y > 0.0);
+    }
+
+    #[test]
+    fn expired_particles_are_removed_and_counted() {
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::ZERO, 3, &steady_config());
+        assert_eq!(em.update(0.5), 0, "still alive at half their lifetime");
+        assert_eq!(em.particle_count(), 3);
+
+        let removed = em.update(1.0);
+        assert_eq!(removed, 3);
+        assert_eq!(em.particle_count(), 0);
+    }
+
+    #[test]
+    fn fade_ramps_alpha_down_over_the_lifetime() {
+        let mut cfg = steady_config();
+        cfg.fade = true;
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::ZERO, 1, &cfg);
+
+        em.update(0.25);
+        let quarter = em.particles[0].color[3];
+        em.update(0.5);
+        let later = em.particles[0].color[3];
+
+        assert!(
+            quarter > later,
+            "alpha should decrease: {quarter} -> {later}"
+        );
+    }
+
+    #[test]
+    fn shrink_scales_from_the_spawn_size_regardless_of_step_size() {
+        let mut cfg = steady_config();
+        cfg.shrink = true;
+
+        // One big step.
+        let mut coarse = ParticleEmitter::new(10);
+        coarse.burst(Vec2::ZERO, 1, &cfg);
+        coarse.update(0.5);
+
+        // The same elapsed time in uneven steps. The old implementation
+        // reconstructed the spawn size from the previous frame's factor and
+        // drifted whenever dt varied.
+        let mut fine = ParticleEmitter::new(10);
+        fine.burst(Vec2::ZERO, 1, &cfg);
+        fine.update(0.1);
+        fine.update(0.3);
+        fine.update(0.1);
+
+        let (a, b) = (coarse.particles[0].size, fine.particles[0].size);
+        assert!((a - b).abs() < 1e-3, "sizes diverged: {a} vs {b}");
+        assert!((a - 2.0).abs() < 1e-3, "half a 4px particle should be 2px");
+    }
+
+    #[test]
+    fn color_lerps_from_start_to_end() {
+        let mut cfg = steady_config();
+        cfg.color_start = [0, 0, 0, 255];
+        cfg.color_end = [255, 255, 255, 255];
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::ZERO, 1, &cfg);
+
+        em.update(0.5);
+        let mid = em.particles[0].color;
+        assert!((120..=135).contains(&mid[0]), "got {}", mid[0]);
+    }
+
+    #[test]
+    fn spread_keeps_particles_within_the_configured_arc() {
+        let mut cfg = steady_config();
+        cfg.angle = 0.0;
+        cfg.spread = std::f32::consts::FRAC_PI_2; // +/- 45 degrees
+        let mut em = ParticleEmitter::new(200);
+        em.burst(Vec2::ZERO, 200, &cfg);
+
+        for p in &em.particles {
+            let angle = p.vel.y.atan2(p.vel.x);
+            assert!(
+                angle.abs() <= std::f32::consts::FRAC_PI_4 + 1e-3,
+                "angle {angle} outside the spread"
+            );
+        }
+    }
+
+    #[test]
+    fn rendering_offscreen_particles_does_not_panic() {
+        use crate::renderer::FrameBuffer;
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::new(-100.0, -100.0), 1, &steady_config());
+        em.burst(Vec2::new(10_000.0, 10_000.0), 1, &steady_config());
+
+        let mut fb = FrameBuffer::new(32, 32);
+        em.render(&mut fb, Vec2::ZERO);
+    }
+
+    #[test]
+    fn render_draws_a_particle_into_the_framebuffer() {
+        use crate::renderer::FrameBuffer;
+        let mut cfg = steady_config();
+        cfg.size_min = 1.0;
+        cfg.size_max = 1.0;
+        cfg.color_start = [255, 0, 0, 255];
+
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::new(8.0, 8.0), 1, &cfg);
+
+        let mut fb = FrameBuffer::new(32, 32);
+        fb.clear(0, 0, 0);
+        em.render(&mut fb, Vec2::ZERO);
+
+        let idx = ((8 * fb.width + 8) * 4) as usize;
+        assert_eq!(fb.pixels[idx], 255, "particle should be drawn at (8,8)");
+    }
+
+    #[test]
+    fn camera_offset_shifts_rendered_particles() {
+        use crate::renderer::FrameBuffer;
+        let mut cfg = steady_config();
+        cfg.size_min = 1.0;
+        cfg.size_max = 1.0;
+        cfg.color_start = [0, 255, 0, 255];
+
+        let mut em = ParticleEmitter::new(10);
+        em.burst(Vec2::new(20.0, 20.0), 1, &cfg);
+
+        let mut fb = FrameBuffer::new(32, 32);
+        fb.clear(0, 0, 0);
+        em.render(&mut fb, Vec2::new(16.0, 16.0));
+
+        let idx = ((4 * fb.width + 4) * 4) as usize;
+        assert_eq!(fb.pixels[idx + 1], 255, "should land at (4,4) after camera");
     }
 }

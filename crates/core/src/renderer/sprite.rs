@@ -121,3 +121,124 @@ impl AnimatedSprite {
         self.current_frame
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn frame(fill: u8) -> [u8; 64] {
+        [fill; 64]
+    }
+
+    #[test]
+    fn a_new_sprite_is_visible_and_unflipped() {
+        let s = Sprite::new(10, 20, frame(1));
+        assert_eq!(s.bounds(), (10, 20, 8, 8));
+        assert!(s.visible);
+        assert_eq!(s.flags, SpriteFlags::NONE);
+        assert_eq!(s.z, 0);
+    }
+
+    #[test]
+    fn flip_builders_toggle_their_flags() {
+        let s = Sprite::new(0, 0, frame(1)).flip_h();
+        assert_eq!(s.flags & SpriteFlags::FLIP_H, SpriteFlags::FLIP_H);
+
+        let s = s.flip_v();
+        assert_eq!(s.flags & SpriteFlags::FLIP_V, SpriteFlags::FLIP_V);
+
+        // Toggling twice returns to the original.
+        let s = s.flip_h();
+        assert_eq!(s.flags & SpriteFlags::FLIP_H, 0);
+    }
+
+    #[test]
+    fn overlap_uses_8x8_bounds() {
+        let a = Sprite::new(0, 0, frame(1));
+        assert!(a.overlaps(&Sprite::new(4, 4, frame(2))));
+        assert!(
+            !a.overlaps(&Sprite::new(8, 0, frame(2))),
+            "edges only touch"
+        );
+        assert!(!a.overlaps(&Sprite::new(100, 100, frame(2))));
+        assert!(a.overlaps(&a.clone()), "a sprite overlaps itself");
+    }
+
+    #[test]
+    fn an_animation_starts_on_its_first_frame() {
+        let anim = AnimatedSprite::new(0, 0, vec![frame(1), frame(2)], 4);
+        assert_eq!(anim.current_frame(), 0);
+        assert_eq!(anim.sprite.pixels[0], 1);
+        assert!(anim.playing);
+        assert!(anim.looping);
+    }
+
+    #[test]
+    fn frames_advance_after_their_duration() {
+        let mut anim = AnimatedSprite::new(0, 0, vec![frame(1), frame(2), frame(3)], 3);
+
+        anim.update();
+        assert_eq!(anim.current_frame(), 1);
+        assert_eq!(anim.sprite.pixels[0], 2, "pixels follow the frame");
+
+        // The next advance waits out the frame duration.
+        anim.update();
+        anim.update();
+        assert_eq!(anim.current_frame(), 1);
+        anim.update();
+        assert_eq!(anim.current_frame(), 2);
+    }
+
+    #[test]
+    fn a_looping_animation_wraps_to_the_start() {
+        let mut anim = AnimatedSprite::new(0, 0, vec![frame(1), frame(2)], 1);
+        anim.update();
+        assert_eq!(anim.current_frame(), 1);
+        anim.update();
+        assert_eq!(anim.current_frame(), 0, "should wrap");
+        assert!(anim.playing);
+    }
+
+    #[test]
+    fn a_non_looping_animation_stops_on_its_last_frame() {
+        let mut anim = AnimatedSprite::new(0, 0, vec![frame(1), frame(2)], 1);
+        anim.looping = false;
+
+        anim.update();
+        assert_eq!(anim.current_frame(), 1);
+        anim.update();
+        assert!(!anim.playing, "should stop rather than wrap");
+        assert_eq!(anim.current_frame(), 1);
+    }
+
+    #[test]
+    fn a_stopped_animation_does_not_advance() {
+        let mut anim = AnimatedSprite::new(0, 0, vec![frame(1), frame(2)], 1);
+        anim.stop();
+        anim.update();
+        assert_eq!(anim.current_frame(), 0);
+
+        anim.play();
+        anim.update();
+        assert_eq!(anim.current_frame(), 1);
+    }
+
+    #[test]
+    fn reset_returns_to_the_first_frame() {
+        let mut anim = AnimatedSprite::new(0, 0, vec![frame(1), frame(2)], 1);
+        anim.update();
+        assert_eq!(anim.current_frame(), 1);
+
+        anim.reset();
+        assert_eq!(anim.current_frame(), 0);
+        assert_eq!(anim.sprite.pixels[0], 1);
+    }
+
+    #[test]
+    fn an_empty_animation_is_inert() {
+        let mut anim = AnimatedSprite::new(0, 0, Vec::new(), 4);
+        anim.update();
+        anim.reset();
+        assert_eq!(anim.current_frame(), 0);
+    }
+}

@@ -255,3 +255,298 @@ impl Engine {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ecs::{Gravity, Position, Velocity};
+    use crate::particles::EmitConfig;
+    use glam::Vec2;
+
+    fn pixel(fb: &FrameBuffer, x: u32, y: u32) -> [u8; 4] {
+        let i = ((y * fb.width + x) * 4) as usize;
+        [
+            fb.pixels[i],
+            fb.pixels[i + 1],
+            fb.pixels[i + 2],
+            fb.pixels[i + 3],
+        ]
+    }
+
+    #[test]
+    fn a_default_engine_uses_the_nes_profile() {
+        let engine = Engine::default();
+        assert_eq!(engine.config.width, 256);
+        assert_eq!(engine.config.height, 240);
+        assert_eq!(engine.tick(), 0);
+        assert_eq!(engine.entity_count(), 0);
+        assert_eq!(engine.particle_count(), 0);
+    }
+
+    #[test]
+    fn each_hardware_profile_sizes_its_framebuffer() {
+        for (config, w, h) in [
+            (EngineConfig::gameboy(), 160, 144),
+            (EngineConfig::nes(), 256, 240),
+            (EngineConfig::neogeo(), 320, 224),
+        ] {
+            let mut engine = Engine::new(config);
+            let fb = engine.render();
+            assert_eq!((fb.width, fb.height), (w, h));
+        }
+    }
+
+    #[test]
+    fn update_advances_the_tick_counter() {
+        let mut engine = Engine::default();
+        engine.update(1.0 / 60.0);
+        engine.update(1.0 / 60.0);
+        assert_eq!(engine.tick(), 2);
+    }
+
+    #[test]
+    fn delta_time_is_clamped_against_stalls_and_zero() {
+        let mut engine = Engine::default();
+
+        // A long stall (an alt-tabbed browser tab) must not teleport bodies.
+        engine.update(10.0);
+        assert!(engine.delta() <= 0.05, "got {}", engine.delta());
+
+        // A zero delta would freeze time and divide badly downstream.
+        engine.update(0.0);
+        assert!(engine.delta() > 0.0);
+    }
+
+    #[test]
+    fn update_runs_the_physics_step() {
+        let mut engine = Engine::default();
+        let e = engine
+            .world
+            .spawn((Position(Vec2::ZERO), Velocity(Vec2::new(60.0, 0.0))));
+
+        engine.update(0.05);
+
+        let pos = engine.world.get::<&Position>(e).unwrap().0;
+        assert!((pos.x - 3.0).abs() < 1e-3, "got {pos:?}");
+    }
+
+    #[test]
+    fn gravity_only_applies_to_entities_that_opted_in() {
+        let mut engine = Engine::default();
+        let falling = engine.world.spawn((
+            Position(Vec2::ZERO),
+            Velocity(Vec2::ZERO),
+            Gravity::default(),
+        ));
+        let floating = engine
+            .world
+            .spawn((Position(Vec2::ZERO), Velocity(Vec2::ZERO)));
+
+        for _ in 0..30 {
+            engine.update(1.0 / 60.0);
+        }
+
+        assert!(engine.world.get::<&Position>(falling).unwrap().0.y > 0.0);
+        assert_eq!(engine.world.get::<&Position>(floating).unwrap().0.y, 0.0);
+    }
+
+    #[test]
+    fn entity_count_tracks_the_world() {
+        let mut engine = Engine::default();
+        let e = engine.world.spawn((Position(Vec2::ZERO),));
+        assert_eq!(engine.entity_count(), 1);
+        engine.world.despawn(e).unwrap();
+        assert_eq!(engine.entity_count(), 0);
+    }
+
+    #[test]
+    fn emitter_handles_survive_destroying_another_emitter() {
+        // Regression test: emitters were stored in a Vec and destroy_emitter
+        // used Vec::remove, so every later handle silently shifted onto the
+        // wrong emitter.
+        let mut engine = Engine::default();
+        let a = engine.create_emitter(64);
+        let b = engine.create_emitter(64);
+        let c = engine.create_emitter(64);
+        assert_eq!((a, b, c), (0, 1, 2));
+
+        let config = EmitConfig::default();
+        engine.emitter_mut(c).unwrap().burst(Vec2::ZERO, 5, &config);
+
+        engine.destroy_emitter(a);
+
+        assert!(engine.emitter_mut(a).is_none(), "destroyed handle is dead");
+        assert_eq!(
+            engine.emitter_mut(c).unwrap().particle_count(),
+            5,
+            "c must still address its own emitter"
+        );
+        assert_eq!(engine.particle_count(), 5);
+    }
+
+    #[test]
+    fn destroyed_emitter_slots_are_reused() {
+        let mut engine = Engine::default();
+        let a = engine.create_emitter(8);
+        let _b = engine.create_emitter(8);
+
+        engine.destroy_emitter(a);
+        assert_eq!(engine.create_emitter(8), a, "slot should be recycled");
+    }
+
+    #[test]
+    fn destroying_an_unknown_emitter_is_a_no_op() {
+        let mut engine = Engine::default();
+        engine.destroy_emitter(99);
+        assert!(engine.emitter_mut(99).is_none());
+    }
+
+    #[test]
+    fn update_advances_particles_and_retires_them() {
+        let mut engine = Engine::default();
+        let handle = engine.create_emitter(64);
+        let config = EmitConfig {
+            life_min: 0.1,
+            life_max: 0.1,
+            ..Default::default()
+        };
+        engine
+            .emitter_mut(handle)
+            .unwrap()
+            .burst(Vec2::ZERO, 10, &config);
+        assert_eq!(engine.particle_count(), 10);
+
+        for _ in 0..20 {
+            engine.update(1.0 / 60.0);
+        }
+        assert_eq!(engine.particle_count(), 0, "particles should expire");
+    }
+
+    #[test]
+    fn overlay_rect_covers_the_whole_framebuffer() {
+        let mut engine = Engine::new(EngineConfig::gameboy());
+        engine.render();
+        engine.draw_overlay_rect(255, 0, 0, 255);
+
+        let fb = &engine.renderer.framebuffer;
+        assert_eq!(pixel(fb, 0, 0), [255, 0, 0, 255]);
+        assert_eq!(pixel(fb, fb.width - 1, fb.height - 1), [255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn debug_rect_draws_its_outline_but_not_its_interior() {
+        let mut engine = Engine::new(EngineConfig::gameboy());
+        engine.render();
+        engine.renderer.framebuffer.clear(0, 0, 0);
+
+        engine.debug_draw_rect(10, 10, 8, 8, 255, 0, 0);
+
+        let fb = &engine.renderer.framebuffer;
+        assert_eq!(pixel(fb, 10, 10)[0], 255, "top-left corner");
+        assert_eq!(pixel(fb, 17, 17)[0], 255, "bottom-right corner");
+        assert_eq!(pixel(fb, 13, 13)[0], 0, "interior stays empty");
+    }
+
+    #[test]
+    fn a_partly_offscreen_debug_rect_does_not_smear_the_edge() {
+        // Regression test: off-screen edges were clamped to 0 instead of
+        // skipped, painting a line along the top of the screen.
+        let mut engine = Engine::new(EngineConfig::gameboy());
+        engine.render();
+        engine.renderer.framebuffer.clear(0, 0, 0);
+
+        // A box entirely above the viewport.
+        engine.debug_draw_rect(10, -50, 8, 8, 255, 0, 0);
+
+        let fb = &engine.renderer.framebuffer;
+        for x in 0..fb.width {
+            assert_eq!(pixel(fb, x, 0)[0], 0, "row 0 must stay clear at x={x}");
+        }
+    }
+
+    #[test]
+    fn a_degenerate_debug_rect_draws_nothing() {
+        let mut engine = Engine::new(EngineConfig::gameboy());
+        engine.render();
+        engine.renderer.framebuffer.clear(0, 0, 0);
+
+        engine.debug_draw_rect(10, 10, 0, 0, 255, 0, 0);
+        engine.debug_draw_rect(10, 10, -5, -5, 255, 0, 0);
+
+        assert!(engine
+            .renderer
+            .framebuffer
+            .pixels
+            .chunks(4)
+            .all(|p| p[0] == 0));
+    }
+
+    #[test]
+    fn shake_settles_back_to_rest() {
+        let mut engine = Engine::default();
+        engine.shake(8.0, 0.2);
+        assert_eq!(engine.renderer.shake_intensity, 8.0);
+
+        for _ in 0..60 {
+            engine.render();
+        }
+        // Rendering past the shake duration leaves the camera steady again.
+        engine.render();
+    }
+
+    #[test]
+    fn the_sequencer_drives_the_mixer_through_update() {
+        use crate::audio::sequencer::{NoteEvent, Pattern};
+
+        let mut engine = Engine::default();
+        engine.sequencer.load(Pattern {
+            events: vec![NoteEvent {
+                channel: 0,
+                note: 440.0,
+                waveform: 1,
+                volume: 0.5,
+                duration: 1.0,
+            }],
+            bpm: 120.0,
+        });
+        engine.sequencer.play();
+
+        engine.update(1.0 / 60.0);
+
+        assert!(
+            engine.audio.channels[0].active,
+            "the note should be playing"
+        );
+        assert_eq!(engine.audio.channels[0].frequency, 440.0);
+    }
+
+    #[test]
+    fn a_rest_event_stops_its_channel() {
+        use crate::audio::sequencer::{NoteEvent, Pattern};
+
+        let mut engine = Engine::default();
+        engine.audio.play(0, 440.0, audio::Waveform::Pulse50, 0.5);
+        engine.sequencer.load(Pattern {
+            events: vec![NoteEvent {
+                channel: 0,
+                note: 0.0,
+                waveform: 1,
+                volume: 0.0,
+                duration: 1.0,
+            }],
+            bpm: 120.0,
+        });
+        engine.sequencer.play();
+
+        engine.update(1.0 / 60.0);
+        assert!(!engine.audio.channels[0].active);
+    }
+
+    #[test]
+    fn rendering_an_empty_engine_produces_the_background_colour() {
+        let mut engine = Engine::new(EngineConfig::gameboy());
+        let fb = engine.render();
+        let expected = renderer::Palette::gameboy().get(1);
+        assert_eq!(pixel(fb, 0, 0), [expected.0, expected.1, expected.2, 255]);
+    }
+}
