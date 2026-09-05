@@ -55,11 +55,47 @@ export interface StudioSound {
   bpm: number;
 }
 
+/** The first-person map, used when the project runs in raycaster mode. */
+export interface RaycastMapData {
+  cols: number;
+  rows: number;
+  /** 0 = open floor, 1..3 = wall textures. */
+  cells: number[];
+  spawnX: number;
+  spawnY: number;
+  spawnAngle: number;
+  fogDist: number;
+}
+
+export type ProjectMode = '2d' | 'raycaster';
+
 export interface StudioProject {
   name: string;
+  /** 2D sprite game, or a first-person raycaster game. */
+  mode: ProjectMode;
   sprites: StudioSprite[];
+  raycast: RaycastMapData;
   sound: StudioSound;
   activeSpriteId: string | null;
+}
+
+/** A small starter maze: solid border, a couple of interior walls. */
+export function defaultRaycastMap(): RaycastMapData {
+  const cols = 16;
+  const rows = 16;
+  const cells = new Array(cols * rows).fill(0);
+
+  for (let i = 0; i < cols; i++) {
+    cells[i] = 1;                       // top
+    cells[(rows - 1) * cols + i] = 1;   // bottom
+    cells[i * cols] = 1;                // left
+    cells[i * cols + cols - 1] = 1;     // right
+  }
+  for (let r = 4; r < 11; r++) cells[r * cols + 6] = 2;
+  for (let c = 6; c < 12; c++) cells[10 * cols + c] = 2;
+  cells[7 * cols + 13] = 3;             // a gold door to aim for
+
+  return { cols, rows, cells, spawnX: 2.5, spawnY: 2.5, spawnAngle: 0, fogDist: 9 };
 }
 
 let counter = 0;
@@ -133,7 +169,9 @@ export function createProject(): StudioProject {
 
   return {
     name: 'Untitled Project',
+    mode: '2d',
     sprites: [player, ground],
+    raycast: defaultRaycastMap(),
     sound: defaultSound(),
     activeSpriteId: player.id,
   };
@@ -171,6 +209,8 @@ export function loadProject(): StudioProject | null {
 
     return {
       ...data,
+      mode: data.mode === 'raycaster' ? 'raycaster' : '2d',
+      raycast: { ...defaultRaycastMap(), ...(data.raycast ?? {}) },
       sound: { ...defaultSound(), ...(data.sound ?? {}) },
       sprites: data.sprites.map((s) => ({
         ...s,

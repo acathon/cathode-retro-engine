@@ -47,12 +47,23 @@
     <section id="centre">
       <div id="viewport">
         <div class="viewport-bar">
-          <span class="vp-title">2D Viewport</span>
+          <div class="vp-tabs">
+            <button class="vp-tab active" data-view="scene">Scene</button>
+            <button class="vp-tab" data-view="game">Game</button>
+          </div>
+          <label class="vp-check"><input type="checkbox" id="scene-snap" checked /> Snap</label>
           <span class="spacer"></span>
+          <label class="vp-check">Mode
+            <select id="mode-select">
+              <option value="2d">2D sprites</option>
+              <option value="raycaster">First person</option>
+            </select>
+          </label>
           <span id="vp-status" class="vp-status">Stopped</span>
         </div>
         <div class="viewport-stage">
-          <canvas id="game"></canvas>
+          <canvas id="scene-canvas" class="stage-canvas"></canvas>
+          <canvas id="game" class="stage-canvas" hidden></canvas>
         </div>
       </div>
 
@@ -63,6 +74,7 @@
         <div class="dock-tabs" id="bottom-tabs">
           <button class="dock-tab active" data-panel="blocks">Blocks</button>
           <button class="dock-tab" data-panel="sprite">Sprite Editor</button>
+          <button class="dock-tab" data-panel="map">Map Editor</button>
           <button class="dock-tab" data-panel="sound">Sound Maker</button>
           <button class="dock-tab" data-panel="code">Code</button>
           <button class="dock-tab" data-panel="output">Output</button>
@@ -95,6 +107,17 @@
                   <canvas id="sprite-preview" width="64" height="64"></canvas>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="panel" data-panel="map">
+            <div id="map-panel">
+              <div class="map-toolbar">
+                <div id="map-tools" class="tool-group"></div>
+                <span class="muted">Paint walls, then drop the spawn point. Switch Mode to
+                  “First person” and press ▶.</span>
+              </div>
+              <div id="map-grid" class="map-grid"></div>
             </div>
           </div>
 

@@ -33,6 +33,14 @@ function expr(e: Expr): string {
       return `engine.input.held(0, ${keyExpr(e.key)})`;
     case 'grounded':
       return `Math.abs(self.velocityY) < 0.001`;
+    case 'rcWallAhead':
+      return `(wallDistance(raycaster) <= ${expr(e.distance)})`;
+    case 'rcX':
+      return `raycaster.pos.x`;
+    case 'rcY':
+      return `raycaster.pos.y`;
+    case 'rcAngle':
+      return `raycaster.pos.angle`;
     case 'touching':
       return `self.overlaps(${e.target})`;
     case 'not':
@@ -90,6 +98,16 @@ function stmt(s: Stmt, depth: number): string[] {
       return [`${pad}await wait(${expr(s.seconds)});`];
     case 'stop':
       return [`${pad}return;`];
+    case 'rcMove':
+      return [`${pad}raycaster.move(${expr(s.speed)}, 0, 0, dt);`];
+    case 'rcStrafe':
+      return [`${pad}raycaster.move(0, ${expr(s.speed)}, 0, dt);`];
+    case 'rcTurn':
+      return [`${pad}raycaster.move(0, 0, ${expr(s.speed)}, dt);`];
+    case 'rcTeleport':
+      return [`${pad}raycaster.setPos(${expr(s.x)}, ${expr(s.y)}, ${expr(s.angle)});`];
+    case 'rcFog':
+      return [`${pad}raycaster.setFog(${expr(s.distance)}, 6, 5, 9);`];
     case 'if': {
       const out = [`${pad}if (${expr(s.cond)}) {`];
       for (const inner of s.then) out.push(...stmt(inner, depth + 1));

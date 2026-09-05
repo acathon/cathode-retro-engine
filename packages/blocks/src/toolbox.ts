@@ -26,6 +26,7 @@ export const CATEGORY_COLOUR = {
   control: 120,
   sensing: 190,
   variables: 20,
+  firstPerson: 260,
 } as const;
 
 const KEY_OPTIONS: [string, string][] = [
@@ -257,6 +258,79 @@ export const BLOCK_DEFS: BlockDef[] = [
     tooltip: 'True when this sprite overlaps the named one.',
   },
 
+  // --- First person (raycaster) -------------------------------------------
+  {
+    type: 'retro_rc_move',
+    message0: 'walk %1',
+    args0: [{ type: 'input_value', name: 'SPEED', check: 'Number' }],
+    previousStatement: null,
+    nextStatement: null,
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'Move the first-person camera forward. Negative walks backward.',
+  },
+  {
+    type: 'retro_rc_strafe',
+    message0: 'strafe %1',
+    args0: [{ type: 'input_value', name: 'SPEED', check: 'Number' }],
+    previousStatement: null,
+    nextStatement: null,
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'Slide sideways without turning.',
+  },
+  {
+    type: 'retro_rc_turn',
+    message0: 'turn %1',
+    args0: [{ type: 'input_value', name: 'SPEED', check: 'Number' }],
+    previousStatement: null,
+    nextStatement: null,
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'Rotate the camera. Negative turns left.',
+  },
+  {
+    type: 'retro_rc_teleport',
+    message0: 'teleport to x %1 y %2 facing %3',
+    args0: [
+      { type: 'input_value', name: 'X', check: 'Number' },
+      { type: 'input_value', name: 'Y', check: 'Number' },
+      { type: 'input_value', name: 'ANGLE', check: 'Number' },
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'Jump the camera to a spot on the map.',
+  },
+  {
+    type: 'retro_rc_fog',
+    message0: 'set view distance %1',
+    args0: [{ type: 'input_value', name: 'DIST', check: 'Number' }],
+    previousStatement: null,
+    nextStatement: null,
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'How far you can see before fog swallows the walls.',
+  },
+  {
+    type: 'retro_rc_wall_ahead',
+    message0: 'wall within %1',
+    args0: [{ type: 'input_value', name: 'DIST', check: 'Number' }],
+    output: 'Boolean',
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'True when a wall is closer than this many cells straight ahead.',
+  },
+  {
+    type: 'retro_rc_x',
+    message0: 'my map x',
+    output: 'Number',
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'The camera position across the map.',
+  },
+  {
+    type: 'retro_rc_y',
+    message0: 'my map y',
+    output: 'Number',
+    colour: CATEGORY_COLOUR.firstPerson,
+    tooltip: 'The camera position down the map.',
+  },
+
   // --- Variables ----------------------------------------------------------
   {
     type: 'retro_set_var',
@@ -355,6 +429,21 @@ export const TOOLBOX = {
         { kind: 'block', type: 'retro_key_pressed' },
         { kind: 'block', type: 'retro_grounded' },
         { kind: 'block', type: 'retro_touching' },
+      ],
+    },
+    {
+      kind: 'category',
+      name: 'First Person',
+      colour: String(CATEGORY_COLOUR.firstPerson),
+      contents: [
+        { kind: 'block', type: 'retro_rc_move' },
+        { kind: 'block', type: 'retro_rc_strafe' },
+        { kind: 'block', type: 'retro_rc_turn' },
+        { kind: 'block', type: 'retro_rc_teleport' },
+        { kind: 'block', type: 'retro_rc_fog' },
+        { kind: 'block', type: 'retro_rc_wall_ahead' },
+        { kind: 'block', type: 'retro_rc_x' },
+        { kind: 'block', type: 'retro_rc_y' },
       ],
     },
     {

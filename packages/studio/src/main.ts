@@ -17,8 +17,9 @@ import {
   type BlockProgram,
   type Host,
   type KeyName,
+  type RaycastView,
 } from '@retro-engine/blocks';
-import { RetroEngine, Scene, SoundChannel, Sprite } from '@retro-engine/sdk';
+import { Raycaster, RetroEngine, Scene, SoundChannel, Sprite } from '@retro-engine/sdk';
 import { scriptsFromWorkspace, variablesFromWorkspace } from './from-blockly';
 import { SAMPLE_WORKSPACE } from './sample';
 import {
@@ -35,6 +36,9 @@ import { SceneTree } from './docks/scene-tree';
 import { Inspector } from './docks/inspector';
 import { SpriteEditor } from './panels/sprite-editor';
 import { SoundMaker } from './panels/sound-maker';
+import { SceneEditor } from './panels/scene-editor';
+import { MapEditor } from './panels/map-editor';
+import { buildWallTextures } from './wall-textures';
 
 // --- State -----------------------------------------------------------------
 let project: StudioProject = loadProject() ?? createProject();
@@ -46,6 +50,8 @@ if (!project.sprites.some((s) => s.workspace)) {
 
 let engine: RetroEngine | null = null;
 let interpreter: Interpreter | null = null;
+let raycaster: Raycaster | null = null;
+let raycastView: RaycastView | undefined;
 let running = false;
 let paused = false;
 let loopStarted = false;
@@ -205,6 +211,7 @@ function refreshCode(): void {
 const inspector = new Inspector({
   onChange: () => {
     sceneTree.render();
+    sceneEditor?.render();
     persist();
     setStatus('Property updated.');
   },
@@ -213,6 +220,7 @@ const inspector = new Inspector({
 const spriteEditor = new SpriteEditor({
   onChange: () => {
     sceneTree.render();
+    sceneEditor?.render();
     persist();
   },
 });
@@ -220,6 +228,18 @@ const spriteEditor = new SpriteEditor({
 const sceneTree = new SceneTree(project, {
   onSelect: (id) => selectSprite(id),
   onChange: () => { persist(); refreshCode(); },
+});
+
+const sceneEditor = new SceneEditor(project, {
+  onSelect: (id) => selectSprite(id),
+  onMove: () => {
+    inspector.render(activeSprite());
+    persist();
+  },
+});
+
+const mapEditor = new MapEditor(project, {
+  onChange: () => persist(),
 });
 
 const soundMaker = new SoundMaker(project.sound, {
@@ -236,6 +256,7 @@ function selectSprite(id: string): void {
   spriteEditor.setSprite(sprite);
   inspector.render(sprite);
   sceneTree.render();
+  sceneEditor.render();
   setStatus(sprite ? `Selected ${sprite.name}.` : 'Nothing selected.');
 }
 
@@ -304,7 +325,7 @@ async function run(): Promise<void> {
         // A platform's collider is usually wider than its 16px art, so repeat
         // the tile across it. Without this a floor collides across its full
         // width but only *looks* one tile wide, which reads as a bug.
-        if (def.physics.solid && def.physics.width > TILE) {
+        if (def.physics.solid && def.physics.width > TILE && project.mode !== 'raycaster') {
           for (let x = TILE; x < def.physics.width; x += TILE) {
             const filler = new Sprite(scene, {
               sheet: sheetHandle,
@@ -318,8 +339,42 @@ async function run(): Promise<void> {
         }
       }
 
+      // In first-person mode the raycaster owns the screen. The sprites still
+      // exist so their scripts keep running, but they are parked off-screen
+      // rather than drawn over the 3D view.
+      if (project.mode === 'raycaster') sprite.setPosition(-9999, -9999);
+
       actors.set(program.sprites[index].name, new SpriteActor(sprite));
     });
+
+    // First-person mode: swap the sprite stage for the DDA raycaster.
+    raycaster = null;
+    raycastView = undefined;
+
+    if (project.mode === 'raycaster') {
+      const map = project.raycast;
+      raycaster = new Raycaster(eng, { cols: map.cols, rows: map.rows, cells: map.cells });
+
+      const walls = buildWallTextures();
+      walls.textures.forEach((tex, index) => {
+        raycaster!.setTextureFromPixels(index + 1, tex, walls.size);
+      });
+      raycaster.setFloorColor(28, 24, 22);
+      raycaster.setCeilingColor(12, 10, 16);
+      raycaster.setFog(map.fogDist, 6, 5, 9);
+      raycaster.setPos(map.spawnX, map.spawnY, map.spawnAngle);
+
+      const rc = raycaster;
+      raycastView = {
+        get x() { return rc.pos.x; },
+        get y() { return rc.pos.y; },
+        get angle() { return rc.pos.angle; },
+        move: (forward, strafe, turn) => rc.move(forward, strafe, turn, 0),
+        teleport: (x, y, angle) => rc.setPos(x, y, angle),
+        setFog: (distance) => rc.setFog(distance, 6, 5, 9),
+        wallDistance: () => measureWallAhead(),
+      };
+    }
 
     const sfx = new SoundChannel(eng, 1);
     const host: Host = {
@@ -330,6 +385,7 @@ async function run(): Promise<void> {
         window.setTimeout(() => sfx.stop(), 120);
       },
       actor: (name) => actors.get(name),
+      raycast: () => raycastView,
     };
 
     interpreter = new Interpreter(program, host);
@@ -344,8 +400,12 @@ async function run(): Promise<void> {
       });
     }
 
+    showView('game');
     const scriptCount = program.sprites.reduce((n, s) => n + s.scripts.length, 0);
-    setVpStatus(true, `Running · ${project.sprites.length} sprites · ${scriptCount} scripts`);
+    const label = project.mode === 'raycaster'
+      ? `Running · first person · ${scriptCount} scripts`
+      : `Running · ${project.sprites.length} sprites · ${scriptCount} scripts`;
+    setVpStatus(true, label);
     log(`Run: ${project.sprites.length} sprites, ${scriptCount} scripts.`);
     setStatus('Running.');
   } catch (err) {
@@ -353,6 +413,29 @@ async function run(): Promise<void> {
     log(`Start failed: ${(err as Error).message}`);
     setStatus('Could not start — build the wasm first (bun run build:wasm).');
   }
+}
+
+/**
+ * Distance in cells to the wall straight ahead.
+ *
+ * Marched in small steps rather than a full DDA: the block only ever asks
+ * "is something close", so a short march is accurate enough and keeps the
+ * studio free of a second raycast implementation.
+ */
+function measureWallAhead(): number {
+  if (!raycaster) return Infinity;
+  const map = project.raycast;
+  const { x, y, angle } = raycaster.pos;
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+
+  for (let t = 0.1; t <= 12; t += 0.1) {
+    const col = Math.floor(x + dx * t);
+    const row = Math.floor(y + dy * t);
+    if (col < 0 || row < 0 || col >= map.cols || row >= map.rows) return t;
+    if ((map.cells[row * map.cols + col] ?? 0) !== 0) return t;
+  }
+  return Infinity;
 }
 
 function setVpStatus(active: boolean, text: string): void {
@@ -367,6 +450,7 @@ function stop(): void {
   interpreter?.reset();
   soundMaker.stop();
   setVpStatus(false, 'Stopped');
+  showView('scene');
   setStatus('Stopped.');
 }
 
@@ -412,6 +496,35 @@ document.getElementById('menu-export')?.addEventListener('click', async () => {
   }
 });
 
+/** Viewport tabs: arrange the scene, or watch the running game. */
+function showView(view: 'scene' | 'game'): void {
+  document.querySelectorAll<HTMLElement>('.vp-tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.view === view);
+  });
+  const sceneCanvas = document.getElementById('scene-canvas') as HTMLCanvasElement;
+  const gameCanvas = document.getElementById('game') as HTMLCanvasElement;
+  sceneCanvas.hidden = view !== 'scene';
+  gameCanvas.hidden = view !== 'game';
+  if (view === 'scene') sceneEditor.render();
+}
+
+document.querySelectorAll<HTMLElement>('.vp-tab').forEach((tab) => {
+  tab.addEventListener('click', () => showView((tab.dataset.view as 'scene' | 'game') ?? 'scene'));
+});
+
+const modeSelect = document.getElementById('mode-select') as HTMLSelectElement;
+modeSelect.addEventListener('change', () => {
+  project.mode = modeSelect.value === 'raycaster' ? 'raycaster' : '2d';
+  persist();
+  stop();
+  setStatus(
+    project.mode === 'raycaster'
+      ? 'First-person mode — paint a maze in Map Editor, then press ▶.'
+      : '2D mode — arrange sprites in the Scene view.',
+  );
+  if (project.mode === 'raycaster') showPanel('map');
+});
+
 /** Bottom dock tabs. */
 function showPanel(name: string): void {
   document.querySelectorAll<HTMLElement>('#bottom-tabs .dock-tab').forEach((tab) => {
@@ -423,6 +536,7 @@ function showPanel(name: string): void {
   // Blockly only measures itself correctly once its container is visible.
   if (name === 'blocks') window.setTimeout(() => Blockly.svgResize(workspace), 0);
   if (name === 'sprite') spriteEditor.render();
+  if (name === 'map') mapEditor.render();
 }
 
 document.querySelectorAll<HTMLElement>('#bottom-tabs .dock-tab').forEach((tab) => {
@@ -475,6 +589,8 @@ window.addEventListener('resize', () => Blockly.svgResize(workspace));
 // --- Boot ------------------------------------------------------------------
 wireSplitters();
 el.projName.textContent = project.name;
+modeSelect.value = project.mode;
+mapEditor.render();
 sceneTree.setProject(project);
 selectSprite(project.activeSpriteId ?? project.sprites[0]?.id ?? '');
 showPanel('blocks');
@@ -493,4 +609,12 @@ setStatus('Ready — press ▶ to run, or edit blocks, sprites and sound below.'
   showPanel,
   selectSprite,
   addSprite: () => (document.getElementById('add-sprite') as HTMLButtonElement).click(),
+  showView,
+  setMode: (mode: string) => {
+    modeSelect.value = mode;
+    modeSelect.dispatchEvent(new Event('change'));
+  },
+  mode: () => project.mode,
+  mapCells: () => project.raycast.cells.filter((c) => c !== 0).length,
+  cameraPos: () => (raycaster ? raycaster.pos : null),
 };

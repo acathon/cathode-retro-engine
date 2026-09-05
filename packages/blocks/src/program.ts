@@ -16,6 +16,10 @@ export type Expr =
   | { kind: 'keyPressed'; key: KeyName }
   | { kind: 'touching'; target: string }
   | { kind: 'grounded' }
+  | { kind: 'rcWallAhead'; distance: Expr }
+  | { kind: 'rcX' }
+  | { kind: 'rcY' }
+  | { kind: 'rcAngle' }
   | { kind: 'binary'; op: BinaryOp; left: Expr; right: Expr }
   | { kind: 'not'; value: Expr };
 
@@ -40,7 +44,14 @@ export type Stmt =
   | { kind: 'repeat'; times: Expr; body: Stmt[] }
   | { kind: 'forever'; body: Stmt[] }
   | { kind: 'wait'; seconds: Expr }
-  | { kind: 'stop' };
+  | { kind: 'stop' }
+  // First-person blocks. They drive the raycast camera rather than a sprite,
+  // so a maze or shooter can be built without writing any code.
+  | { kind: 'rcMove'; speed: Expr }
+  | { kind: 'rcStrafe'; speed: Expr }
+  | { kind: 'rcTurn'; speed: Expr }
+  | { kind: 'rcTeleport'; x: Expr; y: Expr; angle: Expr }
+  | { kind: 'rcFog'; distance: Expr };
 
 /** Event hats — the rounded blocks a stack hangs from. */
 export type Hat =

@@ -31,11 +31,29 @@ export interface Actor {
   overlaps(other: Actor): boolean;
 }
 
+/**
+ * The first-person camera, when the project is a raycaster game.
+ *
+ * Optional on the host: a plain 2D project simply never provides one, and the
+ * raycaster blocks become no-ops rather than errors.
+ */
+export interface RaycastView {
+  x: number;
+  y: number;
+  angle: number;
+  move(forward: number, strafe: number, turn: number): void;
+  teleport(x: number, y: number, angle: number): void;
+  setFog(distance: number): void;
+  /** Distance to the nearest wall straight ahead, in cells. */
+  wallDistance(): number;
+}
+
 export interface Host {
   keyHeld(key: KeyName): boolean;
   keyJustPressed(key: KeyName): boolean;
   playSound(freq: number, waveform: string): void;
   actor(name: string): Actor | undefined;
+  raycast?(): RaycastView | undefined;
 }
 
 /** A script that is mid-flight: its generator, plus any time left to wait. */
@@ -237,6 +255,30 @@ export class Interpreter {
 
       case 'stop':
         throw new StopSignal();
+
+      case 'rcMove':
+        this.host.raycast?.()?.move(this.num(stmt.speed, actor), 0, 0);
+        break;
+
+      case 'rcStrafe':
+        this.host.raycast?.()?.move(0, this.num(stmt.speed, actor), 0);
+        break;
+
+      case 'rcTurn':
+        this.host.raycast?.()?.move(0, 0, this.num(stmt.speed, actor));
+        break;
+
+      case 'rcTeleport':
+        this.host.raycast?.()?.teleport(
+          this.num(stmt.x, actor),
+          this.num(stmt.y, actor),
+          this.num(stmt.angle, actor),
+        );
+        break;
+
+      case 'rcFog':
+        this.host.raycast?.()?.setFog(this.num(stmt.distance, actor));
+        break;
     }
   }
 
@@ -266,6 +308,17 @@ export class Interpreter {
         const other = this.host.actor(expr.target);
         return other ? actor.overlaps(other) : false;
       }
+      case 'rcWallAhead': {
+        const view = this.host.raycast?.();
+        if (!view) return false;
+        return view.wallDistance() <= this.num(expr.distance, actor);
+      }
+      case 'rcX':
+        return this.host.raycast?.()?.x ?? 0;
+      case 'rcY':
+        return this.host.raycast?.()?.y ?? 0;
+      case 'rcAngle':
+        return this.host.raycast?.()?.angle ?? 0;
       case 'not':
         return !this.bool(expr.value, actor);
       case 'binary': {
