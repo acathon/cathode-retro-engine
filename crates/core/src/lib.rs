@@ -98,7 +98,7 @@ impl Engine {
     pub fn update(&mut self, delta_secs: f32) {
         self.delta_secs = delta_secs.clamp(0.0001, 0.05);
 
-        physics::step(&mut self.world, self.delta_secs);
+        physics::step(&mut self.world, &self.renderer.tilemaps, self.delta_secs);
         collision::detect_collisions(&self.world, &mut self.collisions);
         self.scenes.update(&mut self.world, &self.input);
         self.input.end_frame();

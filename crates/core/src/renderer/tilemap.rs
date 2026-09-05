@@ -6,6 +6,11 @@ pub struct TileLayer {
     pub sheet_handle: u32,
     pub tiles: Vec<u16>,
     pub fixed: bool,
+    /// Tile ids that physics treats as walls. Empty means the layer is
+    /// decoration only. Defaulted so tilemap JSON written before this
+    /// existed still loads.
+    #[serde(default)]
+    pub solid_tiles: Vec<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +41,7 @@ impl TileMap {
             sheet_handle,
             tiles: vec![0; (self.cols * self.rows) as usize],
             fixed,
+            solid_tiles: Vec::new(),
         };
         self.layers.push(layer);
         self.layers.len() - 1
@@ -46,6 +52,42 @@ impl TileMap {
             let idx = (row * self.cols + col) as usize;
             self.layers[layer].tiles[idx] = id;
         }
+    }
+
+    pub fn tile_at(&self, layer: usize, col: i32, row: i32) -> u16 {
+        if col < 0 || row < 0 || col >= self.cols as i32 || row >= self.rows as i32 {
+            return 0;
+        }
+        match self.layers.get(layer) {
+            Some(l) => l.tiles[(row as u32 * self.cols + col as u32) as usize],
+            None => 0,
+        }
+    }
+
+    /// Mark which tile ids act as walls on a layer. Replaces any previous set.
+    pub fn set_solid_tiles(&mut self, layer: usize, ids: &[u16]) {
+        if let Some(l) = self.layers.get_mut(layer) {
+            l.solid_tiles = ids.to_vec();
+        }
+    }
+
+    /// Whether any layer declares walls. Physics skips maps that don't, so a
+    /// purely decorative tilemap costs nothing.
+    pub fn has_solid_tiles(&self) -> bool {
+        self.layers.iter().any(|l| !l.solid_tiles.is_empty())
+    }
+
+    /// Whether the cell is a wall on any layer. Cells outside the map are
+    /// open, so a body can walk or fall off the edge; add a border of solid
+    /// tiles to close the level in.
+    pub fn solid_at(&self, col: i32, row: i32) -> bool {
+        if col < 0 || row < 0 || col >= self.cols as i32 || row >= self.rows as i32 {
+            return false;
+        }
+        let idx = (row as u32 * self.cols + col as u32) as usize;
+        self.layers
+            .iter()
+            .any(|l| !l.solid_tiles.is_empty() && l.solid_tiles.contains(&l.tiles[idx]))
     }
 }
 

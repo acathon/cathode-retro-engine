@@ -109,6 +109,28 @@ impl WebEngine {
         Ok((self.engine.renderer.tilemaps.len() - 1) as u32)
     }
 
+    /// Declare which tile ids on a layer act as walls, so the physics step
+    /// resolves bodies against them. Tilemap JSON can carry `solid_tiles`
+    /// directly; this is for changing it after the map is loaded.
+    #[wasm_bindgen]
+    pub fn set_tilemap_solid_tiles(&mut self, map: u32, layer: u32, ids: Vec<u16>) {
+        if let Some(m) = self.engine.renderer.tilemaps.get_mut(map as usize) {
+            m.set_solid_tiles(layer as usize, &ids);
+        }
+    }
+
+    /// Whether a tile cell is a wall on any layer. Cells outside the map read
+    /// as open.
+    #[wasm_bindgen]
+    pub fn tilemap_solid_at(&self, map: u32, col: i32, row: i32) -> bool {
+        self.engine
+            .renderer
+            .tilemaps
+            .get(map as usize)
+            .map(|m| m.solid_at(col, row))
+            .unwrap_or(false)
+    }
+
     #[wasm_bindgen]
     pub fn set_camera(&mut self, x: f32, y: f32) {
         self.engine.renderer.camera.x = x;

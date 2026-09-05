@@ -7,8 +7,10 @@ export class TileMap {
   public rows: number;
   public tileWidth: number;
   public tileHeight: number;
-  private layers: { name: string, sheet_handle: number, tiles: number[], fixed: boolean }[] = [];
+  private layers: { name: string, sheet_handle: number, tiles: number[], fixed: boolean, solid_tiles: number[] }[] = [];
   private solidIds: Map<number, Set<number>> = new Map();
+  /** Engine-side handle, set once commit() uploads the map. */
+  private handle: number | null = null;
 
   constructor(public scene: Scene, options: TileMapOptions) {
     this.name = options.name;
@@ -24,7 +26,8 @@ export class TileMap {
       name,
       sheet_handle: sheetHandle,
       tiles: new Array(this.cols * this.rows).fill(0),
-      fixed
+      fixed,
+      solid_tiles: []
     });
     return this.layers.length - 1;
   }
@@ -50,13 +53,31 @@ export class TileMap {
       tile_height: this.tileHeight,
       layers: this.layers
     });
-    this.scene.eng.loadTileMap(json);
+    this.handle = this.scene.eng.loadTileMap(json);
   }
+
+  /** Engine-side handle, or null until commit() has run. */
+  get mapHandle(): number | null { return this.handle; }
 
   // --- Collision helpers ---
 
+  /**
+   * Declare which tile ids are walls. The engine's physics resolves bodies
+   * that called `Sprite.usePhysics` against them, and `isSolid` reads the
+   * same set. Safe to call before or after `commit()`.
+   */
   setSolidTiles(layerIdx: number, solidTileIds: number[]): void {
     this.solidIds.set(layerIdx, new Set(solidTileIds));
+    if (this.layers[layerIdx]) {
+      this.layers[layerIdx].solid_tiles = [...solidTileIds];
+    }
+    if (this.handle !== null) {
+      this.scene.eng.raw.set_tilemap_solid_tiles(
+        this.handle,
+        layerIdx,
+        new Uint16Array(solidTileIds),
+      );
+    }
   }
 
   isSolid(layerIdx: number, worldX: number, worldY: number): boolean {
