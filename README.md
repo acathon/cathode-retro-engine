@@ -84,6 +84,8 @@ These examples are part demo, part reference implementation.
 | Tetris | `examples/tetris` | Grid logic, HUD rendering, piece systems |
 | Metal Slug-inspired demo | `examples/metal-slug` | Multi-layer scenes, scrolling action pacing |
 | Doom-style demo | `examples/doom-game` | Raycaster setup, billboards, atmospheric rendering |
+| Cavern Dash | `examples/cavern-dash` | Engine-driven physics: tilemap collision, gravity, `usePhysics` |
+| Crypt Courier | `examples/crypt-courier` | Procedural maze, first-person raycasting, billboards, fog |
 
 ## Bun-First Commands
 
