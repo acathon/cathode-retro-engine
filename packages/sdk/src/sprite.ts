@@ -1,5 +1,5 @@
 import { Scene } from './scene';
-import { SpriteOptions } from './types';
+import { PhysicsOptions, SpriteOptions } from './types';
 
 export interface AnimConfig {
   frames: number[];
@@ -23,6 +23,7 @@ export class Sprite {
   private anim: AnimConfig | null = null;
   private animTimer = 0;
   private animFrameIdx = 0;
+  private physics = false;
 
   public onUpdate?: (dt: number, self: Sprite) => void;
 
@@ -87,13 +88,93 @@ export class Sprite {
       }
     }
 
-    if (this.velocityX !== 0 || this.velocityY !== 0) {
-      this.x += this.velocityX * dt;
-      this.y += this.velocityY * dt;
+    if (this.physics) {
+      // The engine already integrated and resolved this body during tick();
+      // read the result back rather than overwriting it.
+      const pos = this.scene.eng.raw.get_position(this.id);
+      this.x = pos[0];
+      this.y = pos[1];
+
+      const vel = this.scene.eng.raw.get_velocity(this.id);
+      this.velocityX = vel[0];
+      this.velocityY = vel[1];
+    } else {
+      if (this.velocityX !== 0 || this.velocityY !== 0) {
+        this.x += this.velocityX * dt;
+        this.y += this.velocityY * dt;
+      }
+      this.scene.eng.raw.set_position(this.id, this.x, this.y);
     }
 
-    this.scene.eng.raw.set_position(this.id, this.x, this.y);
     this.scene.eng.raw.set_flip(this.id, this.flipX, this.flipY);
+  }
+
+  /**
+   * Hand this sprite's movement to the engine's physics step: gravity,
+   * integration, and collision against solid sprites all happen in the
+   * engine, and `x`/`y`/`velocityX`/`velocityY` are read back each frame.
+   *
+   * Without this a sprite is moved in TypeScript and ignores solids.
+   */
+  usePhysics(options: PhysicsOptions = {}): this {
+    const raw = this.scene.eng.raw;
+    this.physics = true;
+
+    if (options.width !== undefined && options.height !== undefined) {
+      raw.add_collider(
+        this.id,
+        options.offsetX ?? 0,
+        options.offsetY ?? 0,
+        options.width,
+        options.height,
+      );
+    }
+    if (options.gravity !== undefined) {
+      raw.set_gravity(this.id, options.gravity);
+    }
+    if (options.solid) {
+      raw.set_solid(this.id, true);
+    }
+
+    raw.set_position(this.id, this.x, this.y);
+    raw.set_velocity(this.id, this.velocityX, this.velocityY);
+    return this;
+  }
+
+  /** Set gravity strength as a multiple of the engine's base gravity. */
+  setGravity(scale = 1): this {
+    this.scene.eng.raw.set_gravity(this.id, scale);
+    return this;
+  }
+
+  /** Stop this sprite being pulled down. */
+  clearGravity(): this {
+    this.scene.eng.raw.clear_gravity(this.id);
+    return this;
+  }
+
+  /** Give this sprite a collision box, in pixels. */
+  setCollider(width: number, height: number, offsetX = 0, offsetY = 0): this {
+    this.scene.eng.raw.add_collider(this.id, offsetX, offsetY, width, height);
+    return this;
+  }
+
+  /** Solid sprites never move and block bodies that use physics. */
+  setSolid(solid = true): this {
+    this.scene.eng.raw.set_solid(this.id, solid);
+    return this;
+  }
+
+  /**
+   * Teleport the sprite. Assigning `x`/`y` directly is enough in the default
+   * mode, but under `usePhysics` the engine owns the position and would
+   * overwrite it on the next frame, so respawns need this.
+   */
+  setPosition(x: number, y: number): this {
+    this.x = x;
+    this.y = y;
+    this.scene.eng.raw.set_position(this.id, x, y);
+    return this;
   }
 
   move(vx: number, vy: number) {

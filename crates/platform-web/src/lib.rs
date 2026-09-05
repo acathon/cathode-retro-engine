@@ -181,6 +181,20 @@ impl WebEngine {
         arr
     }
 
+    /// Read an entity's velocity back. Physics zeroes an axis on impact, so a
+    /// game driven by the engine's physics needs this to tell whether it is
+    /// still moving (falling, or stopped against a wall).
+    #[wasm_bindgen]
+    pub fn get_velocity(&self, id: u64) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(2);
+        if let Some(e) = self.find_entity(id) {
+            if let Ok(vel) = self.engine.world.get::<&Velocity>(e) {
+                arr.copy_from(&[vel.0.x, vel.0.y]);
+            }
+        }
+        arr
+    }
+
     #[wasm_bindgen]
     pub fn set_frame(&mut self, id: u64, frame: u16) {
         if let Some(e) = self.find_entity(id) {

@@ -88,6 +88,21 @@ cargo test -p retro-core -p retro-platform-native
 cargo check -p retro-platform-web --target wasm32-unknown-unknown
 ```
 
+### Desktop editor
+
+The Tauri editor is a **separate Cargo workspace**, so `cargo test --workspace`
+at the repo root deliberately skips it — the engine itself never needs a
+desktop GUI toolchain. Build it from its own directory:
+
+```bash
+cd packages/editor-desktop
+bun run tauri build
+```
+
+On Linux that needs the GTK/WebKit development packages
+(`libwebkit2gtk-4.0-dev`, `libgtk-3-dev`). The engine crates need only
+`libasound2-dev` and `libudev-dev` for the native runtime.
+
 ### Example build smoke test
 
 ```bash

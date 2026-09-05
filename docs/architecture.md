@@ -48,7 +48,7 @@ graph TD;
 |--------|------|---------|
 | ECS | `ecs/mod.rs` | hecs-based entity-component system |
 | Renderer | `renderer/mod.rs` | RGBA software renderer, sprite batching, scanlines |
-| Physics | `physics/mod.rs` | AABB collision resolution, velocity/gravity |
+| Physics | `physics/mod.rs` | AABB collision resolution, velocity, opt-in gravity |
 | Audio | `audio/mod.rs` | 6-waveform chiptune mixer (44.1kHz) |
 | Audio Envelope | `audio/envelope.rs` | ADSR envelope with presets (pluck, pad, snare, bass) |
 | Sequencer | `audio/sequencer.rs` | MML pattern sequencer for background music |
@@ -196,6 +196,41 @@ graph LR;
 
 ## ECS
 The `hecs` crate acts as the backing simulation for all game entities and sprites. The web API translates ID handles so JavaScript can orchestrate components without touching Rust memory directly.
+
+## Physics
+
+The physics step runs once per `Engine::update`, before scene updates.
+
+| Component | Effect |
+|---|---|
+| `Position` + `Velocity` | The body is integrated each frame |
+| `Collider` | Adds AABB resolution against solids; optional |
+| `Gravity(scale)` | Opt in to falling; `scale` multiplies `physics::GRAVITY` |
+| `Solid` | Never moves and blocks other bodies (floors, walls, platforms) |
+
+Gravity is opt-in because most retro genres — top-down, puzzle, shmup — do
+not want anything pulled downward. A platformer adds `Gravity(1.0)` to its
+actors; Tetris adds nothing.
+
+Collision resolution pushes a body out along whichever axis it overlaps least
+and zeroes the velocity on that axis, which is what makes landing on a floor
+stop a fall. Solids are static: they are excluded from both gravity and
+integration.
+
+From TypeScript, a sprite opts in with `usePhysics`:
+
+```ts
+const player = new Sprite(scene, { sheet, frame: 0, x: 32, y: 0 });
+player.usePhysics({ gravity: 1, width: 16, height: 16 });
+
+const floor = new Sprite(scene, { sheet, frame: 1, x: 0, y: 200 });
+floor.usePhysics({ width: 256, height: 8, solid: true });
+```
+
+A sprite that uses physics has its position and velocity read back from the
+engine each frame; use `setPosition` to teleport it. Without `usePhysics` a
+sprite is moved in TypeScript and ignores solids, which is the default and
+suits games that want to own their own movement rules.
 
 ## Renderer Pipeline
 1. `FrameBuffer::clear()`
