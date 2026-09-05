@@ -11,8 +11,9 @@ export class Scene {
   constructor(public eng: RetroEngine) {}
 
   update(dt: number) {
-    this.eng.input.snapshot();
-    
+    // Input is snapshotted by RetroEngine.loop at the end of the frame, not
+    // here: snapshotting mid-frame made justPressed always read false for a
+    // game that checked it after calling scene.update().
     for (const sprite of this.sprites) {
       sprite._update(dt);
     }

@@ -627,6 +627,70 @@ mod tests {
         assert!(cam.fog_dist > 0.0);
     }
 
+    fn solid_texture(size: u32, rgb: [u8; 3]) -> WallTexture {
+        let mut pixels = Vec::with_capacity((size * size * 4) as usize);
+        for _ in 0..(size * size) {
+            pixels.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
+        }
+        WallTexture { pixels, size }
+    }
+
+    #[test]
+    fn a_billboard_draws_in_front_of_the_camera() {
+        // Fully open cells; out-of-bounds still reads as wall type 1, so the
+        // room has walls to render against.
+        let mut rc = RaycastRenderer::new(RaycastMap::new(8, 8, vec![0u8; 64]));
+        rc.camera.pos = Vec2::new(2.5, 2.5);
+        rc.camera.angle = 0.0; // facing +x
+        rc.camera.fog_dist = 100.0;
+
+        rc.textures.push(solid_texture(8, [90, 90, 90])); // index 0 = wall type 1
+        rc.textures.push(solid_texture(8, [255, 0, 0])); // index 1 = the billboard
+
+        let mut without = FrameBuffer::new(64, 48);
+        rc.render(&mut without);
+        assert!(
+            !without
+                .pixels
+                .chunks(4)
+                .any(|p| p[0] > 200 && p[1] < 60 && p[2] < 60),
+            "nothing should be red before the billboard exists"
+        );
+
+        rc.add_billboard(1, 4.5, 2.5, 1, 1.0);
+        let mut with = FrameBuffer::new(64, 48);
+        rc.render(&mut with);
+
+        assert_ne!(without.pixels, with.pixels, "the billboard should be drawn");
+        assert!(
+            with.pixels
+                .chunks(4)
+                .any(|p| p[0] > 200 && p[1] < 60 && p[2] < 60),
+            "the billboard's colour should appear on screen"
+        );
+    }
+
+    #[test]
+    fn a_billboard_behind_the_camera_is_not_drawn() {
+        let mut rc = RaycastRenderer::new(RaycastMap::new(8, 8, vec![0u8; 64]));
+        rc.camera.pos = Vec2::new(4.5, 2.5);
+        rc.camera.angle = 0.0; // facing +x, billboard placed behind
+        rc.camera.fog_dist = 100.0;
+        rc.textures.push(solid_texture(8, [90, 90, 90]));
+        rc.textures.push(solid_texture(8, [255, 0, 0]));
+
+        rc.add_billboard(1, 1.5, 2.5, 1, 1.0);
+        let mut fb = FrameBuffer::new(64, 48);
+        rc.render(&mut fb);
+
+        assert!(
+            !fb.pixels
+                .chunks(4)
+                .any(|p| p[0] > 200 && p[1] < 60 && p[2] < 60),
+            "a billboard behind the camera must not be drawn"
+        );
+    }
+
     #[test]
     fn lerp_u8_hits_both_ends() {
         assert_eq!(lerp_u8(0, 255, 0.0), 0);

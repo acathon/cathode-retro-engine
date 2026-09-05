@@ -145,6 +145,12 @@ export class RetroEngine {
         }
 
         cb(dt);
+
+        // Snapshot input last, once every frame, so justPressed/justReleased
+        // compare against the previous frame no matter where in the callback
+        // a game reads them.
+        this.input.snapshot();
+
         this.raw.render_to_canvas(this.canvas);
       }
       this.rafId = requestAnimationFrame(step);

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRYPT COURIER — Raycaster · Retro Engine</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #07060a;
+      color: #b8a888;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: monospace;
+    }
+
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+    #stage { position: relative; }
+
+    canvas#game {
+      image-rendering: pixelated;
+      display: block;
+      border: 3px solid #6b5a3e;
+      border-radius: 3px;
+      box-shadow: 0 0 30px rgba(180, 140, 60, 0.25);
+      background: #000;
+    }
+
+    canvas#minimap {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      image-rendering: pixelated;
+      border: 2px solid #6b5a3e;
+      background: rgba(6, 5, 10, 0.82);
+      opacity: 0.9;
+    }
+
+    #hud {
+      display: flex;
+      gap: 26px;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    #hud b { color: #ffcc44; }
+
+    #status {
+      min-height: 22px;
+      font-size: 15px;
+      letter-spacing: 1px;
+      color: #9fd98f;
+      text-align: center;
+    }
+
+    #keys { font-size: 12px; color: #574b38; letter-spacing: 1px; }
+  </style>
+</head>
+
+<body>
+  <div id="wrap">
+    <div id="hud">
+      <span>RELICS <b id="relics">0</b>/<b id="relics-total">0</b></span>
+      <span>DEPTH <b id="depth">1</b></span>
+      <span>TIME <b id="time">0:00</b></span>
+    </div>
+    <div id="stage">
+      <canvas id="game"></canvas>
+      <canvas id="minimap" width="120" height="120"></canvas>
+    </div>
+    <div id="status">FIND THE RELICS — THE GOLDEN DOOR IS SEALED</div>
+    <div id="keys">&uarr;&darr; WALK &nbsp;·&nbsp; &larr;&rarr; TURN &nbsp;·&nbsp; Q E STRAFE &nbsp;·&nbsp; ENTER NEW CRYPT</div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
