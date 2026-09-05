@@ -7,7 +7,7 @@ import type { GameTimer } from './timer';
 // It matches the methods exposed by wasm_bindgen
 type WebEngine = any;
 
-export class RetroEngine {
+export class Cathode {
   public raw: WebEngine | null = null;
   public input: InputReader;
 
@@ -33,36 +33,36 @@ export class RetroEngine {
     this.canvas.style.touchAction = 'none';
   }
 
-  static async gameboy(canvas: HTMLCanvasElement, scale = 3): Promise<RetroEngine> {
-    const eng = new RetroEngine(canvas);
+  static async gameboy(canvas: HTMLCanvasElement, scale = 3): Promise<Cathode> {
+    const eng = new Cathode(canvas);
     await eng._init('gameboy', scale);
     return eng;
   }
 
-  static async nes(canvas: HTMLCanvasElement, scale = 3): Promise<RetroEngine> {
-    const eng = new RetroEngine(canvas);
+  static async nes(canvas: HTMLCanvasElement, scale = 3): Promise<Cathode> {
+    const eng = new Cathode(canvas);
     await eng._init('nes', scale);
     return eng;
   }
 
-  static async neogeo(canvas: HTMLCanvasElement, scale = 2): Promise<RetroEngine> {
-    const eng = new RetroEngine(canvas);
+  static async neogeo(canvas: HTMLCanvasElement, scale = 2): Promise<Cathode> {
+    const eng = new Cathode(canvas);
     await eng._init('neogeo', scale);
     return eng;
   }
 
-  static async custom(canvas: HTMLCanvasElement, config: EngineConfig, scale = 3): Promise<RetroEngine> {
-    const eng = new RetroEngine(canvas);
+  static async custom(canvas: HTMLCanvasElement, config: EngineConfig, scale = 3): Promise<Cathode> {
+    const eng = new Cathode(canvas);
     await eng._init('custom', scale, config);
     return eng;
   }
 
   protected async _init(preset: Preset, scale: number, config?: EngineConfig) {
     try {
-      this.wasmModule = await import('retro-platform-web');
+      this.wasmModule = await import('cathode-platform-web');
       await this.wasmModule.default(); // init wasm
     } catch (e) {
-      console.error("Failed to load retro-platform-web WASM module. Make sure it is built.", e);
+      console.error("Failed to load cathode-platform-web WASM module. Make sure it is built.", e);
       throw e;
     }
 

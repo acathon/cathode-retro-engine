@@ -2,7 +2,7 @@
 
 ## Overview
 
-retro-engine is a retro game engine with a Rust core, WASM bindings for web,
+Cathode is a retro game engine with a Rust core, WASM bindings for web,
 a native desktop runner, a TypeScript SDK, a CLI, and a Tauri-based desktop editor.
 
 ## Data-Flow Diagram
@@ -112,7 +112,7 @@ Exposes ~60+ `#[wasm_bindgen]` functions wrapping the Engine struct:
 
 | Module | Purpose |
 |--------|---------|
-| `engine.ts` | RetroEngine class, game loop, preset constructors |
+| `engine.ts` | Cathode class, game loop, preset constructors |
 | `sprite.ts` | Sprite class wrapping ECS entities |
 | `scene.ts` | Scene lifecycle, `follow()` |
 | `tilemap.ts` | TileMap with collision helpers (setSolidTiles, isSolid, raycast) |

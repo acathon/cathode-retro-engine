@@ -22,7 +22,7 @@ jobs:
           targets: wasm32-unknown-unknown
           components: clippy, rustfmt
           
-      # retro-platform-native links against ALSA (cpal) and libudev (gamepad
+      # cathode-platform-native links against ALSA (cpal) and libudev (gamepad
       # enumeration). The Tauri desktop editor is a separate workspace, so its
       # GTK/WebKit dependencies are deliberately not needed here.
       - name: Install system dependencies
@@ -41,7 +41,7 @@ jobs:
         run: cargo check --workspace
         
       - name: Check WASM
-        run: cargo check -p retro-platform-web --target wasm32-unknown-unknown
+        run: cargo check -p cathode-platform-web --target wasm32-unknown-unknown
         
       - name: Run Tests
         run: cargo test --workspace

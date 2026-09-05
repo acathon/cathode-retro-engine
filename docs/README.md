@@ -1,6 +1,6 @@
 # Documentation Hub
 
-This folder is the documentation map for Retro Engine. Use it as the table of contents for the repository.
+This folder is the documentation map for Cathode. Use it as the table of contents for the repository.
 
 ## Fastest Paths
 

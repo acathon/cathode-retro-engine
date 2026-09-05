@@ -1,4 +1,4 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 import { Sprite } from './sprite';
 import { TileMap } from './tilemap';
 
@@ -8,10 +8,10 @@ export class Scene {
   private cameraTarget: Sprite | null = null;
   private cameraOffset = { x: 0, y: 0 };
   
-  constructor(public eng: RetroEngine) {}
+  constructor(public eng: Cathode) {}
 
   update(dt: number) {
-    // Input is snapshotted by RetroEngine.loop at the end of the frame, not
+    // Input is snapshotted by Cathode.loop at the end of the frame, not
     // here: snapshotting mid-frame made justPressed always read false for a
     // game that checked it after calling scene.update().
     for (const sprite of this.sprites) {

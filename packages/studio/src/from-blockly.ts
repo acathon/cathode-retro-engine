@@ -1,5 +1,5 @@
 import type * as Blockly from 'blockly';
-import type { Expr, Hat, KeyName, Script, Stmt } from '@retro-engine/blocks';
+import type { Expr, Hat, KeyName, Script, Stmt } from '@cathode/blocks';
 
 /**
  * Converts a Blockly workspace into the block-program IR.

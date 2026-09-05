@@ -5,7 +5,7 @@
  * audio channel, and the 16-step pattern is compiled to MML and handed to the
  * engine sequencer — the same path a game uses for its music.
  */
-import type { RetroEngine } from '@retro-engine/sdk';
+import type { Cathode } from '@cathode/sdk';
 import type { StudioSound } from '../project';
 
 const NOTES = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'G5'];
@@ -16,7 +16,7 @@ const NOTE_HZ: Record<string, number> = {
 };
 
 export interface SoundMakerHooks {
-  engine(): RetroEngine | null;
+  engine(): Cathode | null;
   onChange(): void;
   log(message: string): void;
 }

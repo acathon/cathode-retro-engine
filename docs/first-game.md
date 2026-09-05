@@ -66,11 +66,11 @@ Your `index.html` only needs a canvas:
 Create `src/main.ts` with this code:
 
 ```ts
-import { BitmapFont, RetroEngine, Scene, Sprite } from '@retro-engine/sdk';
+import { BitmapFont, Cathode, Scene, Sprite } from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
-function createSheet(engine: RetroEngine): number {
+function createSheet(engine: Cathode): number {
   const sheetCanvas = document.createElement('canvas');
   sheetCanvas.width = 16;
   sheetCanvas.height = 8;
@@ -106,7 +106,7 @@ function randomGrid(max: number): number {
 }
 
 async function bootstrap() {
-  const engine = await RetroEngine.gameboy(canvas, 4);
+  const engine = await Cathode.gameboy(canvas, 4);
   const scene = new Scene(engine);
   const font = BitmapFont.builtin(engine);
   const sheet = createSheet(engine);
@@ -158,7 +158,7 @@ bootstrap();
 
 This single file teaches the most important building blocks:
 
-- `RetroEngine.gameboy(...)` creates a configured engine preset.
+- `Cathode.gameboy(...)` creates a configured engine preset.
 - `Scene` owns your sprite updates.
 - `Sprite` gives you simple game objects with positions and frames.
 - `BitmapFont.builtin(...)` gives you HUD text without shipping a bitmap font file.

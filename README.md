@@ -1,12 +1,12 @@
-# Retro Engine
+# Cathode
 
-![Retro Engine Banner](./docs/assets/banner.png)
+![Cathode Banner](./docs/assets/banner.png)
 
 **Retro-first game engine with a Rust core, WebAssembly runtime, TypeScript SDK, CLI, and desktop editor.**
 
 [Docs Hub](./docs/README.md) · [Getting Started](./docs/getting-started.md) · [Build Your First Game](./docs/first-game.md) · [T-Rex Tutorial](./docs/tutorial-trex.md) · [Architecture](./docs/architecture.md) · [Contributing](./docs/contributing.md)
 
-Retro Engine is for developers who want the feel of old-school consoles without giving up modern tooling. You can prototype in the browser, ship through a TypeScript SDK, dig into a Rust core, export to multiple targets, and study complete example games inside the same repository.
+Cathode is for developers who want the feel of old-school consoles without giving up modern tooling. You can prototype in the browser, ship through a TypeScript SDK, dig into a Rust core, export to multiple targets, and study complete example games inside the same repository.
 
 ## Start Here
 
@@ -27,7 +27,7 @@ Choose the shortest path for what you want to do:
 | Engine core | Rust ECS, software renderer, audio synth, physics, collision, camera, particles, tweens, timers |
 | Runtime targets | Browser via WASM and native desktop via winit/pixels/cpal |
 | SDK | TypeScript APIs for scenes, sprites, tilemaps, input, audio, text, save data, raycasting |
-| Tooling | CLI scaffolding, example games, browser editor, desktop editor, Retro Studio (visual editor) |
+| Tooling | CLI scaffolding, example games, browser editor, desktop editor, Cathode Studio (visual editor) |
 | Learning material | Setup guide, first-game tutorial, T-Rex walkthrough, architecture reference |
 
 ## Quick Start
@@ -99,13 +99,13 @@ These are the most useful commands for daily work:
 | Build CLI package | `bun run build:cli` |
 | Build everything exposed by root scripts | `bun run build:all` |
 | Run the web editor | `bun run dev:editor` |
-|  Run Retro Studio | `bun run dev:studio` (needs `build:wasm` + `build:sdk` first) |
+|  Run Cathode Studio | `bun run dev:studio` (needs `build:wasm` + `build:sdk` first) |
 | Run the demo example | `bun run dev:demo` |
 | Build an example | `cd examples/doom-game && bun run build` |
 | Run the test suite | `make test` |
 | Run linters and formatting checks | `make lint` |
 
-## Retro Studio
+## Cathode Studio
 
 A visual editor laid out like Godot: a scene tree on the left, an inspector on
 the right, a live viewport in the middle, and a tabbed dock underneath holding
@@ -136,7 +136,7 @@ retor-engine/
 │   ├── editor/             # Browser-based editor
 │   ├── editor-desktop/     # Tauri desktop editor
 │   ├── blocks/             # Block language: IR, interpreter, TypeScript codegen
-│   └── studio/             # Retro Studio: scene tree, inspector, blocks,
+│   └── studio/             # Cathode Studio: scene tree, inspector, blocks,
 │                           #   pixel sprite editor, sound maker, live viewport
 ├── examples/               # Reference games and demos
 └── docs/                   # Onboarding, tutorials, architecture, contribution docs
@@ -183,7 +183,7 @@ If you are opening an issue or planning a contribution, start with [docs/contrib
 
 ## Repository Name Note
 
-The GitHub repository currently uses the historical name `retor-engine`. Package names and the public display name use `retro-engine`.
+The GitHub repository is named `retor-engine` for historical reasons. The engine itself is **Cathode**: Rust crates are published as `cathode-*` and TypeScript packages under the `@cathode/` scope.
 
 ## License
 

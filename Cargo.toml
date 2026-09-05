@@ -10,9 +10,9 @@ exclude = ["packages/editor-desktop/src-tauri"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Retro Engine Contributors"]
+authors = ["Cathode Contributors"]
 description = "A modern game engine with the look and feel of NES / Game Boy / NeoGeo games."
-repository = "https://github.com/retro-engine/retro-engine"
+repository = "https://github.com/acathon/retor-engine"
 license = "MIT"
 
 [workspace.dependencies]

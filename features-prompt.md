@@ -14,7 +14,7 @@ crates/
   platform-web/  — wasm-bindgen WASM bindings → WebEngine JS class
   platform-native/ — winit + pixels + cpal desktop runner
 packages/
-  sdk/           — TypeScript SDK: RetroEngine, Scene, Sprite, TileMap,
+  sdk/           — TypeScript SDK: Cathode, Scene, Sprite, TileMap,
                    SoundChannel, TouchControls, InputReader
   cli/           — retro-cli: new / run / build / export commands
   editor/        — vanilla JS browser tilemap editor
@@ -574,7 +574,7 @@ impl SaveManager {
 
 ```ts
 export class Camera {
-  constructor(private engine: RetroEngine) {}
+  constructor(private engine: Cathode) {}
 
   follow(sprite: Sprite, lerpSpeed = 0.1): void
   unfollow(): void
@@ -648,7 +648,7 @@ export type EaseName =
 
 export class Tween {
   constructor(
-    private engine: RetroEngine,
+    private engine: Cathode,
     from: number,
     to: number,
     durationSecs: number,
@@ -688,7 +688,7 @@ frame from inside the engine loop automatically (engine keeps a list of live twe
 ```ts
 export class BitmapFont {
   constructor(
-    engine: RetroEngine,
+    engine: Cathode,
     sheetHandle: number,
     charWidth: number,
     charHeight: number,
@@ -701,7 +701,7 @@ export class BitmapFont {
 
   // Built-in: generates a minimal ASCII font sheet procedurally
   // Returns a font ready to use — no PNG needed
-  static builtin(engine: RetroEngine): BitmapFont
+  static builtin(engine: Cathode): BitmapFont
 }
 ```
 
@@ -720,7 +720,7 @@ zero setup — no font PNG file needed.
 
 ```ts
 export class GameTimer {
-  constructor(engine: RetroEngine, durationSecs: number, options?: {
+  constructor(engine: Cathode, durationSecs: number, options?: {
     repeat?:   boolean;
     autoStart?: boolean;
   })
@@ -834,7 +834,7 @@ export type TransitionType =
   | "checkerboard"; // classic 8-bit checkerboard wipe
 
 export class SceneTransition {
-  constructor(engine: RetroEngine, type: TransitionType, durationSecs?: number)
+  constructor(engine: Cathode, type: TransitionType, durationSecs?: number)
 
   /** Run out-animation, swap callback, run in-animation. Returns a Promise. */
   transition(onSwap: () => void): Promise<void>
@@ -853,7 +853,7 @@ overlay on top of everything else via `engine.raw.draw_overlay_rect(r,g,b,a)`
 
 ```ts
 export class MusicPlayer {
-  constructor(engine: RetroEngine)
+  constructor(engine: Cathode)
 
   /** Load and play MML notation.
    *  Format: "C4:8 D4:4 REST:8 G4:4 | C3:4 REST:4 G3:4 REST:4"
@@ -881,7 +881,7 @@ export interface RaycastMapDef {
 }
 
 export class Raycaster {
-  constructor(engine: RetroEngine, map: RaycastMapDef)
+  constructor(engine: Cathode, map: RaycastMapDef)
 
   setTexture(wallType: number, imageUrl: string): Promise<void>
   setFloorColor(r: number, g: number, b: number): void
@@ -912,7 +912,7 @@ export class Raycaster {
 
 ```ts
 export class SaveManager {
-  constructor(engine: RetroEngine)
+  constructor(engine: Cathode)
 
   set(key: string, value: unknown, slot?: number): void
   get<T = unknown>(key: string, slot?: number): T | undefined
@@ -944,7 +944,7 @@ writes to max once per second.
 
 ```ts
 export class DebugOverlay {
-  constructor(engine: RetroEngine, scene: Scene)
+  constructor(engine: Cathode, scene: Scene)
 
   /** Toggle with F3 automatically, or call manually */
   toggle(): void
@@ -1231,7 +1231,7 @@ retro export rom-nes        ← generates cc65/NESLib project scaffold
 
 `retro export arm-linux` runs:
 ```bash
-cargo build -p retro-platform-native \
+cargo build -p cathode-platform-native \
   --target armv7-unknown-linux-gnueabihf \
   --release
 ```
@@ -1329,7 +1329,7 @@ Replace the current sparse architecture doc with a comprehensive one covering:
    empty function bodies, or `// ... implementation` comments.
 
 2. **Rust must pass `cargo check --workspace`** and
-   `cargo check -p retro-core -p retro-platform-web --target wasm32-unknown-unknown`.
+   `cargo check -p cathode-core -p cathode-platform-web --target wasm32-unknown-unknown`.
 
 3. **TypeScript must pass `tsc --noEmit --strict`** in all packages.
 

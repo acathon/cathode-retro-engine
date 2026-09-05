@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BitmapFont, RetroEngine, Scene, Sprite } from '@retro-engine/sdk';
+  import { BitmapFont, Cathode, Scene, Sprite } from '@cathode/sdk';
   import { project } from '../store/project';
   import { scene, type EntityDef, type SceneFile } from '../store/scene';
   import { selectedIds } from '../store/selection';
   import { livePreviewEnabled } from '../store/preview';
 
   let canvas: HTMLCanvasElement;
-  let engine: RetroEngine | null = null;
+  let engine: Cathode | null = null;
   let runtimeScene: Scene | null = null;
   let font: BitmapFont | null = null;
   let placeholderSheet = -1;
@@ -24,7 +24,7 @@
     return value;
   }
 
-  function createPlaceholderSheet(runtime: RetroEngine): number {
+  function createPlaceholderSheet(runtime: Cathode): number {
     const tileSize = 8;
     const cols = 4;
     const rows = 4;
@@ -67,11 +67,11 @@
     status = 'Starting runtime...';
 
     if (preset === 'gameboy') {
-      engine = await RetroEngine.gameboy(canvas, 1);
+      engine = await Cathode.gameboy(canvas, 1);
     } else if (preset === 'neogeo') {
-      engine = await RetroEngine.neogeo(canvas, 1);
+      engine = await Cathode.neogeo(canvas, 1);
     } else {
-      engine = await RetroEngine.nes(canvas, 1);
+      engine = await Cathode.nes(canvas, 1);
     }
 
     runtimeScene = new Scene(engine);

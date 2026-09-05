@@ -6,11 +6,11 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'RetroEngineSDK',
+      name: 'CathodeSDK',
       fileName: 'index'
     },
     rollupOptions: {
-      external: ['retro-platform-web']
+      external: ['cathode-platform-web']
     }
   },
   plugins: [dts()]

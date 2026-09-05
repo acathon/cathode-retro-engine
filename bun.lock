@@ -3,17 +3,17 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "retro-engine-monorepo",
+      "name": "cathode-monorepo",
       "devDependencies": {
         "typescript": "^5.5.0",
         "vite": "^5.3.0",
       },
     },
     "examples/demo-game": {
-      "name": "@retro-engine/demo-game",
+      "name": "@cathode/demo-game",
       "version": "0.1.0",
       "dependencies": {
-        "@retro-engine/sdk": "file:../../packages/sdk",
+        "@cathode/sdk": "file:../../packages/sdk",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -21,10 +21,10 @@
       },
     },
     "examples/doom-game": {
-      "name": "@retro-engine/doom-game",
+      "name": "@cathode/doom-game",
       "version": "0.1.0",
       "dependencies": {
-        "@retro-engine/sdk": "*",
+        "@cathode/sdk": "*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -32,10 +32,10 @@
       },
     },
     "examples/ice-hockey-game": {
-      "name": "@retro-engine/ice-hockey-game",
+      "name": "@cathode/ice-hockey-game",
       "version": "0.1.0",
       "dependencies": {
-        "@retro-engine/sdk": "*",
+        "@cathode/sdk": "*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -43,10 +43,10 @@
       },
     },
     "examples/metal-slug": {
-      "name": "@retro-engine/metal-slug",
+      "name": "@cathode/metal-slug",
       "version": "0.1.0",
       "dependencies": {
-        "@retro-engine/sdk": "*",
+        "@cathode/sdk": "*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -54,10 +54,10 @@
       },
     },
     "examples/space-game": {
-      "name": "@retro-engine/space-game",
+      "name": "@cathode/space-game",
       "version": "0.1.0",
       "dependencies": {
-        "@retro-engine/sdk": "*",
+        "@cathode/sdk": "*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -65,10 +65,10 @@
       },
     },
     "examples/tetris": {
-      "name": "@retro-engine/tetris",
+      "name": "@cathode/tetris",
       "version": "0.1.0",
       "dependencies": {
-        "@retro-engine/sdk": "*",
+        "@cathode/sdk": "*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -76,10 +76,10 @@
       },
     },
     "examples/trex-game": {
-      "name": "@retro-engine/trex-game",
+      "name": "@cathode/trex-game",
       "version": "0.1.0",
       "dependencies": {
-        "@retro-engine/sdk": "*",
+        "@cathode/sdk": "*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -87,7 +87,7 @@
       },
     },
     "packages/cli": {
-      "name": "@retro-engine/cli",
+      "name": "@cathode/cli",
       "version": "0.1.0",
       "bin": {
         "retro": "./dist/index.js",
@@ -105,14 +105,14 @@
       },
     },
     "packages/editor": {
-      "name": "@retro-engine/editor",
+      "name": "@cathode/editor",
       "version": "0.1.0",
       "devDependencies": {
         "vite": "^5.3.0",
       },
     },
     "packages/editor-desktop": {
-      "name": "@retro-engine/editor-desktop",
+      "name": "@cathode/editor-desktop",
       "version": "0.1.0",
       "dependencies": {
         "@tauri-apps/api": "^1.5.0",
@@ -127,10 +127,10 @@
       },
     },
     "packages/sdk": {
-      "name": "@retro-engine/sdk",
+      "name": "@cathode/sdk",
       "version": "0.1.0",
       "dependencies": {
-        "retro-platform-web": "file:../../crates/platform-web/pkg",
+        "cathode-platform-web": "file:../../crates/platform-web/pkg",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -212,27 +212,27 @@
 
     "@microsoft/tsdoc-config": ["@microsoft/tsdoc-config@0.16.2", "", { "dependencies": { "@microsoft/tsdoc": "0.14.2", "ajv": "~6.12.6", "jju": "~1.4.0", "resolve": "~1.19.0" } }, "sha512-OGiIzzoBLgWWR0UdRJX98oYO+XKGf7tiK4Zk6tQ/E4IJqGCe7dvkTvgDZV5cFJUzLGDOjeAXrnZoA6QkVySuxw=="],
 
-    "@retro-engine/cli": ["@retro-engine/cli@workspace:packages/cli"],
+    "@cathode/cli": ["@cathode/cli@workspace:packages/cli"],
 
-    "@retro-engine/demo-game": ["@retro-engine/demo-game@workspace:examples/demo-game"],
+    "@cathode/demo-game": ["@cathode/demo-game@workspace:examples/demo-game"],
 
-    "@retro-engine/doom-game": ["@retro-engine/doom-game@workspace:examples/doom-game"],
+    "@cathode/doom-game": ["@cathode/doom-game@workspace:examples/doom-game"],
 
-    "@retro-engine/editor": ["@retro-engine/editor@workspace:packages/editor"],
+    "@cathode/editor": ["@cathode/editor@workspace:packages/editor"],
 
-    "@retro-engine/editor-desktop": ["@retro-engine/editor-desktop@workspace:packages/editor-desktop"],
+    "@cathode/editor-desktop": ["@cathode/editor-desktop@workspace:packages/editor-desktop"],
 
-    "@retro-engine/ice-hockey-game": ["@retro-engine/ice-hockey-game@workspace:examples/ice-hockey-game"],
+    "@cathode/ice-hockey-game": ["@cathode/ice-hockey-game@workspace:examples/ice-hockey-game"],
 
-    "@retro-engine/metal-slug": ["@retro-engine/metal-slug@workspace:examples/metal-slug"],
+    "@cathode/metal-slug": ["@cathode/metal-slug@workspace:examples/metal-slug"],
 
-    "@retro-engine/sdk": ["@retro-engine/sdk@workspace:packages/sdk"],
+    "@cathode/sdk": ["@cathode/sdk@workspace:packages/sdk"],
 
-    "@retro-engine/space-game": ["@retro-engine/space-game@workspace:examples/space-game"],
+    "@cathode/space-game": ["@cathode/space-game@workspace:examples/space-game"],
 
-    "@retro-engine/tetris": ["@retro-engine/tetris@workspace:examples/tetris"],
+    "@cathode/tetris": ["@cathode/tetris@workspace:examples/tetris"],
 
-    "@retro-engine/trex-game": ["@retro-engine/trex-game@workspace:examples/trex-game"],
+    "@cathode/trex-game": ["@cathode/trex-game@workspace:examples/trex-game"],
 
     "@rollup/pluginutils": ["@rollup/pluginutils@5.3.0", "", { "dependencies": { "@types/estree": "^1.0.0", "estree-walker": "^2.0.2", "picomatch": "^4.0.2" }, "peerDependencies": { "rollup": "^1.20.0||^2.0.0||^3.0.0||^4.0.0" }, "optionalPeers": ["rollup"] }, "sha512-5EdhGZtnu3V88ces7s53hhfK5KSASnJZv8Lulpc04cWO3REESroJXg73DFsOmgbU2BhwV0E20bu2IDZb3VKW4Q=="],
 
@@ -610,9 +610,9 @@
 
     "@microsoft/tsdoc-config/resolve": ["resolve@1.19.0", "", { "dependencies": { "is-core-module": "^2.1.0", "path-parse": "^1.0.6" } }, "sha512-rArEXAgsBG4UgRGcynxWIWKFvh/XZCcS8UJdHhwy91zwAvCZIbcs+vAbflgBnNjYMs/i/i+/Ux6IZhML1yPvxg=="],
 
-    "@retro-engine/demo-game/@retro-engine/sdk": ["@retro-engine/sdk@file:packages/sdk", { "dependencies": { "retro-platform-web": "file:../../crates/platform-web/pkg" }, "devDependencies": { "typescript": "^5.5.0", "vite": "^5.3.0", "vite-plugin-dts": "^3.9.1" } }],
+    "@cathode/demo-game/@cathode/sdk": ["@cathode/sdk@file:packages/sdk", { "dependencies": { "cathode-platform-web": "file:../../crates/platform-web/pkg" }, "devDependencies": { "typescript": "^5.5.0", "vite": "^5.3.0", "vite-plugin-dts": "^3.9.1" } }],
 
-    "@retro-engine/sdk/retro-platform-web": ["retro-platform-web@file:crates/platform-web/pkg", {}],
+    "@cathode/sdk/cathode-platform-web": ["cathode-platform-web@file:crates/platform-web/pkg", {}],
 
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
 
@@ -634,7 +634,7 @@
 
     "z-schema/commander": ["commander@10.0.1", "", {}, "sha512-y4Mg2tXshplEbSGzx7amzPwKKOCGuoSRP/CjEdwwk0FOGlUbq6lKuoyDZTNZkmxHdJtp54hdfY/JUrdL7Xfdug=="],
 
-    "@retro-engine/demo-game/@retro-engine/sdk/retro-platform-web": ["retro-platform-web@file:crates\\platform-web\\pkg", {}],
+    "@cathode/demo-game/@cathode/sdk/cathode-platform-web": ["cathode-platform-web@file:crates\\platform-web\\pkg", {}],
 
     "@rushstack/node-core-library/fs-extra/jsonfile": ["jsonfile@4.0.0", "", { "optionalDependencies": { "graceful-fs": "^4.1.6" } }, "sha512-m6F1R3z8jjlf2imQHS2Qez5sjKWQzbuuhuJ/FKYFRZvPE3PuHcSMVZzfsLhGVOkfd20obL5SWEBew5ShlquNxg=="],
 

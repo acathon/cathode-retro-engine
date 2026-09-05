@@ -1,4 +1,4 @@
-import { RetroEngine, SoundChannel } from '@retro-engine/sdk';
+import { Cathode, SoundChannel } from '@cathode/sdk';
 
 type Team = 'home' | 'away';
 type Role = 'skater' | 'goalie';
@@ -240,7 +240,7 @@ async function init(): Promise<void> {
     throw new Error('Game canvases are missing');
   }
 
-  const engine = await RetroEngine.nes(gameCanvas, SCALE);
+  const engine = await Cathode.nes(gameCanvas, SCALE);
   const rawCtx = overlayCanvas.getContext('2d');
   if (!rawCtx) throw new Error('Failed to create overlay context');
   const ctx: CanvasRenderingContext2D = rawCtx;

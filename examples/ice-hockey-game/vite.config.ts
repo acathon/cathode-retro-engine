@@ -8,6 +8,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['@retro-engine/sdk', 'retro-platform-web'],
+    exclude: ['@cathode/sdk', 'cathode-platform-web'],
   },
 });

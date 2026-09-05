@@ -1,5 +1,5 @@
 {
-  "name": "@retro-engine/studio",
+  "name": "@cathode/studio",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@retro-engine/blocks": "file:../blocks",
-    "@retro-engine/sdk": "file:../sdk",
+    "@cathode/blocks": "file:../blocks",
+    "@cathode/sdk": "file:../sdk",
     "blockly": "^11.2.0"
   },
   "devDependencies": {

@@ -260,6 +260,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "cathode-core"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "hecs",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "cathode-platform-native"
+version = "0.1.0"
+dependencies = [
+ "cathode-core",
+ "cpal",
+ "gilrs",
+ "log",
+ "pixels",
+ "serde_json",
+ "winit",
+]
+
+[[package]]
+name = "cathode-platform-web"
+version = "0.1.0"
+dependencies = [
+ "cathode-core",
+ "console_error_panic_hook",
+ "glam",
+ "hecs",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1507,47 +1548,6 @@ name = "renderdoc-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
-
-[[package]]
-name = "retro-core"
-version = "0.1.0"
-dependencies = [
- "glam",
- "hecs",
- "log",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "retro-platform-native"
-version = "0.1.0"
-dependencies = [
- "cpal",
- "gilrs",
- "log",
- "pixels",
- "retro-core",
- "serde_json",
- "winit",
-]
-
-[[package]]
-name = "retro-platform-web"
-version = "0.1.0"
-dependencies = [
- "console_error_panic_hook",
- "glam",
- "hecs",
- "js-sys",
- "retro-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
- "web-sys",
-]
 
 [[package]]
 name = "rustc-demangle"

@@ -1,4 +1,4 @@
-import { RetroEngine, SoundChannel } from '@retro-engine/sdk';
+import { Cathode, SoundChannel } from '@cathode/sdk';
 
 // ─── Constants ───────────────────────────────────────────────────────
 const W = 160;
@@ -70,7 +70,7 @@ function drawGhostBlock(ctx: CanvasRenderingContext2D, x: number, y: number) {
 // ─── Init ────────────────────────────────────────────────────────────
 async function init() {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
-  const engine = await RetroEngine.gameboy(canvas, 3);
+  const engine = await Cathode.gameboy(canvas, 3);
 
   // Overlay canvas where we draw everything (bypasses WASM sprite limit)
   const hudCanvas = document.getElementById('hud') as HTMLCanvasElement;

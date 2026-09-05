@@ -25,8 +25,8 @@ function program(partial: Partial<BlockProgram> = {}): BlockProgram {
 describe('generated program shape', () => {
   it('emits a runnable skeleton that imports the SDK', () => {
     const code = generateTypeScript(program());
-    expect(code).toContain("from '@retro-engine/sdk'");
-    expect(code).toContain('RetroEngine.nes(canvas, 3)');
+    expect(code).toContain("from '@cathode/sdk'");
+    expect(code).toContain('Cathode.nes(canvas, 3)');
     expect(code).toContain('engine.loop((dt) => {');
     expect(code).toContain('main();');
   });

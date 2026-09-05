@@ -79,13 +79,13 @@ Run the smallest meaningful validation set for the area you changed.
 ### Core engine and native runtime
 
 ```bash
-cargo test -p retro-core -p retro-platform-native
+cargo test -p cathode-core -p cathode-platform-native
 ```
 
 ### Web platform bindings
 
 ```bash
-cargo check -p retro-platform-web --target wasm32-unknown-unknown
+cargo check -p cathode-platform-web --target wasm32-unknown-unknown
 ```
 
 ### Desktop editor

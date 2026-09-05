@@ -1,7 +1,7 @@
 import type { BlockProgram, Expr, KeyName, Stmt } from './program';
 
 /**
- * Turns a block program into readable TypeScript that uses the Retro Engine
+ * Turns a block program into readable TypeScript that uses the Cathode
  * SDK directly.
  *
  * This is the reason blocks aren't a dead end: a beginner builds by dragging,
@@ -139,13 +139,13 @@ export function generateTypeScript(program: BlockProgram): string {
   const out: string[] = [];
   const varNames = Object.keys(program.variables);
 
-  out.push(`// Generated from blocks by the Retro Engine block editor.`);
-  out.push(`import { RetroEngine, Scene, Sprite, SoundChannel } from '@retro-engine/sdk';`);
+  out.push(`// Generated from blocks by the Cathode block editor.`);
+  out.push(`import { Cathode, Scene, Sprite, SoundChannel } from '@cathode/sdk';`);
   out.push('');
   out.push(`const canvas = document.getElementById('game') as HTMLCanvasElement;`);
   out.push('');
   out.push(`async function main() {`);
-  out.push(`${ind(1)}const engine = await RetroEngine.nes(canvas, 3);`);
+  out.push(`${ind(1)}const engine = await Cathode.nes(canvas, 3);`);
   out.push(`${ind(1)}const scene = new Scene(engine);`);
   out.push(`${ind(1)}const sfx = new SoundChannel(engine, 0);`);
   out.push(`${ind(1)}const wait = (s: number) => new Promise((r) => setTimeout(r, s * 1000));`);

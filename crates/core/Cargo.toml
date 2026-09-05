@@ -1,8 +1,8 @@
 [package]
-name = "retro-core"
+name = "cathode-core"
 version = "0.1.0"
 edition = "2021"
-authors = ["Retro Engine Contributors"]
+authors = ["Cathode Contributors"]
 
 [dependencies]
 log = { workspace = true }

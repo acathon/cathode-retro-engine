@@ -1,4 +1,4 @@
-// ─── Retro Engine Editor v2 ───
+// ─── Cathode Editor v2 ───
 // Production-ready tilemap editor with undo/redo, multi-map, pan/zoom,
 // layer management, minimap, autosave, keyboard shortcuts, and more.
 

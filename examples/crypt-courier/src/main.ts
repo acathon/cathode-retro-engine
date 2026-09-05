@@ -6,7 +6,7 @@
  * them all and the golden door unseals, which is done by rebuilding the
  * raycast map with that cell opened and restoring the camera where it stood.
  */
-import { RetroEngine, Raycaster, SoundChannel } from '@retro-engine/sdk';
+import { Cathode, Raycaster, SoundChannel } from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const minimap = document.getElementById('minimap') as HTMLCanvasElement;
@@ -172,7 +172,7 @@ function relicTexture(): Uint8Array {
 
 // --- Game ------------------------------------------------------------------
 async function initGame() {
-  const engine = await RetroEngine.nes(canvas, 3);
+  const engine = await Cathode.nes(canvas, 3);
 
   const sfx = new SoundChannel(engine, 0);
   const amb = new SoundChannel(engine, 1);

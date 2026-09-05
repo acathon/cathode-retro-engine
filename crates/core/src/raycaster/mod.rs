@@ -432,6 +432,230 @@ impl RaycastRenderer {
     }
 }
 
+/// A wall hit found by [`RaycastRenderer::cast_ray`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct WallHit {
+    /// Distance from the ray origin, in map cells.
+    pub distance: f32,
+    /// The non-zero cell value that stopped the ray.
+    pub tile: u8,
+    /// Grid coordinates of that cell.
+    pub cell: (i32, i32),
+    /// True when the ray entered through a north/south face.
+    pub vertical: bool,
+}
+
+/// A billboard struck by [`RaycastRenderer::hitscan`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BillboardHit {
+    /// Id passed to [`RaycastRenderer::add_billboard`].
+    pub id: u32,
+    /// Distance from the ray origin, in map cells.
+    pub distance: f32,
+    /// Where the ray passed closest to the billboard's centre.
+    pub point: Vec2,
+}
+
+/// The result of firing a shot: what it hit first, and where it stopped.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Hitscan {
+    /// The wall that bounded the shot, if the ray reached one.
+    pub wall: Option<WallHit>,
+    /// The nearest billboard in front of that wall, if any.
+    pub billboard: Option<BillboardHit>,
+    /// Where the shot ends: the billboard if one was struck, else the wall,
+    /// else `max_distance` along the ray.
+    pub point: Vec2,
+}
+
+impl RaycastRenderer {
+    /// Walk the DDA from `origin` along `angle` until a solid cell or
+    /// `max_distance` is reached.
+    ///
+    /// This is the same traversal the renderer uses for a screen column, so a
+    /// shot can never disagree with what the player sees on screen.
+    pub fn cast_ray(&self, origin: Vec2, angle: f32, max_distance: f32) -> Option<WallHit> {
+        let ray_dir = Vec2::new(angle.cos(), angle.sin());
+        let mut map_pos = (origin.x.floor() as i32, origin.y.floor() as i32);
+
+        // A ray fired from inside a wall has nowhere to travel.
+        if self.map.get(map_pos.0, map_pos.1) != 0 {
+            return Some(WallHit {
+                distance: 0.0,
+                tile: self.map.get(map_pos.0, map_pos.1),
+                cell: map_pos,
+                vertical: false,
+            });
+        }
+
+        let delta_dist_x = if ray_dir.x.abs() < 1e-10 {
+            f32::MAX
+        } else {
+            (1.0 / ray_dir.x).abs()
+        };
+        let delta_dist_y = if ray_dir.y.abs() < 1e-10 {
+            f32::MAX
+        } else {
+            (1.0 / ray_dir.y).abs()
+        };
+
+        let (step_x, mut side_dist_x) = if ray_dir.x < 0.0 {
+            (-1, (origin.x - map_pos.0 as f32) * delta_dist_x)
+        } else {
+            (1, (map_pos.0 as f32 + 1.0 - origin.x) * delta_dist_x)
+        };
+        let (step_y, mut side_dist_y) = if ray_dir.y < 0.0 {
+            (-1, (origin.y - map_pos.1 as f32) * delta_dist_y)
+        } else {
+            (1, (map_pos.1 as f32 + 1.0 - origin.y) * delta_dist_y)
+        };
+
+        // Two steps per cell crossed, plus slack for a ray starting outside.
+        let span = (self.map.cols + self.map.rows) as usize * 2 + 8;
+
+        for _ in 0..span {
+            let vertical = side_dist_x < side_dist_y;
+            let distance = if vertical { side_dist_x } else { side_dist_y };
+
+            if vertical {
+                side_dist_x += delta_dist_x;
+                map_pos.0 += step_x;
+            } else {
+                side_dist_y += delta_dist_y;
+                map_pos.1 += step_y;
+            }
+
+            if distance > max_distance {
+                return None;
+            }
+
+            let tile = self.map.get(map_pos.0, map_pos.1);
+            if tile != 0 {
+                return Some(WallHit {
+                    distance,
+                    tile,
+                    cell: map_pos,
+                    vertical,
+                });
+            }
+        }
+
+        None
+    }
+
+    /// True when nothing solid stands between `from` and `to`.
+    ///
+    /// Bots use this to decide whether they can see the player; a shot uses
+    /// [`hitscan`](Self::hitscan) instead, which also reports what it struck.
+    pub fn line_of_sight(&self, from: Vec2, to: Vec2) -> bool {
+        let delta = to - from;
+        let distance = delta.length();
+        if distance < 1e-6 {
+            return true;
+        }
+        match self.cast_ray(from, delta.y.atan2(delta.x), distance) {
+            // A wall further away than the target does not block it.
+            Some(hit) => hit.distance >= distance,
+            None => true,
+        }
+    }
+
+    /// Fire a shot and report the first thing it hits.
+    ///
+    /// Billboards are treated as discs of `radius` cells facing the shooter,
+    /// which is how sprite enemies are hit in the raycaster games of the era:
+    /// close enough to be fair, cheap enough to run for every bullet.
+    /// `ignore` skips one billboard so a shooter cannot hit itself.
+    pub fn hitscan(
+        &self,
+        origin: Vec2,
+        angle: f32,
+        max_distance: f32,
+        radius: f32,
+        ignore: Option<u32>,
+    ) -> Hitscan {
+        let dir = Vec2::new(angle.cos(), angle.sin());
+        let wall = self.cast_ray(origin, angle, max_distance);
+        let limit = wall.map(|w| w.distance).unwrap_or(max_distance);
+
+        let mut billboard: Option<BillboardHit> = None;
+        for bb in &self.billboards {
+            if Some(bb.id) == ignore {
+                continue;
+            }
+            let to_bb = bb.pos - origin;
+            // Distance along the ray at which we pass the billboard.
+            let along = to_bb.dot(dir);
+            if along <= 0.0 || along > limit {
+                continue;
+            }
+            if (to_bb - dir * along).length() > radius {
+                continue;
+            }
+            if billboard.is_none_or(|best| along < best.distance) {
+                billboard = Some(BillboardHit {
+                    id: bb.id,
+                    distance: along,
+                    point: origin + dir * along,
+                });
+            }
+        }
+
+        let point = match (billboard, wall) {
+            (Some(b), _) => b.point,
+            (None, Some(w)) => origin + dir * w.distance,
+            (None, None) => origin + dir * max_distance,
+        };
+
+        Hitscan {
+            wall,
+            billboard,
+            point,
+        }
+    }
+
+    /// Slide a circle of `radius` from `pos` by `delta`, stopping at walls.
+    ///
+    /// The camera's own movement keeps a point-sized player, which lets it
+    /// graze corners. Anything that shares the map with the player — a bot, a
+    /// rolling ball — wants a body with width, so it gets its own resolver.
+    pub fn slide_circle(&self, pos: Vec2, delta: Vec2, radius: f32) -> Vec2 {
+        let mut out = pos;
+
+        let try_x = out.x + delta.x;
+        let edge_x = try_x + radius * delta.x.signum();
+        if delta.x != 0.0
+            && self
+                .map
+                .get(edge_x.floor() as i32, (out.y - radius).floor() as i32)
+                == 0
+            && self
+                .map
+                .get(edge_x.floor() as i32, (out.y + radius).floor() as i32)
+                == 0
+        {
+            out.x = try_x;
+        }
+
+        let try_y = out.y + delta.y;
+        let edge_y = try_y + radius * delta.y.signum();
+        if delta.y != 0.0
+            && self
+                .map
+                .get((out.x - radius).floor() as i32, edge_y.floor() as i32)
+                == 0
+            && self
+                .map
+                .get((out.x + radius).floor() as i32, edge_y.floor() as i32)
+                == 0
+        {
+            out.y = try_y;
+        }
+
+        out
+    }
+}
+
 fn lerp_u8(a: u8, b: u8, t: f32) -> u8 {
     (a as f32 + (b as f32 - a as f32) * t) as u8
 }
@@ -696,5 +920,170 @@ mod tests {
         assert_eq!(lerp_u8(0, 255, 0.0), 0);
         assert_eq!(lerp_u8(0, 255, 1.0), 255);
         assert!((126..=128).contains(&lerp_u8(0, 255, 0.5)));
+    }
+
+    // --- Hitscan, line of sight, circle sliding --------------------------
+
+    /// A 7x7 hall with a single pillar at (3,3).
+    fn hall() -> RaycastRenderer {
+        let mut cells = vec![0u8; 49];
+        for i in 0..7 {
+            cells[i] = 1;
+            cells[42 + i] = 1;
+            cells[i * 7] = 1;
+            cells[i * 7 + 6] = 1;
+        }
+        cells[3 * 7 + 3] = 2; // pillar, a different wall type
+        RaycastRenderer::new(RaycastMap::new(7, 7, cells))
+    }
+
+    #[test]
+    fn a_ray_stops_at_the_first_wall_and_reports_it() {
+        let rc = hall();
+        // Fired east down row 1: the border at x=6 is 4.5 cells away.
+        let hit = rc.cast_ray(Vec2::new(1.5, 1.5), 0.0, 20.0).unwrap();
+        assert_eq!(hit.cell, (6, 1));
+        assert_eq!(hit.tile, 1);
+        assert!(hit.vertical, "entered through an east/west face");
+        assert!((hit.distance - 4.5).abs() < 1e-3, "{}", hit.distance);
+    }
+
+    #[test]
+    fn a_ray_reports_the_wall_type_it_struck() {
+        let rc = hall();
+        // Fired east down row 3, straight into the pillar.
+        let hit = rc.cast_ray(Vec2::new(1.5, 3.5), 0.0, 20.0).unwrap();
+        assert_eq!(hit.cell, (3, 3));
+        assert_eq!(hit.tile, 2, "the pillar, not the far border");
+    }
+
+    #[test]
+    fn a_ray_shorter_than_the_wall_finds_nothing() {
+        let rc = hall();
+        assert!(rc.cast_ray(Vec2::new(1.5, 1.5), 0.0, 2.0).is_none());
+    }
+
+    #[test]
+    fn a_ray_fired_from_inside_a_wall_hits_at_zero() {
+        let rc = hall();
+        let hit = rc.cast_ray(Vec2::new(0.5, 0.5), 0.0, 10.0).unwrap();
+        assert_eq!(hit.distance, 0.0);
+        assert_eq!(hit.cell, (0, 0));
+    }
+
+    #[test]
+    fn line_of_sight_is_clear_down_an_open_row() {
+        let rc = hall();
+        assert!(rc.line_of_sight(Vec2::new(1.5, 1.5), Vec2::new(5.5, 1.5)));
+    }
+
+    #[test]
+    fn line_of_sight_is_broken_by_the_pillar() {
+        let rc = hall();
+        assert!(!rc.line_of_sight(Vec2::new(1.5, 3.5), Vec2::new(5.5, 3.5)));
+    }
+
+    #[test]
+    fn line_of_sight_to_yourself_is_always_clear() {
+        let rc = hall();
+        let here = Vec2::new(1.5, 1.5);
+        assert!(rc.line_of_sight(here, here));
+    }
+
+    #[test]
+    fn a_shot_hits_the_billboard_standing_in_front_of_the_wall() {
+        let mut rc = hall();
+        rc.add_billboard(7, 4.5, 1.5, 0, 1.0);
+        let shot = rc.hitscan(Vec2::new(1.5, 1.5), 0.0, 20.0, 0.4, None);
+
+        let bb = shot.billboard.expect("should hit the billboard");
+        assert_eq!(bb.id, 7);
+        assert!((bb.distance - 3.0).abs() < 1e-3, "{}", bb.distance);
+        assert!(
+            (shot.point.x - 4.5).abs() < 1e-3,
+            "shot ends at the target, not the wall"
+        );
+    }
+
+    #[test]
+    fn a_shot_misses_a_billboard_outside_the_hit_radius() {
+        let mut rc = hall();
+        rc.add_billboard(7, 4.5, 2.4, 0, 1.0); // ~0.9 cells off the ray
+        let shot = rc.hitscan(Vec2::new(1.5, 1.5), 0.0, 20.0, 0.4, None);
+        assert!(shot.billboard.is_none());
+        assert_eq!(shot.wall.map(|w| w.cell), Some((6, 1)));
+    }
+
+    #[test]
+    fn a_wall_shields_the_billboard_behind_it() {
+        let mut rc = hall();
+        rc.add_billboard(7, 5.5, 3.5, 0, 1.0); // beyond the pillar at (3,3)
+        let shot = rc.hitscan(Vec2::new(1.5, 3.5), 0.0, 20.0, 0.5, None);
+        assert!(shot.billboard.is_none(), "the pillar is in the way");
+        assert_eq!(shot.wall.map(|w| w.tile), Some(2));
+    }
+
+    #[test]
+    fn a_shot_picks_the_nearest_of_several_billboards() {
+        let mut rc = hall();
+        rc.add_billboard(1, 4.5, 1.5, 0, 1.0);
+        rc.add_billboard(2, 2.5, 1.5, 0, 1.0);
+        let shot = rc.hitscan(Vec2::new(1.5, 1.5), 0.0, 20.0, 0.4, None);
+        assert_eq!(shot.billboard.map(|b| b.id), Some(2));
+    }
+
+    #[test]
+    fn a_shooter_does_not_hit_its_own_billboard() {
+        let mut rc = hall();
+        rc.add_billboard(1, 1.5, 1.5, 0, 1.0); // standing on the muzzle
+        rc.add_billboard(2, 4.5, 1.5, 0, 1.0);
+        let shot = rc.hitscan(Vec2::new(1.5, 1.5), 0.0, 20.0, 0.4, Some(1));
+        assert_eq!(shot.billboard.map(|b| b.id), Some(2));
+    }
+
+    #[test]
+    fn a_billboard_behind_the_shooter_is_never_hit() {
+        let mut rc = hall();
+        rc.add_billboard(1, 1.5, 1.5, 0, 1.0);
+        // Fired east from x=2.5, so the billboard sits behind the muzzle.
+        let shot = rc.hitscan(Vec2::new(2.5, 1.5), 0.0, 20.0, 0.4, None);
+        assert!(shot.billboard.is_none());
+    }
+
+    #[test]
+    fn a_shot_that_runs_out_of_range_ends_in_mid_air() {
+        let rc = hall();
+        // The border is 4.5 cells east; the shot only carries 2.
+        let shot = rc.hitscan(Vec2::new(1.5, 1.5), 0.0, 2.0, 0.4, None);
+        assert!(shot.wall.is_none() && shot.billboard.is_none());
+        assert!((shot.point.x - 3.5).abs() < 1e-3, "{:?}", shot.point);
+    }
+
+    #[test]
+    fn a_circle_stops_before_the_wall_touches_it() {
+        let rc = hall();
+        // Walking east along row 1 towards the border at x=6.
+        let moved = rc.slide_circle(Vec2::new(5.5, 1.5), Vec2::new(0.4, 0.0), 0.3);
+        assert_eq!(moved.x, 5.5, "0.3 radius + 0.4 step reaches into the wall");
+    }
+
+    #[test]
+    fn a_circle_slides_along_a_wall_it_is_pressed_into() {
+        let rc = hall();
+        // Pushing north-east into the top border: the y move is refused, the
+        // x move still happens.
+        let moved = rc.slide_circle(Vec2::new(3.5, 1.4), Vec2::new(0.2, -0.3), 0.25);
+        assert!((moved.x - 3.7).abs() < 1e-4, "x should slide: {moved:?}");
+        assert!(
+            (moved.y - 1.4).abs() < 1e-4,
+            "y should be blocked: {moved:?}"
+        );
+    }
+
+    #[test]
+    fn a_circle_moves_freely_through_open_space() {
+        let rc = hall();
+        let moved = rc.slide_circle(Vec2::new(1.5, 1.5), Vec2::new(0.3, 0.4), 0.2);
+        assert!((moved - Vec2::new(1.8, 1.9)).length() < 1e-4, "{moved:?}");
     }
 }

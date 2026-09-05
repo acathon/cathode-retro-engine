@@ -1,12 +1,12 @@
 import {
-  RetroEngine,
+  Cathode,
   Scene,
   Raycaster,
   BitmapFont,
   SaveManager,
   SoundChannel,
   MusicPlayer,
-} from '@retro-engine/sdk';
+} from '@cathode/sdk';
 
 // ─── Procedural Textures (64×64 for more detail) ────────────────────
 
@@ -193,7 +193,7 @@ const pickups: Pickup[] = [
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function bootstrap() {
-  const engine = await RetroEngine.nes(canvas, 2);
+  const engine = await Cathode.nes(canvas, 2);
   const scene = new Scene(engine);
   const raycaster = new Raycaster(engine, { cols: MC, rows: MR, cells: MAP });
 

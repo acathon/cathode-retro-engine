@@ -1,5 +1,5 @@
 /**
- * Blockly block definitions and the toolbox for the Retro Engine.
+ * Blockly block definitions and the toolbox for the Cathode.
  *
  * Kept as plain data so this package stays free of a Blockly import: the
  * editor app registers these, and the tests can read them without pulling a

@@ -8,11 +8,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@retro-engine/sdk': resolve(__dirname, '../../packages/sdk/src/index.ts'),
-      'retro-platform-web': resolve(__dirname, '../../packages/sdk/wasm/retro_platform_web.js'),
+      '@cathode/sdk': resolve(__dirname, '../../packages/sdk/src/index.ts'),
+      'cathode-platform-web': resolve(__dirname, '../../packages/sdk/wasm/cathode_platform_web.js'),
     },
   },
   optimizeDeps: {
-    exclude: ['@retro-engine/sdk', 'retro-platform-web'],
+    exclude: ['@cathode/sdk', 'cathode-platform-web'],
   },
 });

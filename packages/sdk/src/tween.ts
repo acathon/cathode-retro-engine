@@ -1,4 +1,4 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 import { Sprite } from './sprite';
 
 export type EaseName =
@@ -28,7 +28,7 @@ export class Tween {
   private _destroyed = false;
 
   constructor(
-    private engine: RetroEngine,
+    private engine: Cathode,
     from: number,
     to: number,
     durationSecs: number,

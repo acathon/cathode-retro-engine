@@ -1,5 +1,5 @@
 import { Scene } from './scene';
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 
 export interface EmitConfig {
   angle?: number;
@@ -37,7 +37,7 @@ function configToJson(config: EmitConfig = {}): string {
 
 export class ParticleEmitter {
   private handle: number;
-  private eng: RetroEngine;
+  private eng: Cathode;
   private _destroyed = false;
 
   constructor(scene: Scene, maxParticles = 200) {

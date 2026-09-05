@@ -1,5 +1,5 @@
 {
-  "name": "@retro-engine/crypt-courier",
+  "name": "@cathode/crypt-courier",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@retro-engine/sdk": "file:../../packages/sdk"
+    "@cathode/sdk": "file:../../packages/sdk"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

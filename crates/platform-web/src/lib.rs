@@ -1,7 +1,7 @@
-use retro_core::config::EngineConfig;
-use retro_core::ecs::{Collider, GamepadState, Position, SpriteIndex, Velocity};
-use retro_core::renderer::tilemap::TileMap;
-use retro_core::Engine;
+use cathode_core::config::EngineConfig;
+use cathode_core::ecs::{Collider, GamepadState, Position, SpriteIndex, Velocity};
+use cathode_core::renderer::tilemap::TileMap;
+use cathode_core::Engine;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::Clamped;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
@@ -97,7 +97,7 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn upload_sheet(&mut self, w: u32, h: u32, tw: u32, th: u32, pixels: Vec<u8>) -> u32 {
-        let sheet = retro_core::assets::SpriteSheet::from_rgba(w, h, tw, th, pixels);
+        let sheet = cathode_core::assets::SpriteSheet::from_rgba(w, h, tw, th, pixels);
         self.engine.assets.add_sheet(sheet)
     }
 
@@ -144,7 +144,7 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn set_bg_color(&mut self, r: u8, g: u8, b: u8) {
-        self.engine.renderer.bg_color = retro_core::renderer::palette::Color::rgb(r, g, b);
+        self.engine.renderer.bg_color = cathode_core::renderer::palette::Color::rgb(r, g, b);
     }
 
     #[wasm_bindgen]
@@ -248,12 +248,12 @@ impl WebEngine {
     #[wasm_bindgen]
     pub fn audio_play(&mut self, ch: usize, freq: f32, waveform: u8, vol: f32) {
         let wf = match waveform {
-            0 => retro_core::audio::Waveform::Pulse25,
-            1 => retro_core::audio::Waveform::Pulse50,
-            2 => retro_core::audio::Waveform::Triangle,
-            3 => retro_core::audio::Waveform::Sawtooth,
-            4 => retro_core::audio::Waveform::Noise,
-            _ => retro_core::audio::Waveform::Sine,
+            0 => cathode_core::audio::Waveform::Pulse25,
+            1 => cathode_core::audio::Waveform::Pulse50,
+            2 => cathode_core::audio::Waveform::Triangle,
+            3 => cathode_core::audio::Waveform::Sawtooth,
+            4 => cathode_core::audio::Waveform::Noise,
+            _ => cathode_core::audio::Waveform::Sine,
         };
         self.engine.audio.play(ch, freq, wf, vol);
     }
@@ -289,14 +289,14 @@ impl WebEngine {
     ) {
         if let Some(channel) = self.engine.audio.channels.get_mut(ch) {
             channel.envelope =
-                retro_core::audio::envelope::Envelope::new(attack, decay, sustain, release);
+                cathode_core::audio::envelope::Envelope::new(attack, decay, sustain, release);
         }
     }
 
     #[wasm_bindgen]
     pub fn audio_set_envelope_preset(&mut self, ch: usize, preset: &str) {
         if let Some(channel) = self.engine.audio.channels.get_mut(ch) {
-            channel.envelope = retro_core::audio::envelope::Envelope::from_preset(preset);
+            channel.envelope = cathode_core::audio::envelope::Envelope::from_preset(preset);
         }
     }
 
@@ -350,10 +350,10 @@ impl WebEngine {
                     "entity_a": e.entity_a.to_bits().get(),
                     "entity_b": e.entity_b.to_bits().get(),
                     "side": match e.side {
-                        retro_core::collision::CollisionSide::Top => "top",
-                        retro_core::collision::CollisionSide::Bottom => "bottom",
-                        retro_core::collision::CollisionSide::Left => "left",
-                        retro_core::collision::CollisionSide::Right => "right",
+                        cathode_core::collision::CollisionSide::Top => "top",
+                        cathode_core::collision::CollisionSide::Bottom => "bottom",
+                        cathode_core::collision::CollisionSide::Left => "left",
+                        cathode_core::collision::CollisionSide::Right => "right",
                     },
                     "overlap_x": e.overlap.x,
                     "overlap_y": e.overlap.y,
@@ -377,12 +377,12 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn set_camera_bounds(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.engine.camera.bounds = Some(retro_core::camera::Rect::new(x, y, w, h));
+        self.engine.camera.bounds = Some(cathode_core::camera::Rect::new(x, y, w, h));
     }
 
     #[wasm_bindgen]
     pub fn set_camera_dead_zone(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.engine.camera.dead_zone = Some(retro_core::camera::Rect::new(x, y, w, h));
+        self.engine.camera.dead_zone = Some(cathode_core::camera::Rect::new(x, y, w, h));
     }
 
     #[wasm_bindgen]
@@ -407,7 +407,7 @@ impl WebEngine {
     #[wasm_bindgen]
     pub fn emitter_burst(&mut self, handle: u32, x: f32, y: f32, count: u32, config_json: &str) {
         if let Some(emitter) = self.engine.emitter_mut(handle) {
-            let config: retro_core::particles::EmitConfig =
+            let config: cathode_core::particles::EmitConfig =
                 serde_json::from_str(config_json).unwrap_or_default();
             emitter.burst(glam::Vec2::new(x, y), count, &config);
         }
@@ -437,7 +437,7 @@ impl WebEngine {
         repeat: bool,
         yoyo: bool,
     ) -> u32 {
-        let ease = retro_core::tween::EaseFn::from_id(ease_id);
+        let ease = cathode_core::tween::EaseFn::from_id(ease_id);
         self.engine
             .tweens
             .create(from, to, duration_secs, ease, repeat, yoyo)
@@ -538,7 +538,7 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn sequencer_load_mml(&mut self, mml: &str, bpm: f32) {
-        let pattern = retro_core::audio::sequencer::Sequencer::parse_mml(mml, bpm);
+        let pattern = cathode_core::audio::sequencer::Sequencer::parse_mml(mml, bpm);
         self.engine.sequencer.load(pattern);
     }
 
@@ -573,18 +573,18 @@ impl WebEngine {
                 .as_array()
                 .map(|arr| arr.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect())
                 .unwrap_or_else(|| vec![0; (cols * rows) as usize]);
-            let map = retro_core::raycaster::RaycastMap::new(cols, rows, cells);
-            self.engine.raycaster = Some(retro_core::raycaster::RaycastRenderer::new(map));
+            let map = cathode_core::raycaster::RaycastMap::new(cols, rows, cells);
+            self.engine.raycaster = Some(cathode_core::raycaster::RaycastRenderer::new(map));
         }
     }
 
     #[wasm_bindgen]
     pub fn raycaster_set_texture(&mut self, wall_type: u8, pixels: Vec<u8>, size: u32) {
         if let Some(rc) = &mut self.engine.raycaster {
-            let tex = retro_core::raycaster::WallTexture { pixels, size };
+            let tex = cathode_core::raycaster::WallTexture { pixels, size };
             let idx = (wall_type as usize).saturating_sub(1);
             while rc.textures.len() <= idx {
-                rc.textures.push(retro_core::raycaster::WallTexture {
+                rc.textures.push(cathode_core::raycaster::WallTexture {
                     pixels: Vec::new(),
                     size: 0,
                 });
@@ -675,6 +675,130 @@ impl WebEngine {
         }
     }
 
+    /// Fire a shot from `(x, y)` along `angle` and report what it hit.
+    ///
+    /// Returned flat so no object crosses the WASM boundary per bullet:
+    /// `[hitWall, wallDist, wallTile, hitBillboard, billboardId,
+    ///   billboardDist, endX, endY]`, with the boolean slots as 0 or 1.
+    #[wasm_bindgen]
+    pub fn raycaster_hitscan(
+        &self,
+        x: f32,
+        y: f32,
+        angle: f32,
+        max_distance: f32,
+        radius: f32,
+        ignore: i32,
+    ) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(8);
+        let Some(rc) = &self.engine.raycaster else {
+            return arr;
+        };
+        let shot = rc.hitscan(
+            glam::Vec2::new(x, y),
+            angle,
+            max_distance,
+            radius,
+            // A negative id means "ignore nothing"; ids themselves are u32.
+            if ignore < 0 {
+                None
+            } else {
+                Some(ignore as u32)
+            },
+        );
+        let wall = shot.wall;
+        let bb = shot.billboard;
+        arr.copy_from(&[
+            wall.is_some() as u8 as f32,
+            wall.map(|w| w.distance).unwrap_or(-1.0),
+            wall.map(|w| w.tile as f32).unwrap_or(0.0),
+            bb.is_some() as u8 as f32,
+            bb.map(|b| b.id as f32).unwrap_or(-1.0),
+            bb.map(|b| b.distance).unwrap_or(-1.0),
+            shot.point.x,
+            shot.point.y,
+        ]);
+        arr
+    }
+
+    /// True when nothing solid stands between the two points.
+    #[wasm_bindgen]
+    pub fn raycaster_line_of_sight(&self, x0: f32, y0: f32, x1: f32, y1: f32) -> bool {
+        self.engine
+            .raycaster
+            .as_ref()
+            .is_some_and(|rc| rc.line_of_sight(glam::Vec2::new(x0, y0), glam::Vec2::new(x1, y1)))
+    }
+
+    /// Slide a circular body through the raycast map, stopping at walls.
+    /// Returns the resolved `[x, y]`.
+    #[wasm_bindgen]
+    pub fn raycaster_slide(
+        &self,
+        x: f32,
+        y: f32,
+        dx: f32,
+        dy: f32,
+        radius: f32,
+    ) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(2);
+        match &self.engine.raycaster {
+            Some(rc) => {
+                let p = rc.slide_circle(glam::Vec2::new(x, y), glam::Vec2::new(dx, dy), radius);
+                arr.copy_from(&[p.x, p.y]);
+            }
+            None => arr.copy_from(&[x, y]),
+        }
+        arr
+    }
+
+    /// The raycast map cell at `(col, row)`; out of bounds reads as solid.
+    #[wasm_bindgen]
+    pub fn raycaster_cell(&self, col: i32, row: i32) -> u8 {
+        self.engine
+            .raycaster
+            .as_ref()
+            .map_or(1, |rc| rc.map.get(col, row))
+    }
+
+    // --- Pathfinding ---
+
+    /// A* across the current raycast map, from `(sx, sy)` to `(gx, gy)`.
+    ///
+    /// Returns the waypoints flattened as `[x0, y0, x1, y1, ...]`, already
+    /// reduced to corners, or an empty array when there is no route.
+    #[wasm_bindgen]
+    pub fn raycaster_find_path(
+        &self,
+        sx: i32,
+        sy: i32,
+        gx: i32,
+        gy: i32,
+        diagonal: bool,
+    ) -> js_sys::Int32Array {
+        use cathode_core::pathfinding::{find_path, simplify, Grid, Movement};
+
+        let Some(rc) = &self.engine.raycaster else {
+            return js_sys::Int32Array::new_with_length(0);
+        };
+        let grid = Grid::from_cells(rc.map.cols, rc.map.rows, &rc.map.cells, |c| *c != 0);
+        let movement = if diagonal {
+            Movement::EightWay
+        } else {
+            Movement::FourWay
+        };
+
+        let path = match find_path(&grid, (sx, sy), (gx, gy), movement) {
+            Some(p) => simplify(&p),
+            None => return js_sys::Int32Array::new_with_length(0),
+        };
+
+        let flat: Vec<i32> = path.iter().flat_map(|&(x, y)| [x, y]).collect();
+        let arr = js_sys::Int32Array::new_with_length(flat.len() as u32);
+        arr.copy_from(&flat);
+        arr
+    }
+
     // --- Save/Load ---
 
     #[wasm_bindgen]
@@ -744,14 +868,17 @@ impl WebEngine {
             let _ = self
                 .engine
                 .world
-                .insert_one(e, retro_core::ecs::Gravity(scale));
+                .insert_one(e, cathode_core::ecs::Gravity(scale));
         }
     }
 
     #[wasm_bindgen]
     pub fn clear_gravity(&mut self, id: u64) {
         if let Some(e) = self.find_entity(id) {
-            let _ = self.engine.world.remove_one::<retro_core::ecs::Gravity>(e);
+            let _ = self
+                .engine
+                .world
+                .remove_one::<cathode_core::ecs::Gravity>(e);
         }
     }
 
@@ -759,9 +886,9 @@ impl WebEngine {
     pub fn set_solid(&mut self, id: u64, solid: bool) {
         if let Some(e) = self.find_entity(id) {
             if solid {
-                let _ = self.engine.world.insert_one(e, retro_core::ecs::Solid);
+                let _ = self.engine.world.insert_one(e, cathode_core::ecs::Solid);
             } else {
-                let _ = self.engine.world.remove_one::<retro_core::ecs::Solid>(e);
+                let _ = self.engine.world.remove_one::<cathode_core::ecs::Solid>(e);
             }
         }
     }

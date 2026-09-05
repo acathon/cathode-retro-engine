@@ -8,7 +8,7 @@ pub async fn build_wasm(project_dir: String, release: bool, window: Window) -> R
     let mut args = vec![
         "build".to_string(),
         "-p".to_string(),
-        "retro-platform-web".to_string(),
+        "cathode-platform-web".to_string(),
         "--target".to_string(),
         "wasm32-unknown-unknown".to_string(),
     ];

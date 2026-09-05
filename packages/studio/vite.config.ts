@@ -25,9 +25,9 @@ export default defineConfig({
   server: { port: 3010, fs: { strict: false, allow: ['../..'] } },
   resolve: {
     alias: {
-      'retro-platform-web': resolve(__dirname, '../sdk/wasm/retro_platform_web.js'),
+      'cathode-platform-web': resolve(__dirname, '../sdk/wasm/cathode_platform_web.js'),
       '@blockly-media': BLOCKLY_MEDIA,
     },
   },
-  optimizeDeps: { exclude: ['@retro-engine/sdk', 'retro-platform-web'] },
+  optimizeDeps: { exclude: ['@cathode/sdk', 'cathode-platform-web'] },
 });

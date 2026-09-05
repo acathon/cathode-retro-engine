@@ -1,10 +1,10 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 
 export class BitmapFont {
   private handle: number;
 
   constructor(
-    private engine: RetroEngine,
+    private engine: Cathode,
     sheetHandle: number,
     charWidth: number,
     charHeight: number,
@@ -32,7 +32,7 @@ export class BitmapFont {
    * Generate a minimal built-in 8x8 monospace ASCII font (chars 32-127)
    * using the browser Canvas API. No PNG needed.
    */
-  static builtin(engine: RetroEngine): BitmapFont {
+  static builtin(engine: Cathode): BitmapFont {
     const charW = 8;
     const charH = 8;
     const firstChar = 32;

@@ -1,5 +1,5 @@
 {
-  "name": "@retro-engine/space-game",
+  "name": "@cathode/space-game",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@retro-engine/sdk": "*"
+    "@cathode/sdk": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

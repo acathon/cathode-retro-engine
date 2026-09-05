@@ -1,11 +1,11 @@
 import {
-  RetroEngine, Scene, Sprite, TileMap,
+  Cathode, Scene, Sprite, TileMap,
   SoundChannel, TouchControls
-} from '@retro-engine/sdk';
+} from '@cathode/sdk';
 
 // ─── Procedural Sprite Drawing Helpers ───────────────────────────────
 function makeSheet(
-  engine: RetroEngine, tw: number, th: number,
+  engine: Cathode, tw: number, th: number,
   draw: (ctx: CanvasRenderingContext2D, i: number) => void, count: number,
 ): number {
   const w = tw * count, h = th;
@@ -262,7 +262,7 @@ async function init() {
   const livesEl = document.getElementById('lives')!;
   const msgEl = document.getElementById('msg')!;
 
-  const engine = await RetroEngine.nes(canvas, 3);
+  const engine = await Cathode.nes(canvas, 3);
   const scene = new Scene(engine);
 
   // Touch controls

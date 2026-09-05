@@ -127,7 +127,7 @@
       </div>
     </div>
   </div>
-  <div class="title">{projectName ? `${projectName} — retro-engine editor` : 'retro-engine editor'}</div>
+  <div class="title">{projectName ? `${projectName} — Cathode Editor` : 'Cathode Editor'}</div>
 </div>
 
 <style>

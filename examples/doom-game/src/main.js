@@ -1,4 +1,4 @@
-import { RetroEngine, Scene, Raycaster, BitmapFont, SaveManager, SoundChannel, MusicPlayer, } from '@retro-engine/sdk';
+import { Cathode, Scene, Raycaster, BitmapFont, SaveManager, SoundChannel, MusicPlayer, } from '@cathode/sdk';
 // ─── Procedural Textures (64×64 for more detail) ────────────────────
 const TEX = 64;
 function genTechWall(size) {
@@ -207,7 +207,7 @@ const pickups = [
 // ─── Main ───────────────────────────────────────────────────────────
 const canvas = document.getElementById('game');
 async function bootstrap() {
-    const engine = await RetroEngine.nes(canvas, 2);
+    const engine = await Cathode.nes(canvas, 2);
     const scene = new Scene(engine);
     const raycaster = new Raycaster(engine, { cols: MC, rows: MR, cells: MAP });
     // Upload textures (1-indexed for raycaster)

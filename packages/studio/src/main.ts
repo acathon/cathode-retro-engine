@@ -1,5 +1,5 @@
 /**
- * Retro Studio — a Godot-shaped editor for the Retro Engine.
+ * Cathode Studio — a Godot-shaped editor for the Cathode.
  *
  * Left dock is the scene tree, right dock the inspector, centre the live
  * viewport, and the bottom dock holds the working panels: blocks, sprite
@@ -18,8 +18,8 @@ import {
   type Host,
   type KeyName,
   type RaycastView,
-} from '@retro-engine/blocks';
-import { Raycaster, RetroEngine, Scene, SoundChannel, Sprite } from '@retro-engine/sdk';
+} from '@cathode/blocks';
+import { Raycaster, Cathode, Scene, SoundChannel, Sprite } from '@cathode/sdk';
 import { scriptsFromWorkspace, variablesFromWorkspace } from './from-blockly';
 import { SAMPLE_WORKSPACE } from './sample';
 import {
@@ -48,7 +48,7 @@ if (!project.sprites.some((s) => s.workspace)) {
   if (player) player.workspace = SAMPLE_WORKSPACE;
 }
 
-let engine: RetroEngine | null = null;
+let engine: Cathode | null = null;
 let interpreter: Interpreter | null = null;
 let raycaster: Raycaster | null = null;
 let raycastView: RaycastView | undefined;
@@ -292,7 +292,7 @@ async function run(): Promise<void> {
     captureScripts();
     setStatus('Starting…');
 
-    if (!engine) engine = await RetroEngine.nes(el.canvas, 2);
+    if (!engine) engine = await Cathode.nes(el.canvas, 2);
     const eng = engine;
 
     const scene = new Scene(eng);
@@ -594,7 +594,7 @@ mapEditor.render();
 sceneTree.setProject(project);
 selectSprite(project.activeSpriteId ?? project.sprites[0]?.id ?? '');
 showPanel('blocks');
-log('Retro Studio ready.');
+log('Cathode Studio ready.');
 setStatus('Ready — press ▶ to run, or edit blocks, sprites and sound below.');
 
 // Exposed for the headless smoke test.

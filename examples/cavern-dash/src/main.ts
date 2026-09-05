@@ -7,7 +7,7 @@
  * and ceiling collision are resolved in Rust. This file only reads the
  * result back and decides what the game does about it.
  */
-import { RetroEngine, Scene, Sprite, TileMap, SoundChannel, ParticleEmitter } from '@retro-engine/sdk';
+import { Cathode, Scene, Sprite, TileMap, SoundChannel, ParticleEmitter } from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
@@ -133,7 +133,7 @@ function buildSheet(): { pixels: Uint8Array; w: number; h: number } {
 }
 
 async function initGame() {
-  const engine = await RetroEngine.nes(canvas, 3);
+  const engine = await Cathode.nes(canvas, 3);
   const scene = new Scene(engine);
 
   const sheet = buildSheet();

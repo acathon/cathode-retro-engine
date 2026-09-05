@@ -5,7 +5,7 @@
  * physics opt-in and its own stack of blocks — the same shape Scratch uses,
  * and the reason the scene tree can switch every panel at once.
  */
-import type { Script } from '@retro-engine/blocks';
+import type { Script } from '@cathode/blocks';
 
 export const TILE = 16;
 export const FRAME_PIXELS = TILE * TILE;

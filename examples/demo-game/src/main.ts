@@ -1,9 +1,9 @@
-import { RetroEngine, Scene, Sprite, TileMap, SoundChannel } from '@retro-engine/sdk';
+import { Cathode, Scene, Sprite, TileMap, SoundChannel } from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function initGame() {
-    const engine = await RetroEngine.gameboy(canvas);
+    const engine = await Cathode.gameboy(canvas);
     const scene = new Scene(engine);
 
     // 1. Generate a 40x8 sprite sheet in memory (5 tiles of 8x8)
