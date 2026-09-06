@@ -7,6 +7,22 @@ import type { GameTimer } from './timer';
 // It matches the methods exposed by wasm_bindgen
 type WebEngine = any;
 
+
+/** One budget compared against what a game actually used. */
+export interface TargetBudget<T> {
+  budget: T | null;
+  /** null when the target models no real hardware. */
+  fits: boolean | null;
+}
+
+/** The result of {@link Cathode.checkTarget}. */
+export interface TargetReport {
+  target: string;
+  sprites: TargetBudget<number> & { peak: number };
+  resolution: TargetBudget<[number, number]> & { current: [number, number] };
+  audio: TargetBudget<number> & { channels: number };
+}
+
 export class Cathode {
   public raw: WebEngine | null = null;
   public input: InputReader;
@@ -220,6 +236,43 @@ export class Cathode {
 
   setCamera(x: number, y: number) {
     if (this.raw) this.raw.set_camera(x, y);
+  }
+
+  /**
+   * Switch the hardware look — palette, background, scanlines — at any time.
+   *
+   * The profile is a view setting, not a contract: nothing is capped while
+   * you build, so you can author in full colour and flip to `'gameboy'` to
+   * check how the art reads. Choose a target when you export.
+   */
+  setProfile(profile: 'nes' | 'gameboy' | 'neogeo' | 'custom'): void {
+    this.raw?.set_profile(profile);
+  }
+
+  /** The profile currently being rendered. */
+  get profile(): string {
+    return this.raw?.profile() ?? 'custom';
+  }
+
+  /** Most sprites drawn in any single frame so far. */
+  get peakSprites(): number {
+    return this.raw?.peak_sprites() ?? 0;
+  }
+
+  /** Forget the peak, e.g. when starting a new level. */
+  resetPeakSprites(): void {
+    this.raw?.reset_peak_sprites();
+  }
+
+  /**
+   * Check what this game has actually used against a target's real limits.
+   *
+   * Hardware budgets are reported here rather than enforced while you play:
+   * a cap that silently drops sprites turns "too many objects" into "the
+   * player disappeared", which tells you nothing. This tells you the number.
+   */
+  checkTarget(target: 'nes' | 'gameboy' | 'neogeo' | 'custom'): TargetReport {
+    return JSON.parse(this.raw?.check_target(target) ?? '{}');
   }
 
   setScanlines(enabled: boolean) {

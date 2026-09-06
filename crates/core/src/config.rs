@@ -9,12 +9,77 @@ pub enum HardwareProfile {
     Custom,
 }
 
+impl HardwareProfile {
+    /// Parse a profile from its name; unknown names fall back to `Custom`.
+    pub fn from_name(name: &str) -> Self {
+        match name
+            .to_ascii_lowercase()
+            .replace(['-', '_', ' '], "")
+            .as_str()
+        {
+            "nes" => Self::Nes,
+            "gameboy" | "gb" | "dmg" => Self::GameBoy,
+            "neogeo" => Self::NeoGeo,
+            _ => Self::Custom,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Nes => "nes",
+            Self::GameBoy => "gameboy",
+            Self::NeoGeo => "neogeo",
+            Self::Custom => "custom",
+        }
+    }
+
+    /// The real hardware's screen size, if this profile models one.
+    pub fn resolution(self) -> Option<(u32, u32)> {
+        match self {
+            Self::Nes => Some((256, 240)),
+            Self::GameBoy => Some((160, 144)),
+            Self::NeoGeo => Some((320, 224)),
+            Self::Custom => None,
+        }
+    }
+
+    /// How many sprites the real hardware could show at once.
+    ///
+    /// **Advisory.** The engine does not enforce it while you build: a hard
+    /// cap that silently drops sprites turns "too many objects" into "the
+    /// player character disappeared", which is not a lesson anyone can act
+    /// on. Compare it against [`crate::renderer::Renderer::peak_sprites`]
+    /// when exporting for a target instead, where the answer is actionable.
+    pub fn sprite_budget(self) -> Option<u32> {
+        match self {
+            Self::Nes => Some(64),
+            Self::GameBoy => Some(40),
+            Self::NeoGeo => Some(380),
+            Self::Custom => None,
+        }
+    }
+
+    /// Audio channels the real hardware had.
+    pub fn audio_channels(self) -> Option<u8> {
+        match self {
+            Self::Nes => Some(5),
+            Self::GameBoy => Some(4),
+            Self::NeoGeo => Some(8),
+            Self::Custom => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EngineConfig {
     pub width: u32,
     pub height: u32,
     pub fps: u32,
     pub audio_channels: u8,
+    /// Hard cap on sprites drawn per frame. **0 means unlimited, which is the
+    /// default for every profile**: the look of a machine is worth keeping,
+    /// its limits are not something to discover as a vanished player sprite.
+    /// Set it only to deliberately reproduce hardware dropout.
     pub sprite_limit: u32,
     pub scanlines: bool,
     pub pixel_perfect: bool,
@@ -35,7 +100,7 @@ impl EngineConfig {
             height: 240,
             fps: 60,
             audio_channels: 5,
-            sprite_limit: 64,
+            sprite_limit: 0,
             scanlines: true,
             pixel_perfect: true,
             profile: HardwareProfile::Nes,
@@ -49,7 +114,7 @@ impl EngineConfig {
             height: 144,
             fps: 60,
             audio_channels: 4,
-            sprite_limit: 40,
+            sprite_limit: 0,
             scanlines: false,
             pixel_perfect: true,
             profile: HardwareProfile::GameBoy,
@@ -63,7 +128,7 @@ impl EngineConfig {
             height: 224,
             fps: 60,
             audio_channels: 8,
-            sprite_limit: 380,
+            sprite_limit: 0,
             scanlines: true,
             pixel_perfect: true,
             profile: HardwareProfile::NeoGeo,
@@ -91,13 +156,68 @@ mod tests {
     #[test]
     fn presets_carry_their_own_profile_and_sprite_budget() {
         assert_eq!(EngineConfig::nes().profile, HardwareProfile::Nes);
-        assert_eq!(EngineConfig::nes().sprite_limit, 64);
-
         assert_eq!(EngineConfig::gameboy().profile, HardwareProfile::GameBoy);
-        assert_eq!(EngineConfig::gameboy().sprite_limit, 40);
-
         assert_eq!(EngineConfig::neogeo().profile, HardwareProfile::NeoGeo);
-        assert_eq!(EngineConfig::neogeo().sprite_limit, 380);
+
+        // The budgets are advisory, and live on the profile.
+        assert_eq!(HardwareProfile::Nes.sprite_budget(), Some(64));
+        assert_eq!(HardwareProfile::GameBoy.sprite_budget(), Some(40));
+        assert_eq!(HardwareProfile::NeoGeo.sprite_budget(), Some(380));
+        assert_eq!(HardwareProfile::Custom.sprite_budget(), None);
+    }
+
+    #[test]
+    fn no_preset_caps_sprites_at_run_time() {
+        // A hard cap turns "too many objects" into "the player disappeared",
+        // which is not something a developer can act on. The budget is
+        // checked when exporting for a target instead.
+        for cfg in [
+            EngineConfig::nes(),
+            EngineConfig::gameboy(),
+            EngineConfig::neogeo(),
+            EngineConfig::default(),
+        ] {
+            assert_eq!(cfg.sprite_limit, 0, "{} should be unlimited", cfg.title);
+        }
+    }
+
+    #[test]
+    fn a_profile_round_trips_through_its_name() {
+        for profile in [
+            HardwareProfile::Nes,
+            HardwareProfile::GameBoy,
+            HardwareProfile::NeoGeo,
+            HardwareProfile::Custom,
+        ] {
+            assert_eq!(HardwareProfile::from_name(profile.name()), profile);
+        }
+        // Spelling variants people actually type.
+        assert_eq!(
+            HardwareProfile::from_name("Game Boy"),
+            HardwareProfile::GameBoy
+        );
+        assert_eq!(HardwareProfile::from_name("GB"), HardwareProfile::GameBoy);
+        assert_eq!(
+            HardwareProfile::from_name("neo-geo"),
+            HardwareProfile::NeoGeo
+        );
+        assert_eq!(
+            HardwareProfile::from_name("dreamcast"),
+            HardwareProfile::Custom
+        );
+    }
+
+    #[test]
+    fn profile_resolutions_match_the_presets_built_from_them() {
+        for (profile, cfg) in [
+            (HardwareProfile::Nes, EngineConfig::nes()),
+            (HardwareProfile::GameBoy, EngineConfig::gameboy()),
+            (HardwareProfile::NeoGeo, EngineConfig::neogeo()),
+        ] {
+            assert_eq!(profile.resolution(), Some((cfg.width, cfg.height)));
+            assert_eq!(profile.audio_channels(), Some(cfg.audio_channels));
+        }
+        assert_eq!(HardwareProfile::Custom.resolution(), None);
     }
 
     #[test]

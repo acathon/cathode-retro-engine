@@ -123,6 +123,43 @@ These are the most useful commands for daily work:
 | Run the test suite | `make test` |
 | Run linters and formatting checks | `make lint` |
 
+## One Engine, Any Device
+
+The hardware presets model how a machine *looked*, not how little it could
+hold. Nothing is capped while you build:
+
+```ts
+const engine = await Cathode.nes(canvas, 3);
+engine.setProfile('gameboy');   // palette, background and scanlines, live
+```
+
+Resolution, palette and scanlines are a **view setting** you can change at any
+time, so you can author in full colour and flip to Game Boy to check how the
+art reads. Sprite counts are **not** capped: a hard limit that silently drops
+sprites turns "too many objects" into "the player disappeared", which tells
+you nothing — and the old cap dropped the *front* layers first, so the player
+was the first thing to go.
+
+Real hardware budgets are still real. They are reported where you can act on
+them — when you choose a target:
+
+```ts
+const report = engine.checkTarget('gameboy');
+// { sprites:   { peak: 200, budget: 40,  fits: false },
+//   resolution:{ current: [256,240], target: [160,144], fits: false },
+//   audio:     { channels: 5, budget: 4, fits: false } }
+```
+
+| Profile | Resolution | Sprite budget | Audio channels |
+| --- | --- | --- | --- |
+| `gameboy` | 160×144 | 40 | 4 |
+| `nes` | 256×240 | 64 | 5 |
+| `neogeo` | 320×224 | 380 | 8 |
+| `custom` | anything | none | none |
+
+To deliberately reproduce hardware dropout, set `sprite_limit` yourself; it
+then keeps the sprites nearest the front.
+
 ## Multiplayer
 
 The engine ships the portable half of netplay in `crates/core/src/netcode`:

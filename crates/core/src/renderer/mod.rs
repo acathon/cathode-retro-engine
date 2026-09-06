@@ -119,7 +119,14 @@ impl FrameBuffer {
 
 pub struct Renderer {
     pub resolution: (u32, u32),
+    /// 0 means unlimited, which is the default. See [`crate::config::EngineConfig`].
     pub sprite_limit: u32,
+    /// Most sprites drawn in any single frame so far.
+    ///
+    /// This is what makes hardware budgets checkable at export time instead
+    /// of enforced at run time: compare it against
+    /// [`crate::config::HardwareProfile::sprite_budget`].
+    pub peak_sprites: usize,
     pub camera: Vec2,
     pub bg_color: Color,
     pub scanlines: bool,
@@ -154,6 +161,7 @@ impl Renderer {
         Self {
             resolution: (width, height),
             sprite_limit,
+            peak_sprites: 0,
             camera: Vec2::ZERO,
             bg_color,
             scanlines,
@@ -189,6 +197,30 @@ impl Renderer {
         let sy =
             ((seed.wrapping_mul(214013).wrapping_add(2531011) >> 16) % 200) as f32 / 100.0 - 1.0;
         Vec2::new(sx * mag, sy * mag)
+    }
+
+    /// Switch the *look* of the engine at run time: palette, background and
+    /// scanlines.
+    ///
+    /// The hardware profile is a view setting, not a contract. Being able to
+    /// author in full colour and flip to Game Boy to check how it reads is
+    /// worth more than locking the choice in at construction.
+    pub fn set_profile(&mut self, profile: HardwareProfile) {
+        self.palette = match profile {
+            HardwareProfile::GameBoy => Some(Palette::gameboy()),
+            _ => None,
+        };
+        self.bg_color = self
+            .palette
+            .as_ref()
+            .map(|palette| palette.get(1))
+            .unwrap_or(Color::BLACK);
+        self.scanlines = matches!(profile, HardwareProfile::Nes | HardwareProfile::NeoGeo);
+    }
+
+    /// Forget the peak sprite count, e.g. when starting a new level.
+    pub fn reset_peak_sprites(&mut self) {
+        self.peak_sprites = 0;
     }
 
     pub fn render(&mut self, world: &World, assets: &AssetStore) -> &FrameBuffer {
@@ -258,8 +290,21 @@ impl Renderer {
         // sort by layer back to front
         sprite_data.sort_by_key(|(_, idx)| idx.layer);
 
-        let limit = self.sprite_limit as usize;
-        let drawn_sprites = sprite_data.iter().take(limit);
+        self.peak_sprites = self.peak_sprites.max(sprite_data.len());
+
+        // A limit of 0 draws everything, which is the default: the presets
+        // model how a machine *looked*, not how few objects it could hold.
+        // When a limit is deliberately set, keep the sprites nearest the
+        // front. Taking the first N of a back-to-front sort dropped the
+        // topmost layers, so exceeding the budget made the player vanish
+        // while background scenery survived.
+        let drawn_sprites: &[_] = if self.sprite_limit == 0 {
+            &sprite_data
+        } else {
+            let limit = self.sprite_limit as usize;
+            let start = sprite_data.len().saturating_sub(limit);
+            &sprite_data[start..]
+        };
 
         for (pos, idx) in drawn_sprites {
             if let Some(sheet) = assets.sprite_sheets.get(idx.sheet as usize) {
@@ -595,6 +640,124 @@ mod tests {
 
         renderer.render(&world, &assets);
         assert_eq!(pixel(&renderer.framebuffer, 1, 1), [0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn a_sprite_limit_keeps_the_front_layers_not_the_back() {
+        // Regression: sprites were sorted back-to-front and then truncated
+        // from the front, so exceeding the budget dropped the topmost layers
+        // — the player — while background scenery survived.
+        let mut renderer = Renderer::new(4, 4, 1, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let back = assets.add_sheet(solid_sheet(1, 1, 1, 1, [0, 0, 255, 255]));
+        let front = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        for (x, sheet, layer) in [(0u32, back, 0u8), (1, front, 10)] {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer,
+                },
+            ));
+        }
+
+        renderer.render(&world, &assets);
+        assert_eq!(
+            pixel(&renderer.framebuffer, 1, 0),
+            [255, 0, 0, 255],
+            "the front layer must survive the cap"
+        );
+        assert_ne!(
+            pixel(&renderer.framebuffer, 0, 0),
+            [0, 0, 255, 255],
+            "the back layer is the one to drop"
+        );
+    }
+
+    #[test]
+    fn a_zero_limit_draws_every_sprite() {
+        let mut renderer = Renderer::new(8, 4, 0, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        for x in 0..8 {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer: 0,
+                },
+            ));
+        }
+
+        renderer.render(&world, &assets);
+        let drawn = (0..8)
+            .filter(|&x| pixel(&renderer.framebuffer, x, 0) == [255, 0, 0, 255])
+            .count();
+        assert_eq!(drawn, 8, "0 means unlimited, not none");
+    }
+
+    #[test]
+    fn the_peak_sprite_count_is_what_export_checks_against() {
+        let mut renderer = Renderer::new(8, 4, 0, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+        assert_eq!(renderer.peak_sprites, 0);
+
+        let mut world = World::new();
+        for x in 0..5 {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer: 0,
+                },
+            ));
+        }
+        renderer.render(&world, &assets);
+        assert_eq!(renderer.peak_sprites, 5);
+
+        // A quieter frame must not lower the peak: the busiest moment is the
+        // one a hardware budget has to survive.
+        renderer.render(&World::new(), &assets);
+        assert_eq!(renderer.peak_sprites, 5);
+
+        renderer.reset_peak_sprites();
+        assert_eq!(renderer.peak_sprites, 0);
+    }
+
+    #[test]
+    fn switching_profile_swaps_the_look_without_rebuilding() {
+        let mut renderer = Renderer::new(4, 4, 0, false, HardwareProfile::Custom);
+        assert!(renderer.palette.is_none());
+
+        renderer.set_profile(HardwareProfile::GameBoy);
+        assert!(renderer.palette.is_some(), "Game Boy has a palette");
+        assert_eq!(renderer.bg_color, Palette::gameboy().get(1));
+        assert!(!renderer.scanlines, "a DMG has no scanlines");
+
+        renderer.set_profile(HardwareProfile::Nes);
+        assert!(
+            renderer.palette.is_none(),
+            "the NES is not palette-clamped here"
+        );
+        assert!(renderer.scanlines);
+
+        renderer.set_profile(HardwareProfile::Custom);
+        assert!(renderer.palette.is_none());
+        assert!(!renderer.scanlines);
     }
 
     #[test]

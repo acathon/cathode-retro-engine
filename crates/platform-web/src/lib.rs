@@ -152,6 +152,72 @@ impl WebEngine {
         self.engine.renderer.camera = self.engine.camera.pos;
     }
 
+    /// Switch the hardware *look* — palette, background and scanlines —
+    /// without rebuilding the engine. Accepts "nes", "gameboy", "neogeo" or
+    /// "custom".
+    ///
+    /// The profile is a view setting, not a contract: build once, preview on
+    /// any of them, and pick a target when you export.
+    #[wasm_bindgen]
+    pub fn set_profile(&mut self, name: &str) {
+        let profile = cathode_core::HardwareProfile::from_name(name);
+        self.engine.renderer.set_profile(profile);
+        self.engine.config.profile = profile;
+    }
+
+    #[wasm_bindgen]
+    pub fn profile(&self) -> String {
+        self.engine.config.profile.name().to_string()
+    }
+
+    /// Most sprites drawn in any one frame so far.
+    #[wasm_bindgen]
+    pub fn peak_sprites(&self) -> u32 {
+        self.engine.renderer.peak_sprites as u32
+    }
+
+    #[wasm_bindgen]
+    pub fn reset_peak_sprites(&mut self) {
+        self.engine.renderer.reset_peak_sprites();
+    }
+
+    /// Check what this game has actually used against a target's real limits.
+    ///
+    /// Returns JSON: the target's budgets, the peak this run reached, and
+    /// whether each fits. This is where hardware limits belong — a number you
+    /// can act on when choosing a platform, rather than a silent cap that
+    /// deletes sprites while you play.
+    #[wasm_bindgen]
+    pub fn check_target(&self, name: &str) -> String {
+        let profile = cathode_core::HardwareProfile::from_name(name);
+        let peak = self.engine.renderer.peak_sprites as u32;
+        let (w, h) = self.engine.renderer.resolution;
+
+        let sprite_budget = profile.sprite_budget();
+        let resolution = profile.resolution();
+        let channels = profile.audio_channels();
+
+        let report = serde_json::json!({
+            "target": profile.name(),
+            "sprites": {
+                "peak": peak,
+                "budget": sprite_budget,
+                "fits": sprite_budget.map(|b| peak <= b),
+            },
+            "resolution": {
+                "current": [w, h],
+                "target": resolution.map(|(tw, th)| vec![tw, th]),
+                "fits": resolution.map(|(tw, th)| w <= tw && h <= th),
+            },
+            "audio": {
+                "channels": self.engine.config.audio_channels,
+                "budget": channels,
+                "fits": channels.map(|c| self.engine.config.audio_channels <= c),
+            },
+        });
+        report.to_string()
+    }
+
     #[wasm_bindgen]
     pub fn set_scanlines(&mut self, val: bool) {
         self.engine.renderer.scanlines = val;
