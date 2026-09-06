@@ -42,32 +42,63 @@ export class BitmapFont {
     const sheetW = cols * charW;
     const sheetH = rows * charH;
 
+    // Rasterise large, then reduce. Asking the browser for 8px text gives
+    // glyphs whose strokes are thinner than a pixel, so they arrive as faint
+    // antialiasing that a hardware palette snaps away — letters came out with
+    // holes in them ("NEXT" reading as "N E X I"). Drawing at 4x and taking a
+    // majority vote per 4x4 block keeps every stroke at least one pixel wide.
+    const SS = 4;
+    const bigW = sheetW * SS;
+    const bigH = sheetH * SS;
+
     const canvas = document.createElement('canvas');
-    canvas.width = sheetW;
-    canvas.height = sheetH;
+    canvas.width = bigW;
+    canvas.height = bigH;
     const ctx = canvas.getContext('2d')!;
-
-    // Clear to transparent
-    ctx.clearRect(0, 0, sheetW, sheetH);
-
-    // Draw each character
+    ctx.clearRect(0, 0, bigW, bigH);
     ctx.fillStyle = '#ffffff';
-    ctx.textBaseline = 'top';
-    ctx.font = `${charH}px monospace`;
-    // Use 'pixelated' rendering
-    (ctx as any).imageSmoothingEnabled = false;
+    ctx.textAlign = 'center';
+    // Alphabetic rather than top: 'top' measures from the em box, which
+    // includes the ascender, and pushed capitals off the bottom of the cell.
+    ctx.textBaseline = 'alphabetic';
+    // Sans, not monospace: a monospace 'I' carries serifs, and at this size
+    // they survive the reduction as a crossbar — "LINES" came out "LTNES".
+    // Each glyph is centred in its own fixed cell here, so the font itself
+    // does not need to be monospaced.
+    ctx.font = `bold ${charH * SS - SS}px "DejaVu Sans", Arial, sans-serif`;
 
     for (let i = 0; i < charCount; i++) {
-      const charCode = firstChar + i;
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = col * charW;
-      const y = row * charH;
-      ctx.fillText(String.fromCharCode(charCode), x, y);
+      ctx.fillText(
+        String.fromCharCode(firstChar + i),
+        (col + 0.5) * charW * SS,
+        (row + 1) * charH * SS - SS * 1.5,
+      );
     }
 
-    const imgData = ctx.getImageData(0, 0, sheetW, sheetH);
-    const pixels = new Uint8Array(imgData.data.buffer);
+    const big = ctx.getImageData(0, 0, bigW, bigH).data;
+    const pixels = new Uint8Array(sheetW * sheetH * 4);
+
+    for (let y = 0; y < sheetH; y++) {
+      for (let x = 0; x < sheetW; x++) {
+        let lit = 0;
+        for (let sy = 0; sy < SS; sy++) {
+          for (let sx = 0; sx < SS; sx++) {
+            const bi = (((y * SS + sy) * bigW) + (x * SS + sx)) * 4;
+            if (big[bi + 3] > 90) lit++;
+          }
+        }
+        // A third of the block is enough: thin strokes cover fewer samples
+        // than a solid fill, and demanding half of them erases them again.
+        const on = lit >= (SS * SS) / 3;
+        const i = (y * sheetW + x) * 4;
+        pixels[i] = on ? 255 : 0;
+        pixels[i + 1] = on ? 255 : 0;
+        pixels[i + 2] = on ? 255 : 0;
+        pixels[i + 3] = on ? 255 : 0;
+      }
+    }
 
     const sheetHandle = engine.raw!.upload_sheet(
       sheetW,

@@ -218,6 +218,23 @@ impl WebEngine {
         report.to_string()
     }
 
+    /// Show or hide a sprite without destroying it.
+    ///
+    /// Before this existed, hiding meant moving the entity off-screen,
+    /// because an entity with a SpriteIndex was drawn unconditionally.
+    #[wasm_bindgen]
+    pub fn set_visible(&mut self, id: u64, visible: bool) {
+        if let Some(e) = self.find_entity(id) {
+            if let Ok(mut index) = self
+                .engine
+                .world
+                .get::<&mut cathode_core::ecs::SpriteIndex>(e)
+            {
+                index.visible = visible;
+            }
+        }
+    }
+
     #[wasm_bindgen]
     pub fn set_scanlines(&mut self, val: bool) {
         self.engine.renderer.scanlines = val;
@@ -239,6 +256,7 @@ impl WebEngine {
                 flip_x: false,
                 flip_y: false,
                 layer,
+                visible: true,
             },
         ));
         ent.to_bits().into()
@@ -560,18 +578,16 @@ impl WebEngine {
             .register(sheet_handle, char_w, char_h, cols, first_char)
     }
 
+    /// Queue a line of text for this frame.
+    ///
+    /// Games call this from their update callback, which runs *before* the
+    /// world is rendered — and rendering clears the framebuffer. Drawing
+    /// immediately therefore painted text that was wiped microseconds later,
+    /// every frame. Queued text is drawn after the world instead, which is
+    /// also where a HUD belongs.
     #[wasm_bindgen]
     pub fn draw_text(&mut self, font_handle: u32, text: &str, x: i32, y: i32, scale: u32) {
-        if let Some(font) = self.engine.fonts.get(font_handle) {
-            font.draw_text(
-                &mut self.engine.renderer.framebuffer,
-                &self.engine.assets,
-                text,
-                x,
-                y,
-                scale,
-            );
-        }
+        self.engine.queue_text(font_handle, text, x, y, scale);
     }
 
     #[wasm_bindgen]

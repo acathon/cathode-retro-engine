@@ -24,6 +24,15 @@ use assets::AssetStore;
 use audio::sequencer::Sequencer;
 use audio::AudioMixer;
 use camera::Camera;
+
+/// One line of text waiting to be drawn at the end of the frame.
+struct QueuedText {
+    font: u32,
+    text: String,
+    x: i32,
+    y: i32,
+    scale: u32,
+}
 use collision::CollisionQueue;
 use input::InputState;
 use particles::ParticleEmitter;
@@ -51,6 +60,12 @@ pub struct Engine {
     pub emitters: Vec<Option<ParticleEmitter>>,
     pub tweens: TweenPool,
     pub fonts: FontRegistry,
+    /// Text queued this frame, drawn after the world so a HUD lands on top.
+    ///
+    /// Drawing straight into the framebuffer from a game's update callback
+    /// looks like it works and never appears: `render` clears the buffer
+    /// afterwards, so every label was wiped before it reached the screen.
+    text_queue: Vec<QueuedText>,
     pub timers: TimerPool,
     pub sequencer: Sequencer,
     pub raycaster: Option<raycaster::RaycastRenderer>,
@@ -90,6 +105,7 @@ impl Engine {
             emitters: Vec::new(),
             tweens: TweenPool::new(),
             fonts: FontRegistry::new(),
+            text_queue: Vec::new(),
             timers: TimerPool::new(),
             sequencer: Sequencer::new(),
             raycaster: None,
@@ -142,6 +158,17 @@ impl Engine {
         self.tick += 1;
     }
 
+    /// Queue a line of text for this frame. Drawn on top of everything else.
+    pub fn queue_text(&mut self, font: u32, text: &str, x: i32, y: i32, scale: u32) {
+        self.text_queue.push(QueuedText {
+            font,
+            text: text.to_string(),
+            x,
+            y,
+            scale,
+        });
+    }
+
     pub fn render(&mut self) -> &FrameBuffer {
         self.scenes.draw(&mut self.renderer, &self.world);
 
@@ -157,6 +184,33 @@ impl Engine {
         let cam = self.renderer.camera;
         for emitter in self.emitters.iter().flatten() {
             emitter.render(&mut self.renderer.framebuffer, cam);
+        }
+
+        // Text last: a HUD belongs above the world, and this is also what
+        // makes it survive at all, since everything above this line either
+        // clears the framebuffer or paints over it.
+        let drew_text = !self.text_queue.is_empty();
+        for item in self.text_queue.drain(..) {
+            if let Some(font) = self.fonts.get(item.font) {
+                font.draw_text(
+                    &mut self.renderer.framebuffer,
+                    &self.assets,
+                    &item.text,
+                    item.x,
+                    item.y,
+                    item.scale,
+                );
+            }
+        }
+
+        // The palette pass runs inside the renderer, which text now lands
+        // after — so a Game Boy HUD would come out in full antialiased
+        // colour. Snapping again costs one pass over the buffer and is a
+        // no-op for pixels already on the palette.
+        if drew_text {
+            if let Some(palette) = &self.renderer.palette {
+                self.renderer.framebuffer.apply_palette(palette);
+            }
         }
 
         &self.renderer.framebuffer
@@ -273,6 +327,147 @@ mod tests {
             fb.pixels[i + 2],
             fb.pixels[i + 3],
         ]
+    }
+
+    /// A 1-tile font sheet where every glyph is a solid white block, which
+    /// is enough to tell "text reached the screen" from "it did not".
+    fn white_font(engine: &mut Engine) -> u32 {
+        let sheet = crate::assets::SpriteSheet {
+            width: 8,
+            height: 8,
+            tile_width: 8,
+            tile_height: 8,
+            pixels: vec![255u8; 8 * 8 * 4],
+        };
+        let handle = engine.assets.add_sheet(sheet);
+        engine.fonts.register(handle, 8, 8, 1, b' ')
+    }
+
+    #[test]
+    fn queued_text_survives_the_frame_it_was_queued_in() {
+        // Regression: draw_text painted straight into the framebuffer from
+        // the game's update callback, and render() cleared that buffer
+        // immediately afterwards. Every HUD label was wiped before it was
+        // ever shown.
+        let mut engine = Engine::new(EngineConfig {
+            width: 32,
+            height: 16,
+            profile: HardwareProfile::Custom,
+            scanlines: false,
+            ..EngineConfig::nes()
+        });
+        let font = white_font(&mut engine);
+
+        engine.queue_text(font, " ", 0, 0, 1);
+        let fb = engine.render();
+        assert_eq!(
+            pixel(fb, 2, 2),
+            [255, 255, 255, 255],
+            "text queued before a render must appear in it"
+        );
+    }
+
+    #[test]
+    fn queued_text_is_drawn_over_the_world_not_under_it() {
+        let mut engine = Engine::new(EngineConfig {
+            width: 32,
+            height: 16,
+            profile: HardwareProfile::Custom,
+            scanlines: false,
+            ..EngineConfig::nes()
+        });
+        let font = white_font(&mut engine);
+
+        // A black sprite covering the same spot the glyph lands on.
+        let sheet = engine.assets.add_sheet(crate::assets::SpriteSheet {
+            width: 8,
+            height: 8,
+            tile_width: 8,
+            tile_height: 8,
+            pixels: {
+                let mut p = vec![0u8; 8 * 8 * 4];
+                for px in p.chunks_mut(4) {
+                    px[3] = 255;
+                }
+                p
+            },
+        });
+        engine.world.spawn((
+            Position(Vec2::ZERO),
+            crate::ecs::SpriteIndex {
+                sheet,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer: 200,
+                visible: true,
+            },
+        ));
+
+        engine.queue_text(font, " ", 0, 0, 1);
+        let fb = engine.render();
+        assert_eq!(
+            pixel(fb, 2, 2),
+            [255, 255, 255, 255],
+            "a HUD belongs above the world, however high the sprite's layer"
+        );
+    }
+
+    #[test]
+    fn the_text_queue_does_not_repeat_itself_next_frame() {
+        let mut engine = Engine::new(EngineConfig {
+            width: 32,
+            height: 16,
+            profile: HardwareProfile::Custom,
+            scanlines: false,
+            ..EngineConfig::nes()
+        });
+        let font = white_font(&mut engine);
+
+        engine.queue_text(font, " ", 0, 0, 1);
+        engine.render();
+        let fb = engine.render();
+        assert_ne!(
+            pixel(fb, 2, 2),
+            [255, 255, 255, 255],
+            "text is per-frame; a stale label must not linger"
+        );
+    }
+
+    #[test]
+    fn queued_text_is_clamped_to_the_profile_palette() {
+        // Text is drawn after the renderer's palette pass, so without a
+        // second snap a Game Boy HUD comes out in full antialiased colour
+        // while the world around it stays on four shades.
+        let mut engine = Engine::new(EngineConfig {
+            width: 32,
+            height: 16,
+            ..EngineConfig::gameboy()
+        });
+        let sheet = crate::assets::SpriteSheet {
+            width: 8,
+            height: 8,
+            tile_width: 8,
+            tile_height: 8,
+            // A mid grey, which is on no Game Boy shade.
+            pixels: vec![128u8; 8 * 8 * 4],
+        };
+        let handle = engine.assets.add_sheet(sheet);
+        let font = engine.fonts.register(handle, 8, 8, 1, b' ');
+
+        engine.queue_text(font, " ", 0, 0, 1);
+        let fb = engine.render();
+
+        let shades: Vec<[u8; 3]> = crate::renderer::palette::Palette::gameboy()
+            .colors
+            .iter()
+            .map(|c| [c.0, c.1, c.2])
+            .collect();
+        let px = pixel(fb, 2, 2);
+        assert!(
+            shades.contains(&[px[0], px[1], px[2]]),
+            "text pixel {px:?} is not a Game Boy shade"
+        );
     }
 
     #[test]

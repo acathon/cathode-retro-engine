@@ -16,6 +16,18 @@ pub struct SpriteIndex {
     pub flip_x: bool,
     pub flip_y: bool,
     pub layer: u8,
+    /// Whether the renderer draws this sprite.
+    ///
+    /// Without it, "hide this" had no engine-side meaning: an entity kept its
+    /// SpriteIndex and so kept drawing at whatever position it last held.
+    /// Every game worked around that by parking sprites at -9999, which is a
+    /// workaround the engine should not require.
+    #[serde(default = "default_visible")]
+    pub visible: bool,
+}
+
+fn default_visible() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

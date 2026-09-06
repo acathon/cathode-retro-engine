@@ -17,7 +17,21 @@ export class Sprite {
   public sheet: number;
   public flipX = false;
   public flipY = false;
-  public active = true;
+  private _active = true;
+
+  /**
+   * Whether this sprite is drawn.
+   *
+   * Setting it false genuinely hides the sprite in the engine. It used to
+   * only stop the TypeScript-side update, so a "hidden" sprite kept drawing
+   * wherever it last stood — which is why games parked things at -9999.
+   */
+  get active(): boolean { return this._active; }
+  set active(value: boolean) {
+    if (this._active === value) return;
+    this._active = value;
+    this.scene.eng.raw?.set_visible(this.id, value);
+  }
 
   private id: bigint;
   private anim: AnimConfig | null = null;

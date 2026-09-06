@@ -284,6 +284,7 @@ impl Renderer {
         let mut sprite_data: Vec<_> = world
             .query::<(&Position, &SpriteIndex)>()
             .iter()
+            .filter(|(_, (_, index))| index.visible)
             .map(|(_, (pos, index))| (pos.0, *index))
             .collect();
 
@@ -552,6 +553,7 @@ mod tests {
                 flip_x: false,
                 flip_y: false,
                 layer,
+                visible: true,
             },
         ));
         world
@@ -625,6 +627,7 @@ mod tests {
                 flip_x: false,
                 flip_y: false,
                 layer: 5,
+                visible: true,
             },
         ));
         world.spawn((
@@ -635,11 +638,66 @@ mod tests {
                 flip_x: false,
                 flip_y: false,
                 layer: 0,
+                visible: true,
             },
         ));
 
         renderer.render(&world, &assets);
         assert_eq!(pixel(&renderer.framebuffer, 1, 1), [0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn an_invisible_sprite_is_not_drawn() {
+        // Regression: an entity with a SpriteIndex was drawn unconditionally,
+        // so "hide this" had no engine-side meaning and games resorted to
+        // moving sprites to -9999 to get them off the screen.
+        let mut renderer = Renderer::new(4, 4, 0, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        let entity = world.spawn((
+            Position(Vec2::ZERO),
+            SpriteIndex {
+                sheet,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer: 0,
+                visible: true,
+            },
+        ));
+
+        renderer.render(&world, &assets);
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [255, 0, 0, 255]);
+
+        world.get::<&mut SpriteIndex>(entity).unwrap().visible = false;
+        renderer.render(&world, &assets);
+        assert_ne!(
+            pixel(&renderer.framebuffer, 0, 0),
+            [255, 0, 0, 255],
+            "a hidden sprite must leave the screen"
+        );
+    }
+
+    #[test]
+    fn sprites_are_visible_unless_told_otherwise() {
+        let index = SpriteIndex {
+            sheet: 0,
+            frame: 0,
+            flip_x: false,
+            flip_y: false,
+            layer: 0,
+            visible: true,
+        };
+        assert!(index.visible);
+
+        // Scenes saved before the flag existed must still load, drawn.
+        let restored: SpriteIndex = serde_json::from_str(
+            r#"{"sheet":0,"frame":0,"flip_x":false,"flip_y":false,"layer":0}"#,
+        )
+        .expect("older scene JSON should still parse");
+        assert!(restored.visible, "an absent flag means visible");
     }
 
     #[test]
@@ -662,6 +720,7 @@ mod tests {
                     flip_x: false,
                     flip_y: false,
                     layer,
+                    visible: true,
                 },
             ));
         }
@@ -695,6 +754,7 @@ mod tests {
                     flip_x: false,
                     flip_y: false,
                     layer: 0,
+                    visible: true,
                 },
             ));
         }
@@ -723,6 +783,7 @@ mod tests {
                     flip_x: false,
                     flip_y: false,
                     layer: 0,
+                    visible: true,
                 },
             ));
         }
@@ -776,6 +837,7 @@ mod tests {
                     flip_x: false,
                     flip_y: false,
                     layer: 0,
+                    visible: true,
                 },
             ));
         }
