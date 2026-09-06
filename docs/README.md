@@ -9,6 +9,8 @@ This folder is the documentation map for Cathode. Use it as the table of content
 | run the engine today | [getting-started.md](./getting-started.md) |
 | build your first small game | [first-game.md](./first-game.md) |
 | learn from a full project | [tutorial-trex.md](./tutorial-trex.md) |
+| build a physics game with the engine's own collisions | [tutorial-bounce.md](./tutorial-bounce.md) |
+| build a first-person game | [tutorial-bounce-3d.md](./tutorial-bounce-3d.md) |
 | understand internals | [architecture.md](./architecture.md) |
 | contribute changes | [contributing.md](./contributing.md) |
 
@@ -17,7 +19,7 @@ This folder is the documentation map for Cathode. Use it as the table of content
 1. [getting-started.md](./getting-started.md)
 2. [first-game.md](./first-game.md)
 3. One example inside `examples/`
-4. [tutorial-trex.md](./tutorial-trex.md)
+4. [tutorial-trex.md](./tutorial-trex.md) or [tutorial-bounce.md](./tutorial-bounce.md)
 5. [architecture.md](./architecture.md)
 
 ## What Each Document Covers
@@ -33,6 +35,19 @@ A minimal hands-on tutorial that builds a tiny playable game loop with score, mo
 ### [tutorial-trex.md](./tutorial-trex.md)
 
 A longer example-driven walkthrough using one of the included games as a teaching tool.
+
+### [tutorial-bounce.md](./tutorial-bounce.md)
+
+Builds `examples/bounce-classic` end to end: handing a body to the engine's
+physics with `usePhysics`, declaring solid tiles, and the two tuning mistakes
+(air control as a multiplier, buoyancy as a force) that quietly break a
+bouncing game.
+
+### [tutorial-bounce-3d.md](./tutorial-bounce-3d.md)
+
+The same game from inside the ball. Covers the raycaster's vertical axis —
+eye height, horizon pitch and billboard elevation — and how to tune a jump
+against a ceiling rather than against gravity.
 
 ### [architecture.md](./architecture.md)
 
@@ -54,6 +69,8 @@ Community contribution expectations, local validation commands, and repo convent
 | Browser editor | `packages/editor/src` |
 | Desktop editor | `packages/editor-desktop/src` and `packages/editor-desktop/src-tauri/src` |
 | Learning examples | `examples/*/src/main.ts` |
+| Block language | `packages/blocks/src` |
+| Cathode Studio | `packages/studio/src` |
 
 ## Recommended Learning Strategy
 
