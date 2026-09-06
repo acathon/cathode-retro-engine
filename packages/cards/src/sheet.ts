@@ -12,7 +12,7 @@
  * no artist": every pip, glyph and border below is a few dozen bytes of
  * pixel arithmetic.
  */
-import { CARD_H, CARD_W, SHEET_COLS } from './table';
+import { CARD_H, CARD_W, SHEET_COLS } from './geometry';
 
 const ROWS = 4;
 

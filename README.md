@@ -99,6 +99,14 @@ These examples are part demo, part reference implementation.
 | **Bounce 3D** | `examples/bounce-raycaster` | The same game in first person: eye height, horizon pitch, sprite elevation — [tutorial](./docs/tutorial-bounce-3d.md) |
 | **Dust Protocol** | `examples/dust-protocol` | Round-based FPS: hitscan, A* bots, line of sight, tab-to-tab netplay |
 | **Pixel Patience** | `examples/pixel-patience` | Klondike solitaire: a custom hardware profile, 52 sprites at once, unit-tested rules, a deck drawn in code |
+| **Twenty-One** | `examples/blackjack` | Blackjack: soft/hard aces, splits, doubles, insurance, chip betting |
+| **River Street** | `examples/holdem` | No-limit hold'em: a best-five-of-seven evaluator, side pots, three bots with distinct personalities |
+| **Ten Card** | `examples/gin-rummy` | Gin rummy: an exhaustive meld solver, lay-offs, undercuts — and the solver's answer drawn on the table |
+
+The last four share [`packages/cards`](./packages/cards): one deck, one
+bankroll, one pooled table renderer. None of the rules modules import the
+engine, which is why a poker hand evaluator and a gin rummy meld search can be
+tested without a canvas.
 
 Every example runs standalone:
 
@@ -233,9 +241,11 @@ retor-engine/
 │   ├── editor/             # Browser-based editor
 │   ├── editor-desktop/     # Tauri desktop editor
 │   ├── blocks/             # Block language: IR, interpreter, TypeScript codegen
+│   ├── cards/              # Deck, bankroll and table renderer for the card games
 │   └── studio/             # Cathode Studio: scene tree, inspector, blocks,
 │                           #   pixel sprite editor, sound maker, map editor
 ├── examples/               # Reference games and demos
+├── scripts/verify/         # Headless browser checks for the games
 └── docs/                   # Onboarding, tutorials, architecture, contribution docs
 ```
 

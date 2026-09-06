@@ -7,24 +7,10 @@
  * decides which move to ask for and how to draw the result.
  */
 
-export const SUITS = ['spades', 'diamonds', 'clubs', 'hearts'] as const;
-export type Suit = (typeof SUITS)[number];
+import { freshDeck, isRed, makeRng, shuffle, type Card } from '@cathode/cards';
 
-/** 0 = Ace, 12 = King. */
-export type Rank = number;
-
-export interface Card {
-  suit: number;
-  rank: Rank;
-  faceUp: boolean;
-}
-
-/** Red suits are diamonds and hearts; the tableau alternates colour. */
-export const isRed = (suit: number): boolean => suit === 1 || suit === 3;
-
-export const cardId = (c: Card): number => c.suit * 13 + c.rank;
-
-export const RANK_NAMES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+export type { Card };
+export { isRed };
 
 /**
  * Where a card can live. The order matters: it is the order the cursor walks
@@ -53,34 +39,6 @@ export const FOUNDATION_0 = 2;
 export const TABLEAU_0 = 6;
 export const TABLEAU_COUNT = 7;
 export const PILE_COUNT = TABLEAU_0 + TABLEAU_COUNT;
-
-/** A deterministic RNG, so a seed always deals the same game. */
-export function makeRng(seed: number): () => number {
-  let s = seed >>> 0 || 1;
-  return () => {
-    s ^= s << 13; s >>>= 0;
-    s ^= s >> 17;
-    s ^= s << 5; s >>>= 0;
-    return s / 0x100000000;
-  };
-}
-
-export function freshDeck(): Card[] {
-  const deck: Card[] = [];
-  for (let suit = 0; suit < 4; suit++) {
-    for (let rank = 0; rank < 13; rank++) deck.push({ suit, rank, faceUp: false });
-  }
-  return deck;
-}
-
-export function shuffle(deck: Card[], rand: () => number): Card[] {
-  const out = deck.slice();
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1)) % (i + 1);
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
 
 /** Deal a new game: column i gets i+1 cards, the last of them face up. */
 export function deal(seed: number): Game {

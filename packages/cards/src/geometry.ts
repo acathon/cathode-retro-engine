@@ -114,3 +114,57 @@ export function overlaySheet(): { pixels: Uint8Array; w: number; h: number } {
 
   return { pixels: px, w, h: CARD_H };
 }
+
+// --- Chips -----------------------------------------------------------------
+// The betting games need money on the table. Chips are generated the same way
+// the felt is: five denominations in the traditional casino colours, drawn as
+// one sheet of 16x16 frames indexed by `DENOMINATIONS`.
+
+export const CHIP = 16;
+
+/**
+ * A dark outline on every chip. Without it the green 25 and the black 100
+ * disappear into the felt, which is the one thing a chip must never do.
+ */
+const RIM = [16, 20, 24];
+
+/** Body, rim-dash and centre colour for 1, 5, 25, 100 and 500. */
+const CHIP_COLOURS: number[][][] = [
+  [[236, 236, 228], [150, 150, 146], [252, 252, 248]],   // 1   white
+  [[198, 44, 54], [246, 220, 220], [226, 96, 104]],      // 5   red
+  [[36, 132, 74], [220, 244, 226], [78, 176, 116]],      // 25  green
+  [[34, 34, 44], [222, 222, 232], [78, 78, 96]],         // 100 black
+  [[104, 52, 154], [232, 216, 246], [150, 100, 196]],    // 500 purple
+];
+
+/** One 16x16 frame per denomination, in `DENOMINATIONS` order. */
+export function chipSheet(): { pixels: Uint8Array; w: number; h: number } {
+  const n = CHIP_COLOURS.length;
+  const w = CHIP * n;
+  const px = new Uint8Array(w * CHIP * 4);
+  const mid = (CHIP - 1) / 2;
+
+  for (let i = 0; i < n; i++) {
+    const [body, dash, core] = CHIP_COLOURS[i];
+    for (let y = 0; y < CHIP; y++) {
+      for (let x = 0; x < CHIP; x++) {
+        const dx = x - mid;
+        const dy = y - mid;
+        const r = Math.hypot(dx, dy);
+        if (r > 7.4) continue;                         // outside the chip
+
+        // Six dashes around the rim, the way a real chip is edge-spotted.
+        const wedge = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI / 3)) % 6);
+        const colour = r > 6.6 ? RIM                   // see below
+          : r > 5.6 ? (wedge % 2 === 0 ? dash : body)
+            : r > 2.6 ? body
+              : core;
+
+        const o = ((y * w) + i * CHIP + x) * 4;
+        px[o] = colour[0]; px[o + 1] = colour[1]; px[o + 2] = colour[2]; px[o + 3] = 255;
+      }
+    }
+  }
+
+  return { pixels: px, w, h: CHIP };
+}
