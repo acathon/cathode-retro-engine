@@ -11,7 +11,7 @@
  * is only possible because the hardware presets are a starting position here
  * rather than a limit.
  */
-import { Bankroll, CARD_H, CARD_W, CardTable } from '@cathode/cards';
+import { Bankroll, CARD_H, CARD_W, CardTable, CARD_SHEET_URL, cardArtCredit } from '@cathode/cards';
 import { BitmapFont, Cathode, Scene, SoundChannel } from '@cathode/sdk';
 import { PERSONALITIES, play } from './ai';
 import { describe, evaluate } from './evaluator';
@@ -69,7 +69,7 @@ async function init(): Promise<void> {
   engine.setBgColor(18, 62, 40);
 
   const table = await CardTable.create(engine, scene, {
-    cardsUrl: new URL('../playing_cards.png', import.meta.url).href,
+    cardsUrl: CARD_SHEET_URL,
     width: SCREEN_W, height: SCREEN_H,
   });
 
@@ -249,7 +249,8 @@ async function init(): Promise<void> {
     const line = betweenHands() && message ? message : holding;
     if (line) centreText(line, SCREEN_W / 2, BOARD_Y + CARD_H + 12);
 
-    centreText(controls(), SCREEN_W / 2, SCREEN_H - 18);
+    centreText(controls(), SCREEN_W / 2, SCREEN_H - 32);
+    centreText(cardArtCredit(), SCREEN_W / 2, SCREEN_H - 16);
   }
 
   /**

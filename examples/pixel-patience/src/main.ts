@@ -12,7 +12,7 @@
  * only became possible once hardware sprite caps stopped being enforced at
  * run time.
  */
-import { CARD_H, CARD_W, CardTable } from '@cathode/cards';
+import { CARD_H, CARD_W, CardTable, CARD_SHEET_URL, cardArtCredit } from '@cathode/cards';
 import { BitmapFont, Cathode, Scene, SoundChannel } from '@cathode/sdk';
 import {
   FOUNDATION_0, PILE_COUNT, STOCK, TABLEAU_0, WASTE,
@@ -88,7 +88,7 @@ async function init(): Promise<void> {
   // `playing_cards.png` when one is there and draws its own deck when it is
   // not, so this file never learns which of the two it is showing.
   const table = await CardTable.create(engine, scene, {
-    cardsUrl: new URL('../playing_cards.png', import.meta.url).href,
+    cardsUrl: CARD_SHEET_URL,
     width: SCREEN_W,
     height: SCREEN_H,
   });
@@ -277,6 +277,12 @@ async function init(): Promise<void> {
     }
   }
 
+  /** The art credit, on the row above the controls. */
+  function drawCredit(): void {
+    const text = cardArtCredit();
+    font.draw(text, Math.max(4, Math.round(SCREEN_W / 2 - text.length * 4)), SCREEN_H - 28, 1);
+  }
+
   function drawHud(): void {
     const mins = Math.floor(elapsed / 60);
     const secs = Math.floor(elapsed % 60);
@@ -376,6 +382,7 @@ async function init(): Promise<void> {
 
     draw();
     drawHud();
+    drawCredit();
 
     if (game.won) {
       font.draw('ALL FOUR SUITS HOME', SCREEN_W / 2 - 76, SCREEN_H - 60, 1);

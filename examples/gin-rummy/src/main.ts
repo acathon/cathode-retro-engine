@@ -10,7 +10,7 @@
  * `rummy.ts` is the table and `bot.ts` the opponent; neither imports the
  * engine, which is why a whole match to a hundred runs in a unit test.
  */
-import { CARD_H, CARD_W, CardTable, type Card } from '@cathode/cards';
+import { CARD_H, CARD_W, CardTable, type Card, CARD_SHEET_URL, cardArtCredit } from '@cathode/cards';
 import { BitmapFont, Cathode, Scene, SoundChannel } from '@cathode/sdk';
 import { bestDiscard, takeTurn, upcardGain } from './bot';
 import { bestArrangement, sortForDisplay } from './melds';
@@ -49,7 +49,7 @@ async function init(): Promise<void> {
   engine.setBgColor(18, 62, 40);
 
   const table = await CardTable.create(engine, scene, {
-    cardsUrl: new URL('../playing_cards.png', import.meta.url).href,
+    cardsUrl: CARD_SHEET_URL,
     width: SCREEN_W, height: SCREEN_H,
   });
 
@@ -217,8 +217,9 @@ async function init(): Promise<void> {
       SCREEN_W / 2, YOUR_Y + CARD_H + 8,
     );
 
-    if (message) centreText(message, SCREEN_W / 2, SCREEN_H - 36);
-    centreText(controls(), SCREEN_W / 2, SCREEN_H - 18);
+    if (message) centreText(message, SCREEN_W / 2, SCREEN_H - 48);
+    centreText(controls(), SCREEN_W / 2, SCREEN_H - 32);
+    centreText(cardArtCredit(), SCREEN_W / 2, SCREEN_H - 16);
   }
 
   function controls(): string {

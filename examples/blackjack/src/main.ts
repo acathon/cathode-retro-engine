@@ -10,7 +10,7 @@
  * which is the same layer the solitaire and the poker examples sit on.
  */
 import {
-  Bankroll, CARD_H, CARD_W, CardTable, type Card,
+  Bankroll, CARD_H, CARD_SHEET_URL, CARD_W, CardTable, cardArtCredit, type Card,
 } from '@cathode/cards';
 import { BitmapFont, Cathode, Scene, SoundChannel } from '@cathode/sdk';
 import {
@@ -68,7 +68,7 @@ async function init(): Promise<void> {
   engine.setBgColor(18, 62, 40);
 
   const table = await CardTable.create(engine, scene, {
-    cardsUrl: new URL('../playing_cards.png', import.meta.url).href,
+    cardsUrl: CARD_SHEET_URL,
     width: SCREEN_W, height: SCREEN_H,
   });
 
@@ -236,7 +236,8 @@ async function init(): Promise<void> {
     });
 
     if (message) centreText(message, SCREEN_W / 2, MESSAGE_Y);
-    centreText(controls(), SCREEN_W / 2, SCREEN_H - 16);
+    centreText(controls(), SCREEN_W / 2, SCREEN_H - 30);
+    centreText(cardArtCredit(), SCREEN_W / 2, SCREEN_H - 14);
   }
 
   /** The built-in font is 8 pixels wide per glyph, so centring is arithmetic. */
