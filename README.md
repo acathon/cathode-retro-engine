@@ -4,7 +4,7 @@
 
 **A retro game engine with a Rust core, a WebAssembly runtime, a TypeScript SDK, a block-based visual editor, and a first-person raycaster.**
 
-[Docs Hub](./docs/README.md) · [Getting Started](./docs/getting-started.md) · [First Game](./docs/first-game.md) · [Bounce Tutorial](./docs/tutorial-bounce.md) · [First-Person Tutorial](./docs/tutorial-bounce-3d.md) · [Architecture](./docs/architecture.md) · [Contributing](./docs/contributing.md)
+[Docs Hub](./docs/README.md) · [Getting Started](./docs/getting-started.md) · [First Game](./docs/first-game.md) · [Bounce Tutorial](./docs/tutorial-bounce.md) · [First-Person Tutorial](./docs/tutorial-bounce-3d.md) · [Architecture](./docs/architecture.md) · [Assets](./ASSETS.md) · [Contributing](./docs/contributing.md)
 
 Cathode is for people who want the feel of old-school consoles without giving up modern tooling. Build with blocks if you have never written code, graduate to the TypeScript SDK when you outgrow them, and drop into the Rust core when you need to. Twelve complete games live in this repository, and none of them is a stub.
 
@@ -98,6 +98,7 @@ These examples are part demo, part reference implementation.
 | **Bounce** | `examples/bounce-classic` | Bouncing physics, buoyancy, charge jumps — [tutorial](./docs/tutorial-bounce.md) |
 | **Bounce 3D** | `examples/bounce-raycaster` | The same game in first person: eye height, horizon pitch, sprite elevation — [tutorial](./docs/tutorial-bounce-3d.md) |
 | **Dust Protocol** | `examples/dust-protocol` | Round-based FPS: hitscan, A* bots, line of sight, tab-to-tab netplay |
+| **Pixel Patience** | `examples/pixel-patience` | Klondike solitaire: a custom hardware profile, 52 sprites at once, unit-tested rules, a deck drawn in code |
 
 Every example runs standalone:
 
