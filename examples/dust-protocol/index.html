@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DUST PROTOCOL — Cathode</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0b0a08;
+      color: #b8ac96;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: monospace;
+    }
+
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    #scoreline {
+      display: flex; align-items: center; gap: 18px;
+      font-size: 17px; letter-spacing: 2px;
+    }
+
+    .team-a { color: #4a7cd4; font-weight: bold; }
+    .team-d { color: #d44a34; font-weight: bold; }
+    #round { color: #e8d9b0; }
+
+    #stage { position: relative; }
+
+    canvas#game {
+      image-rendering: pixelated; display: block;
+      border: 3px solid #4a4438; border-radius: 3px;
+      box-shadow: 0 0 34px rgba(200, 160, 80, 0.18);
+      background: #000;
+    }
+
+    canvas#minimap {
+      position: absolute; top: 10px; right: 10px;
+      image-rendering: pixelated;
+      border: 2px solid #4a4438;
+      background: rgba(10, 9, 7, 0.8);
+      opacity: 0.92;
+    }
+
+    #killfeed {
+      position: absolute; top: 10px; left: 10px;
+      display: flex; flex-direction: column; gap: 3px;
+      font-size: 12px; letter-spacing: 1px; text-align: left;
+      pointer-events: none;
+    }
+
+    #killfeed div { background: rgba(10, 9, 7, 0.72); padding: 2px 6px; border-radius: 2px; }
+
+    #banner {
+      position: absolute; left: 0; right: 0; top: 40%;
+      text-align: center; font-size: 26px; letter-spacing: 4px;
+      color: #ffd97a; text-shadow: 0 2px 10px #000;
+      pointer-events: none;
+    }
+
+    #bottom {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 768px; font-size: 16px; letter-spacing: 1px;
+    }
+
+    #health b { color: #7ad47a; }
+    #health b.hurt { color: #d44a34; }
+    #ammo b { color: #e8d9b0; }
+    #netstate { font-size: 12px; color: #6f6754; }
+
+    #keys { font-size: 12px; color: #6f6754; letter-spacing: 1px; }
+
+    #setup { display: flex; gap: 14px; align-items: center; font-size: 12px; color: #8a806c; }
+    #setup select, #setup button {
+      font-family: monospace; font-size: 12px;
+      background: #1b1913; color: #d8cbaa;
+      border: 1px solid #4a4438; border-radius: 2px; padding: 3px 7px;
+    }
+    #setup button { cursor: pointer; }
+  </style>
+</head>
+
+<body>
+  <div id="wrap">
+    <div id="scoreline">
+      <span class="team-a">ATTACK <b id="score-a">0</b></span>
+      <span id="round">ROUND 1 · <span id="timer">1:45</span></span>
+      <span class="team-d"><b id="score-d">0</b> DEFEND</span>
+    </div>
+    <div id="stage">
+      <canvas id="game"></canvas>
+      <canvas id="minimap" width="140" height="110"></canvas>
+      <div id="killfeed"></div>
+      <div id="banner"></div>
+    </div>
+    <div id="bottom">
+      <span id="health">HP <b id="hp">100</b></span>
+      <span id="netstate">SOLO — open this page in a second tab to play together</span>
+      <span id="ammo"><b id="mag">30</b> / <b id="reserve">90</b></span>
+    </div>
+    <div id="setup">
+      <label>BOTS
+        <select id="difficulty">
+          <option value="recruit">RECRUIT</option>
+          <option value="regular" selected>REGULAR</option>
+          <option value="veteran">VETERAN</option>
+        </select>
+      </label>
+      <label>SQUAD
+        <select id="squad">
+          <option value="1">1v1</option>
+          <option value="3" selected>3v3</option>
+          <option value="5">5v5</option>
+        </select>
+      </label>
+      <button id="restart">NEW MATCH</button>
+    </div>
+    <div id="keys">
+      &uarr;&darr; MOVE &nbsp;·&nbsp; &larr;&rarr; TURN &nbsp;·&nbsp; Q E STRAFE &nbsp;·&nbsp;
+      Z / SPACE FIRE &nbsp;·&nbsp; X RELOAD &nbsp;·&nbsp; ENTER NEXT ROUND
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
