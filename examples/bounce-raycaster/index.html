@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BOUNCE 3D — Raycaster · Cathode</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #05070d;
+      color: #8fa3c8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: monospace;
+    }
+
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+    #stage { position: relative; }
+
+    canvas#game {
+      image-rendering: pixelated;
+      display: block;
+      border: 3px solid #2b3552;
+      border-radius: 3px;
+      box-shadow: 0 0 34px rgba(60, 120, 220, 0.22);
+      background: #000;
+    }
+
+    canvas#minimap {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      image-rendering: pixelated;
+      border: 2px solid #2b3552;
+      background: rgba(6, 8, 16, 0.82);
+      opacity: 0.92;
+    }
+
+    #hud { display: flex; gap: 26px; font-size: 15px; letter-spacing: 1px; }
+    #hud b { color: #ff5a4d; }
+
+    #charge-track {
+      width: 768px; height: 6px; background: #1a2138;
+      border: 1px solid #2b3552; border-radius: 3px; overflow: hidden;
+    }
+
+    #charge {
+      width: 0%; height: 100%;
+      background: linear-gradient(90deg, #ffd246, #ff5a4d);
+      transition: width 40ms linear;
+    }
+
+    #status {
+      min-height: 22px; font-size: 15px; letter-spacing: 1px;
+      color: #58d68d; text-align: center;
+    }
+
+    #keys { font-size: 12px; color: #4a5878; letter-spacing: 1px; }
+  </style>
+</head>
+
+<body>
+  <div id="wrap">
+    <div id="hud">
+      <span>RINGS <b id="rings">0</b>/<b id="rings-total">0</b></span>
+      <span>LIVES <b id="lives">3</b></span>
+      <span>TIME <b id="time">0:00</b></span>
+    </div>
+    <div id="stage">
+      <canvas id="game"></canvas>
+      <canvas id="minimap" width="128" height="128"></canvas>
+    </div>
+    <div id="charge-track"><div id="charge"></div></div>
+    <div id="status">ROLL THROUGH EVERY RING — THEN FIND THE EXIT</div>
+    <div id="keys">&uarr;&darr; ROLL &nbsp;·&nbsp; &larr;&rarr; TURN &nbsp;·&nbsp; Q E STRAFE &nbsp;·&nbsp; Z / SPACE BOUNCE (HOLD TO CHARGE) &nbsp;·&nbsp; ENTER RESTART</div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
