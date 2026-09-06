@@ -252,6 +252,44 @@ mod tests {
     }
 
     #[test]
+    fn a_camera_placed_by_hand_still_obeys_its_bounds() {
+        // Regression: the SDK positioned the camera by writing the renderer's
+        // copy directly, which skipped this clamp entirely. Bounds looked set
+        // and did nothing, so a game following a sprite scrolled past the
+        // edge of its own level and showed empty space.
+        let mut cam = camera();
+        cam.lerp_speed = 0.0;
+        cam.bounds = Some(Rect::new(0.0, 0.0, 320.0, 240.0));
+
+        // Aim past the left edge, the way following a sprite near x=20 does.
+        cam.target = Vec2::new(20.0, 120.0) + Vec2::new(W * 0.5, H * 0.5);
+        cam.pos = Vec2::new(-108.0, 0.0);
+        cam.update(0.0);
+
+        assert!(
+            cam.pos.x >= 0.0,
+            "must not scroll past the level: {:?}",
+            cam.pos
+        );
+        assert!(
+            cam.pos.x <= (320.0 - W).max(0.0),
+            "must not scroll past the right edge: {:?}",
+            cam.pos
+        );
+    }
+
+    #[test]
+    fn a_zero_dt_update_clamps_without_moving_the_camera() {
+        // Placing the camera by hand runs one update with dt = 0 so bounds
+        // apply immediately; that must not also drag it toward its target.
+        let mut cam = camera();
+        cam.target = Vec2::new(5000.0, 5000.0);
+        cam.pos = Vec2::new(40.0, 30.0);
+        cam.update(0.0);
+        assert_eq!(cam.pos, Vec2::new(40.0, 30.0));
+    }
+
+    #[test]
     fn world_and_screen_coordinates_round_trip() {
         let mut cam = camera();
         cam.pos = Vec2::new(100.0, 50.0);

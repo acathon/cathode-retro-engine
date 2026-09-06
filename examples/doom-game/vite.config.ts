@@ -9,7 +9,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@cathode/sdk': resolve(__dirname, '../../packages/sdk/src/index.ts'),
-      'cathode-platform-web': resolve(__dirname, '../../packages/sdk/wasm/cathode_platform_web.js'),
     },
   },
   optimizeDeps: {

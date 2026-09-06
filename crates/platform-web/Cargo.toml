@@ -26,3 +26,12 @@ features = [
   "AudioProcessingEvent", "KeyboardEvent", "EventTarget", "Performance",
   "console", "TouchEvent", "Touch", "TouchList"
 ]
+
+# wasm-pack runs wasm-opt after wasm-bindgen and writes package.json only once
+# that succeeds. It downloads binaryen from GitHub on first use, so on any
+# machine without that network access the build dies mid-way: the .js and
+# .wasm land, but no package.json, and the package becomes unresolvable by
+# name. Every example then needs a hand-written vite alias to a raw file path.
+# Turning it off makes the build complete identically everywhere.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

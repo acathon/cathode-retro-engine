@@ -99,6 +99,9 @@ async function initGame() {
     }
 
     scene.follow(hero, 0, 0);
+    // Without bounds the camera keeps centring the hero at the edges of the
+    // level, so a third of the screen showed empty space beyond the map.
+    engine.raw.set_camera_bounds(0, 0, MAP_COLS * TILE_SIZE, 18 * TILE_SIZE);
 
     engine.loop((dt) => {
         shootTimer = Math.max(0, shootTimer - dt);

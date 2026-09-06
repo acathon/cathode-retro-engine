@@ -81,13 +81,19 @@ impl FrameBuffer {
 
         for px in self.pixels.as_chunks_mut::<4>().0 {
             let mut best = colors[0];
-            let mut best_dist = u32::MAX;
+            let mut best_dist = f32::MAX;
 
             for color in &colors {
-                let dr = px[0] as i32 - color.0 as i32;
-                let dg = px[1] as i32 - color.1 as i32;
-                let db = px[2] as i32 - color.2 as i32;
-                let dist = (dr * dr + dg * dg + db * db) as u32;
+                let dr = px[0] as f32 - color.0 as f32;
+                let dg = px[1] as f32 - color.1 as f32;
+                let db = px[2] as f32 - color.2 as f32;
+                // Weighted by how much each channel contributes to perceived
+                // brightness. Plain RGB distance is dominated by green, which
+                // sends mid-brightness colours to the wrong end of a short
+                // palette: magenta (255,0,255) landed on the Game Boy's
+                // *lightest* shade, so a magenta sprite came out the same
+                // colour as the sky and vanished.
+                let dist = 0.299 * dr * dr + 0.587 * dg * dg + 0.114 * db * db;
                 if dist < best_dist {
                     best_dist = dist;
                     best = *color;
@@ -408,6 +414,53 @@ mod tests {
         assert_eq!(pixel(&fb, 0, 1)[0], 50);
         assert_eq!(pixel(&fb, 0, 2)[0], 100);
         assert_eq!(pixel(&fb, 0, 3)[0], 50);
+    }
+
+    #[test]
+    fn a_mid_brightness_colour_does_not_snap_to_the_lightest_shade() {
+        // Regression: plain RGB distance is dominated by the green channel,
+        // so magenta's nearest Game Boy colour came out as #e0f8cf — the same
+        // shade the screen is cleared to. A magenta sprite drew itself in the
+        // background colour and disappeared, which is exactly what happened
+        // to the hero in examples/demo-game.
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(255, 0, 255);
+        fb.apply_palette(&Palette::gameboy());
+
+        let lightest = Palette::gameboy().get(1);
+        assert_ne!(
+            pixel(&fb, 0, 0),
+            [lightest.0, lightest.1, lightest.2, 255],
+            "magenta must not land on the background shade"
+        );
+    }
+
+    #[test]
+    fn palette_matching_still_separates_light_from_dark() {
+        let palette = Palette::gameboy();
+        for (input, expect_light) in [((250, 250, 250), true), ((5, 5, 5), false)] {
+            let mut fb = FrameBuffer::new(1, 1);
+            fb.clear(input.0, input.1, input.2);
+            fb.apply_palette(&palette);
+            let px = pixel(&fb, 0, 0);
+            let luma = 0.299 * px[0] as f32 + 0.587 * px[1] as f32 + 0.114 * px[2] as f32;
+            assert_eq!(luma > 128.0, expect_light, "{input:?} mapped to {px:?}");
+        }
+    }
+
+    #[test]
+    fn every_gameboy_shade_is_reachable() {
+        // A palette that only ever emits two of its four shades is not really
+        // a four-shade palette.
+        let palette = Palette::gameboy();
+        let mut seen = std::collections::HashSet::new();
+        for v in 0..=255u8 {
+            let mut fb = FrameBuffer::new(1, 1);
+            fb.clear(v, v, v);
+            fb.apply_palette(&palette);
+            seen.insert(pixel(&fb, 0, 0));
+        }
+        assert_eq!(seen.len(), 4, "grey ramp should reach all four shades");
     }
 
     #[test]

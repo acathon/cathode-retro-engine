@@ -53,6 +53,11 @@ export class Raycaster {
     });
   }
 
+  /**
+   * Upload a wall texture. `wallType` is 1-based to match the non-zero cell
+   * values in the map, so wall type N is read from texture index N-1 — the
+   * number {@link addBillboard} wants.
+   */
   setTextureFromPixels(wallType: number, pixels: Uint8Array | Uint8ClampedArray, size: number): void {
     const view = new Uint8Array(pixels.buffer, pixels.byteOffset, pixels.byteLength);
     this.engine.raw!.raycaster_set_texture(wallType, new Uint8Array(view), size);
@@ -70,6 +75,15 @@ export class Raycaster {
     this.engine.raw!.raycaster_set_fog(distance, r, g, b);
   }
 
+  /**
+   * Place a sprite in the world.
+   *
+   * `textureType` is the **index** into the texture array, while
+   * {@link setTextureFromPixels} takes the **1-based wall type**. A texture
+   * uploaded as wall type 5 is therefore billboard texture 4. Getting this
+   * wrong asks for a texture that does not exist and the sprite draws as a
+   * magenta block — which, standing close enough, fills the screen.
+   */
   addBillboard(id: number, x: number, y: number, textureType: number, scale = 1.0): void {
     this.billboards.set(id, { textureType, scale });
     this.engine.raw!.raycaster_add_billboard(id, x, y, textureType, scale);

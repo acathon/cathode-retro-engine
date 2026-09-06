@@ -8,7 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "cathode-platform-web": "file:../../crates/platform-web/pkg"
+    "cathode-platform-web": "file:./wasm"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

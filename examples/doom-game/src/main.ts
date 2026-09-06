@@ -189,6 +189,27 @@ const pickups: Pickup[] = [
   { id: 206, x: 18.5, y: 21.5, type: 'ammo', taken: false },
 ];
 
+/**
+ * A health pickup: a glowing cross on transparent. Billboards index the
+ * texture array directly, so this is uploaded one past the walls.
+ */
+function genPickup(size: number): Uint8Array {
+  const p = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const cx = x - size / 2 + 0.5;
+      const cy = y - size / 2 + 0.5;
+      const arm = Math.abs(cx) < size * 0.12 || Math.abs(cy) < size * 0.12;
+      const box = Math.abs(cx) < size * 0.34 && Math.abs(cy) < size * 0.34;
+      if (box && arm) { p[i] = 255; p[i + 1] = 70; p[i + 2] = 70; p[i + 3] = 255; }
+      else if (box) { p[i] = 235; p[i + 1] = 235; p[i + 2] = 235; p[i + 3] = 255; }
+      else p[i + 3] = 0;
+    }
+  }
+  return p;
+}
+
 // ─── Main ───────────────────────────────────────────────────────────
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
@@ -203,6 +224,7 @@ async function bootstrap() {
   raycaster.setTextureFromPixels(3, genHellStone(TEX), TEX);
   raycaster.setTextureFromPixels(4, genMetalDoor(TEX), TEX);
   raycaster.setTextureFromPixels(5, genDemonSprite(TEX), TEX);
+  raycaster.setTextureFromPixels(6, genPickup(TEX), TEX);
 
   // Dark DOOM atmosphere
   raycaster.setFloorColor(25, 20, 18);
@@ -210,9 +232,20 @@ async function bootstrap() {
   raycaster.setFog(14, 0, 0, 0);
   raycaster.setPos(1.5, 1.5, 0.8);
 
-  // Place billboards
-  for (const e of enemies) raycaster.addBillboard(e.id, e.x, e.y, 5, 0.7);
-  for (const p of pickups) raycaster.addBillboard(p.id, p.x, p.y, 4, 0.3);
+  // Billboard texture ids are the *index* into the texture array, while
+  // setTextureFromPixels takes the 1-based wall type. The demon uploaded as
+  // wall type 5 is therefore texture 4. Passing 5 here asked for a texture
+  // that does not exist, and the raycaster drew every enemy as the magenta
+  // missing-texture block — including one right next to the player spawn,
+  // which filled the whole screen.
+  const TEX_DEMON = 4;
+  const TEX_PICKUP = 5;
+  for (const e of enemies) raycaster.addBillboard(e.id, e.x, e.y, TEX_DEMON, 0.7);
+  for (const p of pickups) raycaster.addBillboard(p.id, p.x, p.y, TEX_PICKUP, 0.3);
+  // Enemies stand on the floor; pickups sit low. Before the raycaster had a
+  // vertical axis both floated at eye level.
+  for (const e of enemies) raycaster.setBillboardElevation(e.id, 0.34);
+  for (const p of pickups) raycaster.setBillboardElevation(p.id, 0.16);
 
   const font = BitmapFont.builtin(engine);
 

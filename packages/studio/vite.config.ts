@@ -25,7 +25,6 @@ export default defineConfig({
   server: { port: 3010, fs: { strict: false, allow: ['../..'] } },
   resolve: {
     alias: {
-      'cathode-platform-web': resolve(__dirname, '../sdk/wasm/cathode_platform_web.js'),
       '@blockly-media': BLOCKLY_MEDIA,
     },
   },

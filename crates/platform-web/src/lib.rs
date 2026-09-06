@@ -131,10 +131,25 @@ impl WebEngine {
             .unwrap_or(false)
     }
 
+    /// Place the camera's top-left corner directly.
+    ///
+    /// This goes through the smoothed camera rather than writing the
+    /// renderer's copy, which `tick` overwrites from it every frame anyway.
+    /// Routing it here is what lets `set_camera_bounds` apply to a game that
+    /// positions its own camera — before this, bounds silently did nothing
+    /// unless you also used `set_camera_target`.
     #[wasm_bindgen]
     pub fn set_camera(&mut self, x: f32, y: f32) {
-        self.engine.renderer.camera.x = x;
-        self.engine.renderer.camera.y = y;
+        let half = glam::Vec2::new(
+            self.engine.config.width as f32 * 0.5,
+            self.engine.config.height as f32 * 0.5,
+        );
+        self.engine.camera.pos = glam::Vec2::new(x, y);
+        // Keep the target consistent, or the next update lerps straight back
+        // to wherever the camera was last aimed.
+        self.engine.camera.target = glam::Vec2::new(x, y) + half;
+        self.engine.camera.update(0.0);
+        self.engine.renderer.camera = self.engine.camera.pos;
     }
 
     #[wasm_bindgen]
