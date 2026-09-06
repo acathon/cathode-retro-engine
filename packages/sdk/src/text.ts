@@ -89,9 +89,12 @@ export class BitmapFont {
             if (big[bi + 3] > 90) lit++;
           }
         }
-        // A third of the block is enough: thin strokes cover fewer samples
-        // than a solid fill, and demanding half of them erases them again.
-        const on = lit >= (SS * SS) / 3;
+        // Five samples of sixteen. A third dropped the leg off an "R" so it
+        // read as "N"; a quarter thickened strokes until the counters in "S"
+        // and "O" closed up. This is a fallback font at 8x8 — a game that
+        // wants exact glyphs should supply its own sheet, which BitmapFont's
+        // constructor already takes.
+        const on = lit * 16 >= SS * SS * 5;
         const i = (y * sheetW + x) * 4;
         pixels[i] = on ? 255 : 0;
         pixels[i + 1] = on ? 255 : 0;

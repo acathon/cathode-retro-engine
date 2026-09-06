@@ -2,6 +2,11 @@ import { Scene } from './scene';
 import { TileMapOptions } from './types';
 
 export class TileMap {
+  /** Unload every tilemap. Handles from earlier commits become stale. */
+  static clearAll(engine: { raw: { clear_tilemaps(): void } | null }): void {
+    engine.raw?.clear_tilemaps();
+  }
+
   public name: string;
   public cols: number;
   public rows: number;
@@ -44,6 +49,13 @@ export class TileMap {
     }
   }
 
+  /**
+   * Upload the map to the engine.
+   *
+   * Each call adds a map rather than replacing one, so a game that rebuilds
+   * its level should call {@link TileMap.clearAll} first — otherwise the old
+   * level stays drawn underneath the new one.
+   */
   commit() {
     const json = JSON.stringify({
       name: this.name,

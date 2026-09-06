@@ -101,6 +101,22 @@ impl WebEngine {
         self.engine.assets.add_sheet(sheet)
     }
 
+    /// Remove every tilemap.
+    ///
+    /// Committing a map pushes a new one, so without this a game that
+    /// rebuilds its level — a new stage, or returning to a menu — stacked the
+    /// old one underneath forever, and there was no way to unload a level at
+    /// all. Handles from before this call are stale.
+    #[wasm_bindgen]
+    pub fn clear_tilemaps(&mut self) {
+        self.engine.renderer.tilemaps.clear();
+    }
+
+    #[wasm_bindgen]
+    pub fn tilemap_count(&self) -> u32 {
+        self.engine.renderer.tilemaps.len() as u32
+    }
+
     #[wasm_bindgen]
     pub fn load_tilemap(&mut self, json: &str) -> Result<u32, JsValue> {
         let map: TileMap =
