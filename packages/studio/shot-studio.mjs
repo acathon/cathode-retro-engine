@@ -1,0 +1,20 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell' });
+const page = await browser.newPage();
+await page.setViewportSize({ width: 1500, height: 950 });
+await page.goto('http://localhost:3010/', { waitUntil: 'networkidle' });
+await page.waitForFunction(() => !!window.__studio, null, { timeout: 20000 });
+await page.waitForTimeout(1200);
+await page.evaluate(() => window.__studio.showPanel('level'));
+await page.waitForTimeout(600);
+await page.screenshot({ path: '/tmp/studio-level.png' });
+// Raycaster mode must still swap to the map editor.
+await page.evaluate(() => window.__studio.setMode('raycaster'));
+await page.waitForTimeout(900);
+const rc = await page.evaluate(() => ({ mode: window.__studio.mode(), cells: window.__studio.mapCells(), panel: document.querySelector('.panel.active')?.dataset.panel }));
+console.log('raycaster mode:', JSON.stringify(rc));
+await page.evaluate(() => window.__studio.setMode('2d'));
+await page.waitForTimeout(700);
+const two = await page.evaluate(() => ({ mode: window.__studio.mode(), panel: document.querySelector('.panel.active')?.dataset.panel }));
+console.log('back to 2d:', JSON.stringify(two));
+await browser.close();

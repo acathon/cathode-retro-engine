@@ -18,8 +18,8 @@ console.log(chalk.magenta(`
 `));
 
 program
-  .name('retro')
-  .description('Retro Engine CLI tool for building modern 2D retro games')
+  .name('cathode')
+  .description('Cathode CLI tool for building modern 2D retro games')
   .version('0.1.0');
 
 program

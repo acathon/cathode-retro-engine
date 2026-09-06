@@ -7,7 +7,7 @@ import ora from 'ora';
 export default async function runCommand() {
   const spinner = ora('Checking dependencies...').start();
   
-  const platformWebPath = path.resolve(process.cwd(), 'node_modules', 'retro-platform-web');
+  const platformWebPath = path.resolve(process.cwd(), 'node_modules', 'cathode-platform-web');
   const hasWasm = fs.existsSync(platformWebPath);
 
   if (!hasWasm) {

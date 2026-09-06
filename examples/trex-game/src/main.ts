@@ -1,6 +1,6 @@
-import { RetroEngine, Scene, Sprite, SoundChannel } from '@retro-engine/sdk';
+import { Cathode, Scene, Sprite, SoundChannel } from '@cathode/sdk';
 
-async function loadScaledAsset(engine: RetroEngine, url: string, targetW: number, targetH: number, frames: number = 1): Promise<number> {
+async function loadScaledAsset(engine: Cathode, url: string, targetW: number, targetH: number, frames: number = 1): Promise<number> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -36,7 +36,7 @@ async function init() {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
 
   // Initialize Engine
-  const engine = await RetroEngine.gameboy(canvas, 3);
+  const engine = await Cathode.gameboy(canvas, 3);
   const scene = new Scene(engine);
 
   // Sound channels

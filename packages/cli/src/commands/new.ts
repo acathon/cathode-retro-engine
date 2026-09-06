@@ -8,12 +8,12 @@ type TemplateName = 'default' | 'platformer' | 'shmup' | 'puzzle' | 'rpg' | 'doo
 const TEMPLATES: Record<TemplateName, { resolution: { width: number; height: number }; main: string }> = {
   default: {
     resolution: { width: 160, height: 144 },
-    main: `import { RetroEngine, Scene, Sprite, SoundChannel } from '@retro-engine/sdk';
+    main: `import { Cathode, Scene, Sprite, SoundChannel } from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function bootstrap() {
-  const engine = await RetroEngine.gameboy(canvas);
+  const engine = await Cathode.gameboy(canvas);
   const scene = new Scene(engine);
 
   engine.loop((dt) => {
@@ -27,14 +27,14 @@ bootstrap();
   platformer: {
     resolution: { width: 256, height: 240 },
     main: `import {
-  RetroEngine, Scene, Sprite, SoundChannel,
+  Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, StateMachine, GameTimer, ParticleEmitter,
-} from '@retro-engine/sdk';
+} from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function bootstrap() {
-  const engine = await RetroEngine.nes(canvas, 2);
+  const engine = await Cathode.nes(canvas, 2);
   const scene = new Scene(engine);
   const font = BitmapFont.builtin(engine);
   const sfx = new SoundChannel(engine, 0);
@@ -153,14 +153,14 @@ bootstrap();
   shmup: {
     resolution: { width: 256, height: 240 },
     main: `import {
-  RetroEngine, Scene, Sprite, SoundChannel,
+  Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, GameTimer, ParticleEmitter,
-} from '@retro-engine/sdk';
+} from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function bootstrap() {
-  const engine = await RetroEngine.nes(canvas, 2);
+  const engine = await Cathode.nes(canvas, 2);
   const scene = new Scene(engine);
   const font = BitmapFont.builtin(engine);
   const sfxShoot = new SoundChannel(engine, 0);
@@ -253,14 +253,14 @@ bootstrap();
   puzzle: {
     resolution: { width: 160, height: 144 },
     main: `import {
-  RetroEngine, Scene, Sprite, SoundChannel,
+  Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, GameTimer,
-} from '@retro-engine/sdk';
+} from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function bootstrap() {
-  const engine = await RetroEngine.gameboy(canvas, 2);
+  const engine = await Cathode.gameboy(canvas, 2);
   const scene = new Scene(engine);
   const font = BitmapFont.builtin(engine);
   const sfx = new SoundChannel(engine, 0);
@@ -418,14 +418,14 @@ bootstrap();
   rpg: {
     resolution: { width: 256, height: 240 },
     main: `import {
-  RetroEngine, Scene, Sprite, SoundChannel,
+  Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, TileMap, StateMachine, SaveManager,
-} from '@retro-engine/sdk';
+} from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function bootstrap() {
-  const engine = await RetroEngine.nes(canvas, 2);
+  const engine = await Cathode.nes(canvas, 2);
   const scene = new Scene(engine);
   const font = BitmapFont.builtin(engine);
   const sfx = new SoundChannel(engine, 0);
@@ -557,8 +557,8 @@ bootstrap();
   doom: {
     resolution: { width: 256, height: 240 },
     main: `import {
-  RetroEngine, Scene, Raycaster, BitmapFont, SaveManager, SoundChannel,
-} from '@retro-engine/sdk';
+  Cathode, Scene, Raycaster, BitmapFont, SaveManager, SoundChannel,
+} from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
@@ -596,7 +596,7 @@ function generateWoodTexture(size: number): Uint8Array {
 }
 
 async function bootstrap() {
-  const engine = await RetroEngine.nes(canvas, 2);
+  const engine = await Cathode.nes(canvas, 2);
   const scene = new Scene(engine);
 
   const MAP = [
@@ -697,10 +697,10 @@ export default async function newCommand(name: string, options: { template?: str
       type: "module",
       scripts: {
         "dev": "retro run",
-        "build": "retro build"
+        "build": "cathode build"
       },
       dependencies: {
-        "@retro-engine/sdk": "latest"
+        "@cathode/sdk": "latest"
       },
       devDependencies: {
         "typescript": "^5.5.0",

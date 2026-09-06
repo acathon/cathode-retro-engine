@@ -2,12 +2,12 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
-    port: 3008,
+    port: 3009,
     fs: {
       strict: false,
     },
   },
   optimizeDeps: {
-    exclude: ['@retro-engine/sdk', 'retro-platform-web'],
+    exclude: ['@cathode/sdk', 'cathode-platform-web'],
   },
 });

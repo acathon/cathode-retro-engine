@@ -1,7 +1,7 @@
-use retro_core::config::EngineConfig;
-use retro_core::ecs::{GamepadState, Position, SpriteIndex, Velocity, Collider};
-use retro_core::renderer::tilemap::TileMap;
-use retro_core::Engine;
+use cathode_core::config::EngineConfig;
+use cathode_core::ecs::{Collider, GamepadState, Position, SpriteIndex, Velocity};
+use cathode_core::renderer::tilemap::TileMap;
+use cathode_core::Engine;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::Clamped;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
@@ -97,8 +97,24 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn upload_sheet(&mut self, w: u32, h: u32, tw: u32, th: u32, pixels: Vec<u8>) -> u32 {
-        let sheet = retro_core::assets::SpriteSheet::from_rgba(w, h, tw, th, pixels);
+        let sheet = cathode_core::assets::SpriteSheet::from_rgba(w, h, tw, th, pixels);
         self.engine.assets.add_sheet(sheet)
+    }
+
+    /// Remove every tilemap.
+    ///
+    /// Committing a map pushes a new one, so without this a game that
+    /// rebuilds its level — a new stage, or returning to a menu — stacked the
+    /// old one underneath forever, and there was no way to unload a level at
+    /// all. Handles from before this call are stale.
+    #[wasm_bindgen]
+    pub fn clear_tilemaps(&mut self) {
+        self.engine.renderer.tilemaps.clear();
+    }
+
+    #[wasm_bindgen]
+    pub fn tilemap_count(&self) -> u32 {
+        self.engine.renderer.tilemaps.len() as u32
     }
 
     #[wasm_bindgen]
@@ -109,10 +125,130 @@ impl WebEngine {
         Ok((self.engine.renderer.tilemaps.len() - 1) as u32)
     }
 
+    /// Declare which tile ids on a layer act as walls, so the physics step
+    /// resolves bodies against them. Tilemap JSON can carry `solid_tiles`
+    /// directly; this is for changing it after the map is loaded.
+    #[wasm_bindgen]
+    pub fn set_tilemap_solid_tiles(&mut self, map: u32, layer: u32, ids: Vec<u16>) {
+        if let Some(m) = self.engine.renderer.tilemaps.get_mut(map as usize) {
+            m.set_solid_tiles(layer as usize, &ids);
+        }
+    }
+
+    /// Whether a tile cell is a wall on any layer. Cells outside the map read
+    /// as open.
+    #[wasm_bindgen]
+    pub fn tilemap_solid_at(&self, map: u32, col: i32, row: i32) -> bool {
+        self.engine
+            .renderer
+            .tilemaps
+            .get(map as usize)
+            .map(|m| m.solid_at(col, row))
+            .unwrap_or(false)
+    }
+
+    /// Place the camera's top-left corner directly.
+    ///
+    /// This goes through the smoothed camera rather than writing the
+    /// renderer's copy, which `tick` overwrites from it every frame anyway.
+    /// Routing it here is what lets `set_camera_bounds` apply to a game that
+    /// positions its own camera — before this, bounds silently did nothing
+    /// unless you also used `set_camera_target`.
     #[wasm_bindgen]
     pub fn set_camera(&mut self, x: f32, y: f32) {
-        self.engine.renderer.camera.x = x;
-        self.engine.renderer.camera.y = y;
+        let half = glam::Vec2::new(
+            self.engine.config.width as f32 * 0.5,
+            self.engine.config.height as f32 * 0.5,
+        );
+        self.engine.camera.pos = glam::Vec2::new(x, y);
+        // Keep the target consistent, or the next update lerps straight back
+        // to wherever the camera was last aimed.
+        self.engine.camera.target = glam::Vec2::new(x, y) + half;
+        self.engine.camera.update(0.0);
+        self.engine.renderer.camera = self.engine.camera.pos;
+    }
+
+    /// Switch the hardware *look* — palette, background and scanlines —
+    /// without rebuilding the engine. Accepts "nes", "gameboy", "neogeo" or
+    /// "custom".
+    ///
+    /// The profile is a view setting, not a contract: build once, preview on
+    /// any of them, and pick a target when you export.
+    #[wasm_bindgen]
+    pub fn set_profile(&mut self, name: &str) {
+        let profile = cathode_core::HardwareProfile::from_name(name);
+        self.engine.renderer.set_profile(profile);
+        self.engine.config.profile = profile;
+    }
+
+    #[wasm_bindgen]
+    pub fn profile(&self) -> String {
+        self.engine.config.profile.name().to_string()
+    }
+
+    /// Most sprites drawn in any one frame so far.
+    #[wasm_bindgen]
+    pub fn peak_sprites(&self) -> u32 {
+        self.engine.renderer.peak_sprites as u32
+    }
+
+    #[wasm_bindgen]
+    pub fn reset_peak_sprites(&mut self) {
+        self.engine.renderer.reset_peak_sprites();
+    }
+
+    /// Check what this game has actually used against a target's real limits.
+    ///
+    /// Returns JSON: the target's budgets, the peak this run reached, and
+    /// whether each fits. This is where hardware limits belong — a number you
+    /// can act on when choosing a platform, rather than a silent cap that
+    /// deletes sprites while you play.
+    #[wasm_bindgen]
+    pub fn check_target(&self, name: &str) -> String {
+        let profile = cathode_core::HardwareProfile::from_name(name);
+        let peak = self.engine.renderer.peak_sprites as u32;
+        let (w, h) = self.engine.renderer.resolution;
+
+        let sprite_budget = profile.sprite_budget();
+        let resolution = profile.resolution();
+        let channels = profile.audio_channels();
+
+        let report = serde_json::json!({
+            "target": profile.name(),
+            "sprites": {
+                "peak": peak,
+                "budget": sprite_budget,
+                "fits": sprite_budget.map(|b| peak <= b),
+            },
+            "resolution": {
+                "current": [w, h],
+                "target": resolution.map(|(tw, th)| vec![tw, th]),
+                "fits": resolution.map(|(tw, th)| w <= tw && h <= th),
+            },
+            "audio": {
+                "channels": self.engine.config.audio_channels,
+                "budget": channels,
+                "fits": channels.map(|c| self.engine.config.audio_channels <= c),
+            },
+        });
+        report.to_string()
+    }
+
+    /// Show or hide a sprite without destroying it.
+    ///
+    /// Before this existed, hiding meant moving the entity off-screen,
+    /// because an entity with a SpriteIndex was drawn unconditionally.
+    #[wasm_bindgen]
+    pub fn set_visible(&mut self, id: u64, visible: bool) {
+        if let Some(e) = self.find_entity(id) {
+            if let Ok(mut index) = self
+                .engine
+                .world
+                .get::<&mut cathode_core::ecs::SpriteIndex>(e)
+            {
+                index.visible = visible;
+            }
+        }
     }
 
     #[wasm_bindgen]
@@ -122,7 +258,7 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn set_bg_color(&mut self, r: u8, g: u8, b: u8) {
-        self.engine.renderer.bg_color = retro_core::renderer::palette::Color::rgb(r, g, b);
+        self.engine.renderer.bg_color = cathode_core::renderer::palette::Color::rgb(r, g, b);
     }
 
     #[wasm_bindgen]
@@ -136,6 +272,7 @@ impl WebEngine {
                 flip_x: false,
                 flip_y: false,
                 layer,
+                visible: true,
             },
         ));
         ent.to_bits().into()
@@ -181,6 +318,20 @@ impl WebEngine {
         arr
     }
 
+    /// Read an entity's velocity back. Physics zeroes an axis on impact, so a
+    /// game driven by the engine's physics needs this to tell whether it is
+    /// still moving (falling, or stopped against a wall).
+    #[wasm_bindgen]
+    pub fn get_velocity(&self, id: u64) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(2);
+        if let Some(e) = self.find_entity(id) {
+            if let Ok(vel) = self.engine.world.get::<&Velocity>(e) {
+                arr.copy_from(&[vel.0.x, vel.0.y]);
+            }
+        }
+        arr
+    }
+
     #[wasm_bindgen]
     pub fn set_frame(&mut self, id: u64, frame: u16) {
         if let Some(e) = self.find_entity(id) {
@@ -212,12 +363,12 @@ impl WebEngine {
     #[wasm_bindgen]
     pub fn audio_play(&mut self, ch: usize, freq: f32, waveform: u8, vol: f32) {
         let wf = match waveform {
-            0 => retro_core::audio::Waveform::Pulse25,
-            1 => retro_core::audio::Waveform::Pulse50,
-            2 => retro_core::audio::Waveform::Triangle,
-            3 => retro_core::audio::Waveform::Sawtooth,
-            4 => retro_core::audio::Waveform::Noise,
-            _ => retro_core::audio::Waveform::Sine,
+            0 => cathode_core::audio::Waveform::Pulse25,
+            1 => cathode_core::audio::Waveform::Pulse50,
+            2 => cathode_core::audio::Waveform::Triangle,
+            3 => cathode_core::audio::Waveform::Sawtooth,
+            4 => cathode_core::audio::Waveform::Noise,
+            _ => cathode_core::audio::Waveform::Sine,
         };
         self.engine.audio.play(ch, freq, wf, vol);
     }
@@ -243,16 +394,24 @@ impl WebEngine {
     }
 
     #[wasm_bindgen]
-    pub fn audio_set_envelope(&mut self, ch: usize, attack: f32, decay: f32, sustain: f32, release: f32) {
+    pub fn audio_set_envelope(
+        &mut self,
+        ch: usize,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+    ) {
         if let Some(channel) = self.engine.audio.channels.get_mut(ch) {
-            channel.envelope = retro_core::audio::envelope::Envelope::new(attack, decay, sustain, release);
+            channel.envelope =
+                cathode_core::audio::envelope::Envelope::new(attack, decay, sustain, release);
         }
     }
 
     #[wasm_bindgen]
     pub fn audio_set_envelope_preset(&mut self, ch: usize, preset: &str) {
         if let Some(channel) = self.engine.audio.channels.get_mut(ch) {
-            channel.envelope = retro_core::audio::envelope::Envelope::from_preset(preset);
+            channel.envelope = cathode_core::audio::envelope::Envelope::from_preset(preset);
         }
     }
 
@@ -306,10 +465,10 @@ impl WebEngine {
                     "entity_a": e.entity_a.to_bits().get(),
                     "entity_b": e.entity_b.to_bits().get(),
                     "side": match e.side {
-                        retro_core::collision::CollisionSide::Top => "top",
-                        retro_core::collision::CollisionSide::Bottom => "bottom",
-                        retro_core::collision::CollisionSide::Left => "left",
-                        retro_core::collision::CollisionSide::Right => "right",
+                        cathode_core::collision::CollisionSide::Top => "top",
+                        cathode_core::collision::CollisionSide::Bottom => "bottom",
+                        cathode_core::collision::CollisionSide::Left => "left",
+                        cathode_core::collision::CollisionSide::Right => "right",
                     },
                     "overlap_x": e.overlap.x,
                     "overlap_y": e.overlap.y,
@@ -333,12 +492,12 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn set_camera_bounds(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.engine.camera.bounds = Some(retro_core::camera::Rect::new(x, y, w, h));
+        self.engine.camera.bounds = Some(cathode_core::camera::Rect::new(x, y, w, h));
     }
 
     #[wasm_bindgen]
     pub fn set_camera_dead_zone(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.engine.camera.dead_zone = Some(retro_core::camera::Rect::new(x, y, w, h));
+        self.engine.camera.dead_zone = Some(cathode_core::camera::Rect::new(x, y, w, h));
     }
 
     #[wasm_bindgen]
@@ -357,15 +516,13 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn create_emitter(&mut self, max_particles: u32) -> u32 {
-        let emitter = retro_core::particles::ParticleEmitter::new(max_particles as usize);
-        self.engine.emitters.push(emitter);
-        (self.engine.emitters.len() - 1) as u32
+        self.engine.create_emitter(max_particles as usize)
     }
 
     #[wasm_bindgen]
     pub fn emitter_burst(&mut self, handle: u32, x: f32, y: f32, count: u32, config_json: &str) {
-        if let Some(emitter) = self.engine.emitters.get_mut(handle as usize) {
-            let config: retro_core::particles::EmitConfig =
+        if let Some(emitter) = self.engine.emitter_mut(handle) {
+            let config: cathode_core::particles::EmitConfig =
                 serde_json::from_str(config_json).unwrap_or_default();
             emitter.burst(glam::Vec2::new(x, y), count, &config);
         }
@@ -373,16 +530,14 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn emitter_set_pos(&mut self, handle: u32, x: f32, y: f32) {
-        if let Some(emitter) = self.engine.emitters.get_mut(handle as usize) {
+        if let Some(emitter) = self.engine.emitter_mut(handle) {
             emitter.pos = glam::Vec2::new(x, y);
         }
     }
 
     #[wasm_bindgen]
     pub fn destroy_emitter(&mut self, handle: u32) {
-        if (handle as usize) < self.engine.emitters.len() {
-            self.engine.emitters.remove(handle as usize);
-        }
+        self.engine.destroy_emitter(handle);
     }
 
     // --- Tweens ---
@@ -397,8 +552,10 @@ impl WebEngine {
         repeat: bool,
         yoyo: bool,
     ) -> u32 {
-        let ease = retro_core::tween::EaseFn::from_id(ease_id);
-        self.engine.tweens.create(from, to, duration_secs, ease, repeat, yoyo)
+        let ease = cathode_core::tween::EaseFn::from_id(ease_id);
+        self.engine
+            .tweens
+            .create(from, to, duration_secs, ease, repeat, yoyo)
     }
 
     #[wasm_bindgen]
@@ -432,21 +589,21 @@ impl WebEngine {
         cols: u32,
         first_char: u8,
     ) -> u32 {
-        self.engine.fonts.register(sheet_handle, char_w, char_h, cols, first_char)
+        self.engine
+            .fonts
+            .register(sheet_handle, char_w, char_h, cols, first_char)
     }
 
+    /// Queue a line of text for this frame.
+    ///
+    /// Games call this from their update callback, which runs *before* the
+    /// world is rendered — and rendering clears the framebuffer. Drawing
+    /// immediately therefore painted text that was wiped microseconds later,
+    /// every frame. Queued text is drawn after the world instead, which is
+    /// also where a HUD belongs.
     #[wasm_bindgen]
     pub fn draw_text(&mut self, font_handle: u32, text: &str, x: i32, y: i32, scale: u32) {
-        if let Some(font) = self.engine.fonts.get(font_handle) {
-            font.draw_text(
-                &mut self.engine.renderer.framebuffer,
-                &self.engine.assets,
-                text,
-                x,
-                y,
-                scale,
-            );
-        }
+        self.engine.queue_text(font_handle, text, x, y, scale);
     }
 
     #[wasm_bindgen]
@@ -494,7 +651,7 @@ impl WebEngine {
 
     #[wasm_bindgen]
     pub fn sequencer_load_mml(&mut self, mml: &str, bpm: f32) {
-        let pattern = retro_core::audio::sequencer::Sequencer::parse_mml(mml, bpm);
+        let pattern = cathode_core::audio::sequencer::Sequencer::parse_mml(mml, bpm);
         self.engine.sequencer.load(pattern);
     }
 
@@ -529,18 +686,18 @@ impl WebEngine {
                 .as_array()
                 .map(|arr| arr.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect())
                 .unwrap_or_else(|| vec![0; (cols * rows) as usize]);
-            let map = retro_core::raycaster::RaycastMap::new(cols, rows, cells);
-            self.engine.raycaster = Some(retro_core::raycaster::RaycastRenderer::new(map));
+            let map = cathode_core::raycaster::RaycastMap::new(cols, rows, cells);
+            self.engine.raycaster = Some(cathode_core::raycaster::RaycastRenderer::new(map));
         }
     }
 
     #[wasm_bindgen]
     pub fn raycaster_set_texture(&mut self, wall_type: u8, pixels: Vec<u8>, size: u32) {
         if let Some(rc) = &mut self.engine.raycaster {
-            let tex = retro_core::raycaster::WallTexture { pixels, size };
+            let tex = cathode_core::raycaster::WallTexture { pixels, size };
             let idx = (wall_type as usize).saturating_sub(1);
             while rc.textures.len() <= idx {
-                rc.textures.push(retro_core::raycaster::WallTexture {
+                rc.textures.push(cathode_core::raycaster::WallTexture {
                     pixels: Vec::new(),
                     size: 0,
                 });
@@ -631,6 +788,155 @@ impl WebEngine {
         }
     }
 
+    /// Shear the horizon: positive pitch looks down, negative looks up.
+    /// Measured in framebuffer pixels.
+    #[wasm_bindgen]
+    pub fn raycaster_set_pitch(&mut self, pitch: f32) {
+        if let Some(rc) = &mut self.engine.raycaster {
+            rc.camera.pitch = pitch;
+        }
+    }
+
+    /// Where the eye sits between floor (0.0) and ceiling (1.0). 0.5 stands.
+    #[wasm_bindgen]
+    pub fn raycaster_set_eye_height(&mut self, height: f32) {
+        if let Some(rc) = &mut self.engine.raycaster {
+            rc.camera.eye_height = height;
+        }
+    }
+
+    /// Raise or lower one billboard between the floor and the ceiling.
+    #[wasm_bindgen]
+    pub fn raycaster_set_billboard_elevation(&mut self, id: u32, elevation: f32) {
+        if let Some(rc) = &mut self.engine.raycaster {
+            rc.set_billboard_elevation(id, elevation);
+        }
+    }
+
+    /// Fire a shot from `(x, y)` along `angle` and report what it hit.
+    ///
+    /// Returned flat so no object crosses the WASM boundary per bullet:
+    /// `[hitWall, wallDist, wallTile, hitBillboard, billboardId,
+    ///   billboardDist, endX, endY]`, with the boolean slots as 0 or 1.
+    #[wasm_bindgen]
+    pub fn raycaster_hitscan(
+        &self,
+        x: f32,
+        y: f32,
+        angle: f32,
+        max_distance: f32,
+        radius: f32,
+        ignore: i32,
+    ) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(8);
+        let Some(rc) = &self.engine.raycaster else {
+            return arr;
+        };
+        let shot = rc.hitscan(
+            glam::Vec2::new(x, y),
+            angle,
+            max_distance,
+            radius,
+            // A negative id means "ignore nothing"; ids themselves are u32.
+            if ignore < 0 {
+                None
+            } else {
+                Some(ignore as u32)
+            },
+        );
+        let wall = shot.wall;
+        let bb = shot.billboard;
+        arr.copy_from(&[
+            wall.is_some() as u8 as f32,
+            wall.map(|w| w.distance).unwrap_or(-1.0),
+            wall.map(|w| w.tile as f32).unwrap_or(0.0),
+            bb.is_some() as u8 as f32,
+            bb.map(|b| b.id as f32).unwrap_or(-1.0),
+            bb.map(|b| b.distance).unwrap_or(-1.0),
+            shot.point.x,
+            shot.point.y,
+        ]);
+        arr
+    }
+
+    /// True when nothing solid stands between the two points.
+    #[wasm_bindgen]
+    pub fn raycaster_line_of_sight(&self, x0: f32, y0: f32, x1: f32, y1: f32) -> bool {
+        self.engine
+            .raycaster
+            .as_ref()
+            .is_some_and(|rc| rc.line_of_sight(glam::Vec2::new(x0, y0), glam::Vec2::new(x1, y1)))
+    }
+
+    /// Slide a circular body through the raycast map, stopping at walls.
+    /// Returns the resolved `[x, y]`.
+    #[wasm_bindgen]
+    pub fn raycaster_slide(
+        &self,
+        x: f32,
+        y: f32,
+        dx: f32,
+        dy: f32,
+        radius: f32,
+    ) -> js_sys::Float32Array {
+        let arr = js_sys::Float32Array::new_with_length(2);
+        match &self.engine.raycaster {
+            Some(rc) => {
+                let p = rc.slide_circle(glam::Vec2::new(x, y), glam::Vec2::new(dx, dy), radius);
+                arr.copy_from(&[p.x, p.y]);
+            }
+            None => arr.copy_from(&[x, y]),
+        }
+        arr
+    }
+
+    /// The raycast map cell at `(col, row)`; out of bounds reads as solid.
+    #[wasm_bindgen]
+    pub fn raycaster_cell(&self, col: i32, row: i32) -> u8 {
+        self.engine
+            .raycaster
+            .as_ref()
+            .map_or(1, |rc| rc.map.get(col, row))
+    }
+
+    // --- Pathfinding ---
+
+    /// A* across the current raycast map, from `(sx, sy)` to `(gx, gy)`.
+    ///
+    /// Returns the waypoints flattened as `[x0, y0, x1, y1, ...]`, already
+    /// reduced to corners, or an empty array when there is no route.
+    #[wasm_bindgen]
+    pub fn raycaster_find_path(
+        &self,
+        sx: i32,
+        sy: i32,
+        gx: i32,
+        gy: i32,
+        diagonal: bool,
+    ) -> js_sys::Int32Array {
+        use cathode_core::pathfinding::{find_path, simplify, Grid, Movement};
+
+        let Some(rc) = &self.engine.raycaster else {
+            return js_sys::Int32Array::new_with_length(0);
+        };
+        let grid = Grid::from_cells(rc.map.cols, rc.map.rows, &rc.map.cells, |c| *c != 0);
+        let movement = if diagonal {
+            Movement::EightWay
+        } else {
+            Movement::FourWay
+        };
+
+        let path = match find_path(&grid, (sx, sy), (gx, gy), movement) {
+            Some(p) => simplify(&p),
+            None => return js_sys::Int32Array::new_with_length(0),
+        };
+
+        let flat: Vec<i32> = path.iter().flat_map(|&(x, y)| [x, y]).collect();
+        let arr = js_sys::Int32Array::new_with_length(flat.len() as u32);
+        arr.copy_from(&flat);
+        arr
+    }
+
     // --- Save/Load ---
 
     #[wasm_bindgen]
@@ -671,6 +977,7 @@ impl WebEngine {
     }
 
     #[wasm_bindgen]
+    #[allow(clippy::too_many_arguments)]
     pub fn debug_draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32, r: u8, g: u8, b: u8) {
         self.engine.debug_draw_rect(x, y, w, h, r, g, b);
     }
@@ -690,13 +997,36 @@ impl WebEngine {
         }
     }
 
+    /// Opt an entity into gravity. `scale` multiplies the engine's base
+    /// gravity: 1.0 is a normal fall, 0.35 is floaty, 0.0 disables it.
+    /// Entities never fall unless this is called.
+    #[wasm_bindgen]
+    pub fn set_gravity(&mut self, id: u64, scale: f32) {
+        if let Some(e) = self.find_entity(id) {
+            let _ = self
+                .engine
+                .world
+                .insert_one(e, cathode_core::ecs::Gravity(scale));
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn clear_gravity(&mut self, id: u64) {
+        if let Some(e) = self.find_entity(id) {
+            let _ = self
+                .engine
+                .world
+                .remove_one::<cathode_core::ecs::Gravity>(e);
+        }
+    }
+
     #[wasm_bindgen]
     pub fn set_solid(&mut self, id: u64, solid: bool) {
         if let Some(e) = self.find_entity(id) {
             if solid {
-                let _ = self.engine.world.insert_one(e, retro_core::ecs::Solid);
+                let _ = self.engine.world.insert_one(e, cathode_core::ecs::Solid);
             } else {
-                let _ = self.engine.world.remove_one::<retro_core::ecs::Solid>(e);
+                let _ = self.engine.world.remove_one::<cathode_core::ecs::Solid>(e);
             }
         }
     }

@@ -1,9 +1,9 @@
 {
-  "name": "@retro-engine/cli",
+  "name": "@cathode/cli",
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "retro": "./dist/index.js"
+    "cathode": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc"

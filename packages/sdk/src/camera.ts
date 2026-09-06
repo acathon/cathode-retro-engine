@@ -1,11 +1,11 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 import { Sprite } from './sprite';
 
 export class Camera {
   private followTarget: Sprite | null = null;
   private followLerp = 0.1;
 
-  constructor(private engine: RetroEngine) { }
+  constructor(private engine: Cathode) { }
 
   follow(sprite: Sprite, lerpSpeed = 0.1): void {
     this.followTarget = sprite;

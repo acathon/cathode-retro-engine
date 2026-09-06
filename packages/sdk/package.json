@@ -1,5 +1,5 @@
 {
-  "name": "@retro-engine/sdk",
+  "name": "@cathode/sdk",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -8,7 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "retro-platform-web": "file:../../crates/platform-web/pkg"
+    "cathode-platform-web": "file:./wasm"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

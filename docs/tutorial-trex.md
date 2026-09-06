@@ -1,12 +1,12 @@
 # Tutorial: Building a T-Rex Runner Game
 
-In this tutorial, we will build a clone of the classic Chrome T-Rex Dinosaur game using the **Retro Engine SDK** and TypeScript. You'll learn how to load sprites, handle keyboard inputs, implement a rudimentary physics system for jumping, and set up simple AABB collision detection!
+In this tutorial, we will build a clone of the classic Chrome T-Rex Dinosaur game using the **Cathode SDK** and TypeScript. You'll learn how to load sprites, handle keyboard inputs, implement a rudimentary physics system for jumping, and set up simple AABB collision detection!
 
 ## 1. Project Setup
-We will use the Retro Engine CLI to scaffold our project. Assuming you have the CLI installed globally or are running it via `npx`:
+We will use the Cathode CLI to scaffold our project. Assuming you have the CLI installed globally or are running it via `npx`:
 
 ```bash
-retro new trex-game
+cathode new trex-game
 cd trex-game
 npm install
 ```
@@ -20,16 +20,16 @@ npm run dev
 Create an image `sprites.png` in your `public/` directory (e.g., 32x16 pixels containing two 16x16 frames: the T-Rex on the left and a Cactus on the right).
 
 ## 3. The Game Loop & Scene
-Open `src/main.ts` and set up the Retro Engine. We'll use the `Game Boy` preset for that authentic 160x144 green-tinted aesthetic.
+Open `src/main.ts` and set up the Cathode. We'll use the `Game Boy` preset for that authentic 160x144 green-tinted aesthetic.
 
 ```typescript
-import { RetroEngine, Scene, Sprite } from '@retro-engine/sdk';
+import { Cathode, Scene, Sprite } from '@cathode/sdk';
 
 async function init() {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   
   // Build the engine with Game Boy properties (160x144) 3x scaled
-  const engine = await RetroEngine.gameboy(canvas, 3);
+  const engine = await Cathode.gameboy(canvas, 3);
   const scene = new Scene(engine);
 
   // Load our spritesheet (16x16 pixel frames)

@@ -1,4 +1,4 @@
-import { RetroEngine } from './engine.js';
+import { Cathode } from './engine.js';
 import { WaveformType } from './types.js';
 
 export const NOTE: Record<string, number> = {
@@ -17,7 +17,7 @@ const WAVE_MAP: Record<WaveformType, number> = {
 };
 
 export class SoundChannel {
-  constructor(private engine: RetroEngine, public channelIndex: number) {}
+  constructor(private engine: Cathode, public channelIndex: number) {}
 
   play(freq: number | string, waveform: WaveformType = 'pulse50', vol: number = 0.5) {
     let f = typeof freq === 'string' ? NOTE[freq] ?? 440.0 : freq;

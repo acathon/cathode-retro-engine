@@ -1,4 +1,14 @@
-import { RetroEngine, SoundChannel } from '@retro-engine/sdk';
+/**
+ * TETRIS — drawn by the engine.
+ *
+ * This game used to draw itself into a second canvas with a hand-rolled 2D
+ * context, with a comment explaining why: the engine capped sprites at 40 on
+ * the Game Boy profile, and a Tetris well is 200 cells. The cap is gone —
+ * hardware budgets are checked when you export rather than enforced while you
+ * play — so the board is now 200 real engine sprites, and the only canvas on
+ * the page is the engine's own.
+ */
+import { BitmapFont, Cathode, Scene, SoundChannel, Sprite } from '@cathode/sdk';
 
 // ─── Constants ───────────────────────────────────────────────────────
 const W = 160;
@@ -45,42 +55,129 @@ const PIECE_SHADE = [1, 0, 2, 1, 2, 0, 2];
 
 type GameState = 'title' | 'playing' | 'gameover';
 
-// ─── Canvas drawing helpers ──────────────────────────────────────────
-function drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, shade: number) {
-  const base = GB_COLORS[shade];
-  const light = shade > 0 ? GB_COLORS[shade - 1] : '#c6de78';
-  const dark = shade < 3 ? GB_COLORS[shade + 1] : '#052005';
-  ctx.fillStyle = base; ctx.fillRect(x, y, CELL, CELL);
-  ctx.fillStyle = light; ctx.fillRect(x, y, CELL, 1); ctx.fillRect(x, y, 1, CELL);
-  ctx.fillStyle = dark; ctx.fillRect(x, y + 6, CELL, 1); ctx.fillRect(x + 6, y, 1, CELL);
-  ctx.fillStyle = base; ctx.fillRect(x + 1, y + 1, 5, 5);
-  ctx.fillStyle = light; ctx.fillRect(x + 2, y + 2, 2, 2);
-}
+// ─── Sprite sheet ────────────────────────────────────────────────────
+/** Tile indices in the generated sheet. */
+const T_SHADE0 = 0;   // one per Game Boy shade
+const T_FRAME = 4;    // the well's border
+const T_GHOST = 5;    // where the piece will land
 
-function drawFrameBlock(ctx: CanvasRenderingContext2D, x: number, y: number) {
-  ctx.fillStyle = GB_COLORS[3]; ctx.fillRect(x, y, CELL, CELL);
-  ctx.fillStyle = GB_COLORS[2]; ctx.fillRect(x + 1, y + 1, 5, 5);
-}
+/**
+ * Build the 6-tile sheet the whole game draws with: four block shades, a
+ * frame block and a ghost block, each CELL x CELL.
+ */
+function buildSheet(): { pixels: Uint8Array; w: number; h: number } {
+  const tiles = 6;
+  const w = CELL * tiles;
+  const h = CELL;
+  const px = new Uint8Array(w * h * 4);
 
-function drawGhostBlock(ctx: CanvasRenderingContext2D, x: number, y: number) {
-  ctx.fillStyle = GB_COLORS[3]; ctx.fillRect(x, y, CELL, CELL);
-  ctx.fillStyle = GB_COLORS[2]; ctx.fillRect(x + 1, y + 1, 5, 5);
+  const put = (tile: number, x: number, y: number, hex: string) => {
+    const i = ((y * w) + tile * CELL + x) * 4;
+    px[i] = parseInt(hex.slice(1, 3), 16);
+    px[i + 1] = parseInt(hex.slice(3, 5), 16);
+    px[i + 2] = parseInt(hex.slice(5, 7), 16);
+    px[i + 3] = 255;
+  };
+
+  for (let shade = 0; shade < 4; shade++) {
+    const base = GB_COLORS[shade];
+    const light = shade > 0 ? GB_COLORS[shade - 1] : '#c6de78';
+    const dark = shade < 3 ? GB_COLORS[shade + 1] : '#052005';
+    for (let y = 0; y < CELL; y++) {
+      for (let x = 0; x < CELL; x++) {
+        // A lit top-left edge and a shaded bottom-right is what makes a flat
+        // square read as a block on a screen with four colours.
+        let hex = base;
+        if (x === 0 || y === 0) hex = light;
+        if (x === CELL - 1 || y === CELL - 1) hex = dark;
+        if (x >= 2 && x <= 3 && y >= 2 && y <= 3) hex = light;
+        put(shade, x, y, hex);
+      }
+    }
+  }
+
+  // The wall is solid with a single inset highlight: giving it a dark border
+  // like a block made the frame read as a dotted line of loose tiles rather
+  // than as one continuous wall.
+  for (let y = 0; y < CELL; y++) {
+    for (let x = 0; x < CELL; x++) {
+      const speck = (x + y) % 3 === 0;
+      put(T_FRAME, x, y, speck ? GB_COLORS[3] : GB_COLORS[2]);
+    }
+  }
+
+  // The ghost is an outline only, so it reads as "where this lands" rather
+  // than as another block already on the board.
+  for (let y = 0; y < CELL; y++) {
+    for (let x = 0; x < CELL; x++) {
+      const edge = x === 0 || y === 0 || x === CELL - 1 || y === CELL - 1;
+      const i = ((y * w) + T_GHOST * CELL + x) * 4;
+      if (edge) put(T_GHOST, x, y, GB_COLORS[2]);
+      else px[i + 3] = 0;
+    }
+  }
+
+  return { pixels: px, w, h };
 }
 
 // ─── Init ────────────────────────────────────────────────────────────
 async function init() {
   const canvas = document.getElementById('game') as HTMLCanvasElement;
-  const engine = await RetroEngine.gameboy(canvas, 3);
+  const engine = await Cathode.gameboy(canvas, 3);
 
-  // Overlay canvas where we draw everything (bypasses WASM sprite limit)
-  const hudCanvas = document.getElementById('hud') as HTMLCanvasElement;
-  const scale = 3;
-  hudCanvas.width = W;
-  hudCanvas.height = H;
-  hudCanvas.style.width = `${W * scale}px`;
-  hudCanvas.style.height = `${H * scale}px`;
-  const ctx = hudCanvas.getContext('2d')!;
-  ctx.imageSmoothingEnabled = false;
+  const scene = new Scene(engine);
+  const sheet = buildSheet();
+  const sheetHandle = engine.raw.upload_sheet(sheet.w, sheet.h, CELL, CELL, sheet.pixels);
+  const font = BitmapFont.builtin(engine);
+
+  /** A pool of sprites reused every frame, so nothing is created in the loop. */
+  function pool(count: number, layer: number): Sprite[] {
+    return Array.from({ length: count }, () => {
+      const sprite = new Sprite(scene, { sheet: sheetHandle, frame: T_FRAME, x: 0, y: 0, layer });
+      sprite.active = false;
+      return sprite;
+    });
+  }
+
+  /** Show a pooled sprite at a screen position with a given tile. */
+  function place(sprite: Sprite, x: number, y: number, frame: number): void {
+    sprite.active = true;
+    sprite.frame = frame;
+    sprite.x = x;
+    sprite.y = y;
+  }
+
+  const boardSprites = pool(COLS * ROWS, 4);
+  const ghostSprites = pool(4, 5);
+  const pieceSprites = pool(4, 6);
+  const nextSprites = pool(4, 4);
+
+  // The frame never moves, so it is placed once and left alone.
+  const frameSprites = pool(ROWS * 2 + COLS + 2 + 20, 3);
+  {
+    let n = 0;
+    const frame = (x: number, y: number) => place(frameSprites[n++], x, y, T_FRAME);
+    for (let r = 0; r < ROWS; r++) {
+      frame(BOARD_X - CELL, BOARD_Y + r * CELL);
+      frame(BOARD_X + COLS * CELL, BOARD_Y + r * CELL);
+    }
+    for (let c = -1; c <= COLS; c++) frame(BOARD_X + c * CELL, BOARD_Y + ROWS * CELL);
+    for (let i = 0; i < 6; i++) {
+      frame(NEXT_X - CELL + i * CELL, NEXT_Y - CELL);
+      frame(NEXT_X - CELL + i * CELL, NEXT_Y + 4 * CELL);
+    }
+    for (let r = 0; r < 4; r++) {
+      frame(NEXT_X - CELL, NEXT_Y + r * CELL);
+      frame(NEXT_X + 4 * CELL, NEXT_Y + r * CELL);
+    }
+  }
+
+  /** Hide the frame and the well while the title screen is up. */
+  function showWell(visible: boolean): void {
+    for (const sprite of frameSprites) {
+      if (sprite.x !== 0 || sprite.y !== 0) sprite.active = visible;
+    }
+  }
 
   // Sound channels (Game Boy has 4: 0-3)
   const sfxMove = new SoundChannel(engine, 1);
@@ -93,111 +190,107 @@ async function init() {
   const board: number[][] = [];
   for (let r = 0; r < ROWS; r++) board.push(new Array(COLS).fill(0));
 
-  // ── Drawing ──
-  function drawBorders() {
-    // Left border
-    for (let r = 0; r < ROWS; r++) drawFrameBlock(ctx, BOARD_X - CELL, BOARD_Y + r * CELL);
-    // Right border
-    for (let r = 0; r < ROWS; r++) drawFrameBlock(ctx, BOARD_X + COLS * CELL, BOARD_Y + r * CELL);
-    // Bottom border
-    for (let c = -1; c <= COLS; c++) drawFrameBlock(ctx, BOARD_X + c * CELL, BOARD_Y + ROWS * CELL);
+  // ── Drawing ─────────────────────────────────────────────────────────
+  // Every draw call below moves pooled sprites rather than painting pixels.
+  // The engine composites them, applies the Game Boy palette and blits once.
 
-    // Next piece box
-    for (let i = 0; i < 6; i++) {
-      drawFrameBlock(ctx, NEXT_X - CELL + i * CELL, NEXT_Y - CELL);
-      drawFrameBlock(ctx, NEXT_X - CELL + i * CELL, NEXT_Y + 4 * CELL);
-    }
-    for (let r = 0; r < 4; r++) {
-      drawFrameBlock(ctx, NEXT_X - CELL, NEXT_Y + r * CELL);
-      drawFrameBlock(ctx, NEXT_X + 4 * CELL, NEXT_Y + r * CELL);
-    }
-  }
-
-  function drawBoard() {
+  function drawBoard(): void {
+    let n = 0;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        if (board[r][c] !== 0) {
-          drawBlock(ctx, BOARD_X + c * CELL, BOARD_Y + r * CELL, board[r][c] - 1);
+        const value = board[r][c];
+        const sprite = boardSprites[n++];
+        if (value === 0) {
+          sprite.active = false;
+        } else {
+          place(sprite, BOARD_X + c * CELL, BOARD_Y + r * CELL, T_SHADE0 + value - 1);
         }
       }
     }
   }
 
-  function drawPiece() {
-    if (state !== 'playing') return;
+  function drawPiece(): void {
     const cells = PIECES[currentPiece][currentRot % 4];
 
-    // Ghost
     const ghostY = getGhostY();
-    for (const [r, col] of cells) {
-      const gr = ghostY + r;
-      if (gr >= 0) drawGhostBlock(ctx, BOARD_X + (currentX + col) * CELL, BOARD_Y + gr * CELL);
-    }
+    ghostSprites.forEach((sprite, i) => {
+      const cell = cells[i];
+      const gr = ghostY + cell[0];
+      // A ghost under the piece itself is noise, not guidance.
+      if (gr < 0 || ghostY === currentY) sprite.active = false;
+      else place(sprite, BOARD_X + (currentX + cell[1]) * CELL, BOARD_Y + gr * CELL, T_GHOST);
+    });
 
-    // Current piece (drawn after ghost so it overlaps)
-    for (const [r, col] of cells) {
-      const nr = currentY + r;
-      if (nr >= 0) drawBlock(ctx, BOARD_X + (currentX + col) * CELL, BOARD_Y + nr * CELL, PIECE_SHADE[currentPiece]);
-    }
-  }
-
-  function drawNextPiece() {
-    const cells = PIECES[nextPiece][0];
-    for (const [r, c] of cells) {
-      drawBlock(ctx, NEXT_X + c * CELL, NEXT_Y + r * CELL, PIECE_SHADE[nextPiece]);
-    }
-  }
-
-  function drawHud() {
-    if (state === 'title') {
-      ctx.fillStyle = GB_COLORS[0];
-      ctx.font = 'bold 12px monospace';
-      ctx.fillText('TETRIS', 52, 50);
-      ctx.font = '7px monospace';
-      ctx.fillStyle = GB_COLORS[1];
-      ctx.fillText('Press ENTER', 44, 80);
-      ctx.fillStyle = GB_COLORS[2];
-      ctx.font = '6px monospace';
-      ctx.fillText('\u2190 \u2192 Move  \u2191 Rotate', 28, 100);
-      ctx.fillText('\u2193 Drop  Z Hard Drop', 28, 110);
-    } else {
-      ctx.fillStyle = GB_COLORS[1]; ctx.font = '6px monospace';
-      ctx.fillText('SCORE', TEXT_X, NEXT_Y + 48);
-      ctx.fillStyle = GB_COLORS[0]; ctx.font = '7px monospace';
-      ctx.fillText(String(score), TEXT_X, NEXT_Y + 58);
-
-      ctx.fillStyle = GB_COLORS[1]; ctx.font = '6px monospace';
-      ctx.fillText('LEVEL', TEXT_X, NEXT_Y + 74);
-      ctx.fillStyle = GB_COLORS[0]; ctx.font = '7px monospace';
-      ctx.fillText(String(level), TEXT_X, NEXT_Y + 84);
-
-      ctx.fillStyle = GB_COLORS[1]; ctx.font = '6px monospace';
-      ctx.fillText('LINES', TEXT_X, NEXT_Y + 100);
-      ctx.fillStyle = GB_COLORS[0]; ctx.font = '7px monospace';
-      ctx.fillText(String(lines), TEXT_X, NEXT_Y + 110);
-
-      ctx.fillStyle = GB_COLORS[1]; ctx.font = '6px monospace';
-      ctx.fillText('NEXT', NEXT_X + 2, NEXT_Y - 10);
-
-      if (state === 'gameover') {
-        ctx.fillStyle = 'rgba(15,56,15,0.85)';
-        ctx.fillRect(20, 60, 120, 24);
-        ctx.fillStyle = GB_COLORS[0]; ctx.font = 'bold 9px monospace';
-        ctx.fillText('GAME OVER', 42, 75);
-        ctx.font = '6px monospace'; ctx.fillStyle = GB_COLORS[1];
-        ctx.fillText('Press ENTER', 48, 84);
+    pieceSprites.forEach((sprite, i) => {
+      const cell = cells[i];
+      const nr = currentY + cell[0];
+      if (nr < 0) sprite.active = false;
+      else {
+        place(
+          sprite,
+          BOARD_X + (currentX + cell[1]) * CELL,
+          BOARD_Y + nr * CELL,
+          T_SHADE0 + PIECE_SHADE[currentPiece],
+        );
       }
+    });
+  }
+
+  function hidePiece(): void {
+    for (const sprite of [...ghostSprites, ...pieceSprites]) sprite.active = false;
+  }
+
+  function drawNextPiece(): void {
+    const cells = PIECES[nextPiece][0];
+    nextSprites.forEach((sprite, i) => {
+      const cell = cells[i];
+      place(
+        sprite,
+        NEXT_X + cell[1] * CELL,
+        NEXT_Y + cell[0] * CELL,
+        T_SHADE0 + PIECE_SHADE[nextPiece],
+      );
+    });
+  }
+
+  function drawHud(): void {
+    // Queued, not painted: text is drawn after the world so it lands on top.
+    if (state === 'title') {
+      font.draw('TETRIS', 56, 44, 2);
+      font.draw('PRESS ENTER', 36, 76, 1);
+      font.draw('< > MOVE  ^ ROTATE', 12, 100, 1);
+      font.draw('v DROP  Z HARDDROP', 12, 112, 1);
+      return;
+    }
+
+    font.draw('NEXT', NEXT_X + 2, NEXT_Y - 14, 1);
+    font.draw('SCORE', TEXT_X, NEXT_Y + 44, 1);
+    font.draw(String(score), TEXT_X, NEXT_Y + 54, 1);
+    font.draw('LEVEL', TEXT_X, NEXT_Y + 70, 1);
+    font.draw(String(level), TEXT_X, NEXT_Y + 80, 1);
+    font.draw('LINES', TEXT_X, NEXT_Y + 96, 1);
+    font.draw(String(lines), TEXT_X, NEXT_Y + 106, 1);
+
+    if (state === 'gameover') {
+      font.draw('GAME OVER', 42, 66, 1);
+      font.draw('PRESS ENTER', 36, 80, 1);
     }
   }
 
-  function render() {
-    ctx.clearRect(0, 0, W, H);
-    if (state !== 'title') {
-      drawBorders();
+  function render(): void {
+    const playing = state !== 'title';
+    showWell(playing);
+
+    if (playing) {
       drawBoard();
-      drawPiece();
       drawNextPiece();
+      if (state === 'playing') drawPiece();
+      else hidePiece();
+    } else {
+      for (const sprite of [...boardSprites, ...nextSprites]) sprite.active = false;
+      hidePiece();
     }
+
     drawHud();
   }
 
@@ -359,6 +452,7 @@ async function init() {
   // ── Game Loop ──────────────────────────────────────────────────────
   engine.loop((dt) => {
     const input = engine.input;
+    scene.update(dt);
 
     if (state === 'title') {
       if (input.justPressed(0, 'start')) {

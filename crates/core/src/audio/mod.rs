@@ -154,6 +154,10 @@ impl AudioMixer {
     pub fn stop_all(&mut self) {
         for ch in &mut self.channels {
             ch.active = false;
+            // Without releasing the envelope a channel sitting in its sustain
+            // phase keeps producing sound forever (sample() plays the release
+            // tail for inactive channels, and sustain never ends on its own).
+            ch.envelope.note_off();
         }
     }
 
@@ -168,7 +172,7 @@ impl AudioMixer {
     }
 
     pub fn fill_stereo(&mut self, buf: &mut [f32]) {
-        for frame in buf.chunks_exact_mut(2) {
+        for frame in buf.as_chunks_mut::<2>().0 {
             let mut mix = 0.0;
             for ch in &mut self.channels {
                 mix += ch.sample(self.sample_rate);
@@ -177,5 +181,116 @@ impl AudioMixer {
             frame[0] = out;
             frame[1] = out;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn play_configures_channel_and_clamps_volume() {
+        let mut mixer = AudioMixer::new(2);
+        mixer.play(0, 220.0, Waveform::Triangle, 3.0);
+        assert!(mixer.channels[0].active);
+        assert_eq!(mixer.channels[0].frequency, 220.0);
+        assert_eq!(mixer.channels[0].waveform, Waveform::Triangle);
+        assert_eq!(mixer.channels[0].volume, 1.0);
+        assert!(!mixer.channels[1].active);
+
+        // Out-of-range channels are ignored.
+        mixer.play(7, 440.0, Waveform::Sine, 0.5);
+    }
+
+    #[test]
+    fn every_waveform_stays_within_unit_range() {
+        let waveforms = [
+            Waveform::Pulse25,
+            Waveform::Pulse50,
+            Waveform::Triangle,
+            Waveform::Sawtooth,
+            Waveform::Noise,
+            Waveform::Sine,
+        ];
+        for wf in waveforms {
+            let mut mixer = AudioMixer::new(1);
+            mixer.play(0, 440.0, wf, 1.0);
+            for _ in 0..1000 {
+                let s = mixer.channels[0].sample(44100.0);
+                assert!(
+                    (-1.001..=1.001).contains(&s),
+                    "{wf:?} produced out-of-range sample {s}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn active_channel_produces_audible_output() {
+        let mut mixer = AudioMixer::new(1);
+        mixer.play(0, 440.0, Waveform::Pulse50, 0.8);
+        let mut buf = vec![0.0f32; 4096];
+        mixer.fill_mono(&mut buf);
+        assert!(buf.iter().any(|s| s.abs() > 0.01));
+        assert!(buf.iter().all(|s| (-1.0..=1.0).contains(s)));
+    }
+
+    #[test]
+    fn fill_stereo_duplicates_samples_across_both_channels() {
+        let mut mixer = AudioMixer::new(1);
+        mixer.play(0, 440.0, Waveform::Sine, 0.5);
+        let mut buf = vec![0.0f32; 512];
+        mixer.fill_stereo(&mut buf);
+        for frame in buf.as_chunks::<2>().0 {
+            assert_eq!(frame[0], frame[1]);
+        }
+    }
+
+    #[test]
+    fn stop_all_actually_silences_sustained_channels() {
+        // Regression test: stop_all used to clear `active` without releasing
+        // the envelope, so a channel sitting at its sustain level kept
+        // sounding forever.
+        let mut mixer = AudioMixer::new(2);
+        mixer.play(0, 440.0, Waveform::Pulse50, 0.8);
+        mixer.play(1, 220.0, Waveform::Triangle, 0.8);
+
+        // Advance well past attack + decay into sustain.
+        let mut buf = vec![0.0f32; 8192];
+        mixer.fill_mono(&mut buf);
+        assert!(buf.iter().any(|s| s.abs() > 0.01), "should be audible");
+
+        mixer.stop_all();
+
+        // Play out the release tail (default release is 0.1s ≈ 4410 samples).
+        let mut tail = vec![0.0f32; 16384];
+        mixer.fill_mono(&mut tail);
+
+        let mut silent = vec![1.0f32; 512];
+        mixer.fill_mono(&mut silent);
+        assert!(
+            silent.iter().all(|s| *s == 0.0),
+            "channels must be silent after stop_all + release tail"
+        );
+    }
+
+    #[test]
+    fn stop_releases_a_single_channel() {
+        let mut mixer = AudioMixer::new(2);
+        mixer.play(0, 440.0, Waveform::Pulse50, 0.8);
+        mixer.play(1, 220.0, Waveform::Pulse50, 0.8);
+        mixer.stop(0);
+        assert!(!mixer.channels[0].active);
+        assert!(mixer.channels[1].active);
+    }
+
+    #[test]
+    fn master_volume_scales_the_mix() {
+        let mut mixer = AudioMixer::new(1);
+        mixer.master_vol = 0.0;
+        mixer.play(0, 440.0, Waveform::Pulse50, 1.0);
+        let mut buf = vec![1.0f32; 256];
+        mixer.fill_mono(&mut buf);
+        assert!(buf.iter().all(|s| *s == 0.0));
     }
 }

@@ -137,3 +137,105 @@ impl TimerPool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn timer_does_not_run_until_started() {
+        let mut t = GameTimer::new(1.0, false);
+        assert!(!t.update(10.0));
+        assert_eq!(t.elapsed, 0.0);
+        assert_eq!(t.progress(), 0.0);
+    }
+
+    #[test]
+    fn one_shot_timer_fires_once_then_deactivates() {
+        let mut t = GameTimer::new(1.0, false);
+        t.start();
+        assert!(!t.update(0.5));
+        assert!(t.update(0.6));
+        assert!(!t.active);
+        assert_eq!(t.progress(), 1.0);
+        assert_eq!(t.remaining(), 0.0);
+        // A finished one-shot stays quiet.
+        assert!(!t.update(1.0));
+    }
+
+    #[test]
+    fn repeating_timer_keeps_firing_and_carries_remainder() {
+        let mut t = GameTimer::new(1.0, true);
+        t.start();
+        assert!(t.update(1.25));
+        assert!(t.active);
+        assert!(
+            (t.elapsed - 0.25).abs() < 1e-4,
+            "remainder should carry over"
+        );
+        assert!(t.update(0.75));
+    }
+
+    #[test]
+    fn progress_and_remaining_track_elapsed_time() {
+        let mut t = GameTimer::new(2.0, false);
+        t.start();
+        t.update(0.5);
+        assert!((t.progress() - 0.25).abs() < 1e-4);
+        assert!((t.remaining() - 1.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn zero_duration_timer_reports_full_progress() {
+        let t = GameTimer::new(0.0, false);
+        assert_eq!(t.progress(), 1.0);
+    }
+
+    #[test]
+    fn pool_reports_fired_handles_per_update() {
+        let mut pool = TimerPool::new();
+        let fast = pool.create(0.5, false);
+        let slow = pool.create(5.0, false);
+        pool.start(fast);
+        pool.start(slow);
+
+        pool.update_all(1.0);
+        assert_eq!(pool.fired_handles, vec![fast]);
+
+        // Fired handles are cleared on the next update.
+        pool.update_all(0.1);
+        assert!(pool.fired_handles.is_empty());
+        assert!(pool.progress(slow) > 0.0);
+    }
+
+    #[test]
+    fn pool_reuses_destroyed_slots_and_ignores_bad_handles() {
+        let mut pool = TimerPool::new();
+        let a = pool.create(1.0, false);
+        let b = pool.create(1.0, false);
+        pool.destroy(a);
+        let c = pool.create(2.0, false);
+        assert_eq!(c, a, "destroyed slot should be reused");
+        assert_ne!(b, c);
+
+        // Operations on unknown handles are no-ops, not panics.
+        pool.start(99);
+        pool.stop(99);
+        pool.reset(99);
+        assert_eq!(pool.progress(99), 1.0);
+    }
+
+    #[test]
+    fn stopped_timer_can_be_reset_and_restarted() {
+        let mut pool = TimerPool::new();
+        let h = pool.create(1.0, false);
+        pool.start(h);
+        pool.update_all(1.0);
+        assert_eq!(pool.fired_handles, vec![h]);
+
+        pool.reset(h);
+        pool.start(h);
+        pool.update_all(0.25);
+        assert!((pool.progress(h) - 0.25).abs() < 1e-4);
+    }
+}

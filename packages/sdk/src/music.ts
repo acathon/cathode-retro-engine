@@ -1,7 +1,7 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 
 export class MusicPlayer {
-  constructor(private engine: RetroEngine) { }
+  constructor(private engine: Cathode) { }
 
   play(mml: string, bpm = 120): void {
     if (!this.engine.raw) return;

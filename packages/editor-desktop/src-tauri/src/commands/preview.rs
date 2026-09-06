@@ -28,7 +28,10 @@ pub async fn preview_game(
     state: tauri::State<'_, AppStateWrapper>,
 ) -> Result<String, String> {
     {
-        let mut app_state = state.0.lock().map_err(|_| "Failed to lock app state".to_string())?;
+        let mut app_state = state
+            .0
+            .lock()
+            .map_err(|_| "Failed to lock app state".to_string())?;
         if let Some(pid) = app_state.preview_pid.take() {
             kill_preview_process(pid);
         }
@@ -60,7 +63,10 @@ pub async fn preview_game(
 
     let pid = child.id().unwrap_or_default();
     {
-        let mut app_state = state.0.lock().map_err(|_| "Failed to lock app state".to_string())?;
+        let mut app_state = state
+            .0
+            .lock()
+            .map_err(|_| "Failed to lock app state".to_string())?;
         app_state.preview_pid = Some(pid);
     }
 

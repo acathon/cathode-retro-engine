@@ -1,4 +1,4 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 import { Scene } from './scene';
 import { BitmapFont } from './text';
 
@@ -8,7 +8,7 @@ export class DebugOverlay {
   private keyHandler: (e: KeyboardEvent) => void;
 
   constructor(
-    private engine: RetroEngine,
+    private engine: Cathode,
     private scene: Scene,
   ) {
     this.keyHandler = (e: KeyboardEvent) => {

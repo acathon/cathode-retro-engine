@@ -2,7 +2,7 @@
 
 ## Overview
 
-retro-engine is a retro game engine with a Rust core, WASM bindings for web,
+Cathode is a retro game engine with a Rust core, WASM bindings for web,
 a native desktop runner, a TypeScript SDK, a CLI, and a Tauri-based desktop editor.
 
 ## Data-Flow Diagram
@@ -48,7 +48,7 @@ graph TD;
 |--------|------|---------|
 | ECS | `ecs/mod.rs` | hecs-based entity-component system |
 | Renderer | `renderer/mod.rs` | RGBA software renderer, sprite batching, scanlines |
-| Physics | `physics/mod.rs` | AABB collision resolution, velocity/gravity |
+| Physics | `physics/mod.rs` | AABB collision resolution, velocity, opt-in gravity |
 | Audio | `audio/mod.rs` | 6-waveform chiptune mixer (44.1kHz) |
 | Audio Envelope | `audio/envelope.rs` | ADSR envelope with presets (pluck, pad, snare, bass) |
 | Sequencer | `audio/sequencer.rs` | MML pattern sequencer for background music |
@@ -58,7 +58,9 @@ graph TD;
 | Tween | `tween/mod.rs` | Easing pool (7 functions), yoyo, repeat |
 | Text | `text/mod.rs` | BitmapFont rendering from sprite sheet |
 | Timer | `timer/mod.rs` | Managed timer pool with fire events |
-| Raycaster | `raycaster/mod.rs` | DDA raycaster with textured walls, billboards, fog |
+| Raycaster | `raycaster/mod.rs` | DDA raycaster: textured walls, billboards, fog, pitch, eye height, hitscan |
+| Pathfinding | `pathfinding/mod.rs` | A* over a grid of passable cells, four- or eight-way |
+| Netcode | `netcode/mod.rs` | Fixed-step clock, deterministic lockstep, snapshot interpolation |
 | Save | `save/mod.rs` | 4-slot save manager with serde JSON |
 | Input | `input/mod.rs` | Keyboard + gamepad abstraction |
 | Assets | `assets/mod.rs` | Sprite sheet storage |
@@ -84,6 +86,56 @@ graph LR;
     L --> M[Sort & render billboards]
     M --> N[Z-buffer depth test]
 ```
+
+### The Vertical Axis
+
+A raycaster measures everything from the horizon, not from the middle of the
+framebuffer. Three values place it:
+
+| Value | Range | Effect |
+|-------|-------|--------|
+| `camera.pitch` | pixels | Shears the horizon; positive looks down |
+| `camera.eye_height` | 0.0 – 1.0 | Where the eye sits between floor and ceiling |
+| `billboard.elevation` | 0.0 – 1.0 | Height of a sprite's centre, default 0.5 |
+
+A wall at distance *d* spans `horizon - (1 - eye)·H/d` to `horizon + eye·H/d`,
+where *H* is the framebuffer height. A billboard's centre lands at
+`horizon + (eye - elevation)·H/d`. With `eye = 0.5` and `elevation = 0.5`
+these reduce to the screen-centred forms, so scenes written before the axis
+existed render identically.
+
+### Ray Queries
+
+Shooting and bot vision share the traversal the renderer uses for a screen
+column, which is what stops a shot from disagreeing with the picture.
+
+| Query | Returns |
+|-------|---------|
+| `cast_ray(origin, angle, max)` | The first solid cell: distance, tile value, grid position, which face |
+| `line_of_sight(from, to)` | Whether anything solid stands between two points |
+| `hitscan(origin, angle, max, radius, ignore)` | The nearest billboard in front of the bounding wall, plus where the shot stops |
+| `slide_circle(pos, delta, radius)` | A body with width moved through the map, sliding along whatever blocks it |
+
+`slide_circle` exists because the camera moves as a point and can graze the
+corner where two walls meet — a gap no bot or ball could fit through.
+
+### Netcode
+
+The engine ships the portable half of netplay and opens no sockets: the
+browser wants WebRTC or a WebSocket, native wants UDP, and neither belongs in
+a portable core.
+
+| Type | Role |
+|------|------|
+| `Clock` | Turns real frame times into whole fixed ticks, capping a long stall rather than replaying it |
+| `Lockstep<T>` | Holds a tick until every player has reported an input; `delay` schedules inputs ahead to absorb latency |
+| `Interpolate` / `Interpolator<T>` | Blends sparse snapshots into per-frame values, holding rather than extrapolating past the newest |
+
+`Lockstep` suits games where one shared deterministic world matters more than
+latency — puzzle, turn-based, fighting. For a shooter, per-player authority
+plus interpolation is the better trade, since lockstep stalls everyone when
+one player is slow. `examples/dust-protocol/src/net.ts` shows the second
+shape, over `BroadcastChannel`.
 
 ### WASM Bindings (`crates/platform-web`)
 
@@ -112,8 +164,8 @@ Exposes ~60+ `#[wasm_bindgen]` functions wrapping the Engine struct:
 
 | Module | Purpose |
 |--------|---------|
-| `engine.ts` | RetroEngine class, game loop, preset constructors |
-| `sprite.ts` | Sprite class wrapping ECS entities |
+| `engine.ts` | Cathode class, game loop, preset constructors |
+| `sprite.ts` | Sprite class wrapping ECS entities; `usePhysics` hands a body to the engine |
 | `scene.ts` | Scene lifecycle, `follow()` |
 | `tilemap.ts` | TileMap with collision helpers (setSolidTiles, isSolid, raycast) |
 | `input.ts` | InputReader polling WASM input state |
@@ -126,7 +178,7 @@ Exposes ~60+ `#[wasm_bindgen]` functions wrapping the Engine struct:
 | `state-machine.ts` | Pure TS StateMachine (no WASM) |
 | `transitions.ts` | Scene transitions (fade, slide, pixelate, checkerboard) |
 | `music.ts` | MusicPlayer wrapping sequencer |
-| `raycaster.ts` | Raycaster with texture upload, billboard management |
+| `raycaster.ts` | Raycaster: textures, billboards, pitch/eye height, `hitscan`, `lineOfSight`, `slide`, `findPath` |
 | `save.ts` | SaveManager with localStorage autosave/autoload |
 | `debug.ts` | DebugOverlay (F3 toggle, FPS/entity/particle display) |
 | `touch.ts` | TouchControls overlay for mobile |
@@ -196,6 +248,41 @@ graph LR;
 
 ## ECS
 The `hecs` crate acts as the backing simulation for all game entities and sprites. The web API translates ID handles so JavaScript can orchestrate components without touching Rust memory directly.
+
+## Physics
+
+The physics step runs once per `Engine::update`, before scene updates.
+
+| Component | Effect |
+|---|---|
+| `Position` + `Velocity` | The body is integrated each frame |
+| `Collider` | Adds AABB resolution against solids; optional |
+| `Gravity(scale)` | Opt in to falling; `scale` multiplies `physics::GRAVITY` |
+| `Solid` | Never moves and blocks other bodies (floors, walls, platforms) |
+
+Gravity is opt-in because most retro genres — top-down, puzzle, shmup — do
+not want anything pulled downward. A platformer adds `Gravity(1.0)` to its
+actors; Tetris adds nothing.
+
+Collision resolution pushes a body out along whichever axis it overlaps least
+and zeroes the velocity on that axis, which is what makes landing on a floor
+stop a fall. Solids are static: they are excluded from both gravity and
+integration.
+
+From TypeScript, a sprite opts in with `usePhysics`:
+
+```ts
+const player = new Sprite(scene, { sheet, frame: 0, x: 32, y: 0 });
+player.usePhysics({ gravity: 1, width: 16, height: 16 });
+
+const floor = new Sprite(scene, { sheet, frame: 1, x: 0, y: 200 });
+floor.usePhysics({ width: 256, height: 8, solid: true });
+```
+
+A sprite that uses physics has its position and velocity read back from the
+engine each frame; use `setPosition` to teleport it. Without `usePhysics` a
+sprite is moved in TypeScript and ignores solids, which is the default and
+suits games that want to own their own movement rules.
 
 ## Renderer Pipeline
 1. `FrameBuffer::clear()`

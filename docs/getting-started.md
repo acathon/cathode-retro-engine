@@ -124,13 +124,13 @@ bun run dev:editor
 ### Run Rust validation
 
 ```bash
-cargo test -p retro-core -p retro-platform-native
-cargo check -p retro-platform-web --target wasm32-unknown-unknown
+cargo test -p cathode-core -p cathode-platform-native
+cargo check -p cathode-platform-web --target wasm32-unknown-unknown
 ```
 
 ## Troubleshooting
 
-### `retro-platform-web` or WASM import errors
+### `cathode-platform-web` or WASM import errors
 
 Rebuild the web bindings and SDK:
 

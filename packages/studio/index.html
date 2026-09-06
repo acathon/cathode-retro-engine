@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cathode Studio</title>
+  <link rel="stylesheet" href="/src/theme.css" />
+</head>
+
+<body>
+  <!-- Menu bar -->
+  <div id="menubar">
+    <span class="logo">◆ CATHODE STUDIO</span>
+    <button class="menu" id="menu-new">Project</button>
+    <button class="menu" id="menu-save">Save</button>
+    <button class="menu" id="menu-export">Export TS</button>
+
+    <div class="playbar">
+      <button id="btn-play" class="play" title="Run the project (F5)">▶</button>
+      <button id="btn-pause" class="pause" title="Pause">❚❚</button>
+      <button id="btn-stop" class="stop" title="Stop (F8)">■</button>
+    </div>
+
+    <span class="spacer"></span>
+    <span id="proj-name" class="proj">Untitled Project</span>
+  </div>
+
+  <!-- Main dock layout -->
+  <div id="shell">
+    <!-- Left dock: scene tree -->
+    <aside id="dock-left" class="dock">
+      <div class="dock-tabs"><button class="dock-tab active">Scene</button></div>
+      <div class="dock-body">
+        <div class="tree-toolbar">
+          <button id="add-sprite" title="Add sprite">＋ Add</button>
+          <button id="dup-sprite" title="Duplicate">⧉</button>
+          <button id="del-sprite" title="Delete">🗑</button>
+        </div>
+        <ul id="scene-tree" class="tree"></ul>
+      </div>
+    </aside>
+
+    <div class="splitter" data-target="dock-left"></div>
+
+    <!-- Centre: viewport over the bottom dock -->
+    <section id="centre">
+      <div id="viewport">
+        <div class="viewport-bar">
+          <div class="vp-tabs">
+            <button class="vp-tab active" data-view="scene">Scene</button>
+            <button class="vp-tab" data-view="game">Game</button>
+          </div>
+          <label class="vp-check"><input type="checkbox" id="scene-snap" checked /> Snap</label>
+          <span class="spacer"></span>
+          <label class="vp-check">Mode
+            <select id="mode-select">
+              <option value="2d">2D sprites</option>
+              <option value="raycaster">First person</option>
+            </select>
+          </label>
+          <span id="vp-status" class="vp-status">Stopped</span>
+        </div>
+        <div class="viewport-stage">
+          <canvas id="scene-canvas" class="stage-canvas"></canvas>
+          <canvas id="game" class="stage-canvas" hidden></canvas>
+        </div>
+      </div>
+
+      <div class="splitter horizontal" data-target="dock-bottom"></div>
+
+      <!-- Bottom dock: the working panels -->
+      <div id="dock-bottom" class="dock">
+        <div class="dock-tabs" id="bottom-tabs">
+          <button class="dock-tab active" data-panel="blocks">Blocks</button>
+          <button class="dock-tab" data-panel="sprite">Sprite Editor</button>
+          <button class="dock-tab" data-panel="level">Level</button>
+          <button class="dock-tab" data-panel="map">Map Editor</button>
+          <button class="dock-tab" data-panel="sound">Sound Maker</button>
+          <button class="dock-tab" data-panel="code">Code</button>
+          <button class="dock-tab" data-panel="output">Output</button>
+        </div>
+
+        <div class="dock-body">
+          <div class="panel active" data-panel="blocks"><div id="blockly"></div></div>
+
+          <div class="panel" data-panel="sprite">
+            <div id="sprite-panel">
+              <div class="sp-tools">
+                <div class="tool-group">
+                  <button class="tool active" data-tool="pen" title="Pen">✏</button>
+                  <button class="tool" data-tool="fill" title="Fill">🪣</button>
+                  <button class="tool" data-tool="erase" title="Erase">⌫</button>
+                </div>
+                <div class="tool-group" id="palette"></div>
+                <div class="tool-group">
+                  <button id="frame-add" title="Add frame">＋ Frame</button>
+                  <button id="frame-del" title="Delete frame">－</button>
+                  <button id="sp-clear" title="Clear frame">Clear</button>
+                </div>
+              </div>
+              <div class="sp-main">
+                <canvas id="sprite-canvas" width="512" height="512"></canvas>
+                <div class="sp-side">
+                  <div class="sp-label">Frames</div>
+                  <div id="frame-strip" class="frame-strip"></div>
+                  <div class="sp-label">Preview</div>
+                  <canvas id="sprite-preview" width="64" height="64"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" data-panel="level">
+            <div class="panel-body split">
+              <aside class="panel-side">
+                <h3>Tiles</h3>
+                <div id="level-tools" class="tool-group"></div>
+                <p class="hint">
+                  Every sprite is a tile. Tick <b>wall</b> to make the engine's
+                  physics collide with it. Right-drag erases.
+                </p>
+              </aside>
+              <div id="level-grid" class="level-grid"></div>
+            </div>
+          </div>
+
+          <div class="panel" data-panel="map">
+            <div id="map-panel">
+              <div class="map-toolbar">
+                <div id="map-tools" class="tool-group"></div>
+                <span class="muted">Paint walls, then drop the spawn point. Switch Mode to
+                  “First person” and press ▶.</span>
+              </div>
+              <div id="map-grid" class="map-grid"></div>
+            </div>
+          </div>
+
+          <div class="panel" data-panel="sound">
+            <div id="sound-panel">
+              <div class="snd-controls">
+                <label>Wave
+                  <select id="snd-wave">
+                    <option value="pulse50">Pulse 50%</option>
+                    <option value="pulse25">Pulse 25%</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="sawtooth">Sawtooth</option>
+                    <option value="noise">Noise</option>
+                    <option value="sine">Sine</option>
+                  </select>
+                </label>
+                <label>Attack <input type="range" id="snd-a" min="0" max="0.5" step="0.005" /><output id="out-a"></output></label>
+                <label>Decay <input type="range" id="snd-d" min="0" max="0.5" step="0.005" /><output id="out-d"></output></label>
+                <label>Sustain <input type="range" id="snd-s" min="0" max="1" step="0.01" /><output id="out-s"></output></label>
+                <label>Release <input type="range" id="snd-r" min="0" max="1" step="0.01" /><output id="out-r"></output></label>
+                <label>BPM <input type="range" id="snd-bpm" min="60" max="240" step="1" /><output id="out-bpm"></output></label>
+              </div>
+
+              <canvas id="snd-scope" width="640" height="90"></canvas>
+
+              <div class="snd-seq">
+                <div class="sp-label">Pattern — click a cell to set the note</div>
+                <div id="seq-grid" class="seq-grid"></div>
+              </div>
+
+              <div class="snd-actions">
+                <button id="snd-preview">♪ Preview note</button>
+                <button id="snd-playpattern" class="accent">▶ Play pattern</button>
+                <button id="snd-stop">■ Stop</button>
+                <span id="snd-status" class="muted"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" data-panel="code"><pre id="code"></pre></div>
+          <div class="panel" data-panel="output"><pre id="output"></pre></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="splitter" data-target="dock-right"></div>
+
+    <!-- Right dock: inspector -->
+    <aside id="dock-right" class="dock">
+      <div class="dock-tabs"><button class="dock-tab active">Inspector</button></div>
+      <div class="dock-body"><div id="inspector"></div></div>
+    </aside>
+  </div>
+
+  <div id="statusbar"><span id="status">Ready.</span></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

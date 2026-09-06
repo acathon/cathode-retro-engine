@@ -1,14 +1,14 @@
 import {
-  RetroEngine, Scene, Sprite, TileMap,
+  Cathode, Scene, Sprite, TileMap,
   SoundChannel, TouchControls
-} from '@retro-engine/sdk';
+} from '@cathode/sdk';
 
 // ─── Procedural Sprite Sheet Generation ──────────────────────────────
 // All graphics are generated at runtime — no external image files needed.
 
 /** Create a tiny canvas, draw pixels on it, and upload to the engine as a sprite sheet. */
 function makeSheet(
-  engine: RetroEngine,
+  engine: Cathode,
   tileW: number,
   tileH: number,
   frames: (ctx: CanvasRenderingContext2D, i: number) => void,
@@ -196,7 +196,7 @@ async function init() {
   const livesEl = document.getElementById('lives')!;
   const msgEl = document.getElementById('msg')!;
 
-  const engine = await RetroEngine.gameboy(canvas, 3);
+  const engine = await Cathode.gameboy(canvas, 3);
   const scene = new Scene(engine);
 
   // Touch controls for mobile

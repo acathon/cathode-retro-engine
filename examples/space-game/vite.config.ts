@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
 
 export default defineConfig({
   server: {
@@ -8,12 +7,7 @@ export default defineConfig({
       strict: false,
     },
   },
-  resolve: {
-    alias: {
-      'retro-platform-web': resolve(__dirname, '../../packages/sdk/wasm/retro_platform_web.js'),
-    },
-  },
   optimizeDeps: {
-    exclude: ['@retro-engine/sdk', 'retro-platform-web']
+    exclude: ['@cathode/sdk', 'cathode-platform-web']
   }
 });

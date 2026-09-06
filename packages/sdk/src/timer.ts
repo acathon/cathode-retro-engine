@@ -1,4 +1,4 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 
 export class GameTimer {
   private handle: number;
@@ -6,7 +6,7 @@ export class GameTimer {
   private _destroyed = false;
 
   constructor(
-    private engine: RetroEngine,
+    private engine: Cathode,
     durationSecs: number,
     options?: { repeat?: boolean; autoStart?: boolean },
   ) {

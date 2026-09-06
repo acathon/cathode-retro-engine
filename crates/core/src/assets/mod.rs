@@ -72,3 +72,59 @@ impl AssetStore {
         handle
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sheet(w: u32, h: u32) -> SpriteSheet {
+        SpriteSheet::from_rgba(w, h, 8, 8, vec![0; (w * h * 4) as usize])
+    }
+
+    #[test]
+    fn a_sheet_keeps_its_dimensions() {
+        let s = sheet(16, 16);
+        assert_eq!((s.width, s.height), (16, 16));
+        assert_eq!((s.tile_width, s.tile_height), (8, 8));
+        assert_eq!(s.pixels.len(), 16 * 16 * 4);
+    }
+
+    #[test]
+    #[should_panic(expected = "Pixel array must match")]
+    fn a_mismatched_pixel_buffer_is_rejected() {
+        SpriteSheet::from_rgba(8, 8, 8, 8, vec![0; 10]);
+    }
+
+    #[test]
+    fn stores_hand_out_sequential_handles_per_kind() {
+        let mut store = AssetStore::new();
+
+        assert_eq!(store.add_sheet(sheet(8, 8)), 0);
+        assert_eq!(store.add_sheet(sheet(8, 8)), 1);
+        // Each kind has its own handle space.
+        assert_eq!(store.add_palette(Palette::gameboy()), 0);
+        assert_eq!(store.add_audio(vec![0.0; 4]), 0);
+
+        assert_eq!(store.sprite_sheets.len(), 2);
+        assert_eq!(store.palettes.len(), 1);
+        assert_eq!(store.audio_samples.len(), 1);
+    }
+
+    #[test]
+    fn a_new_store_is_empty() {
+        let store = AssetStore::default();
+        assert!(store.sprite_sheets.is_empty());
+        assert!(store.palettes.is_empty());
+        assert!(store.audio_samples.is_empty());
+    }
+
+    #[test]
+    fn a_sheet_survives_a_json_round_trip() {
+        let original = SpriteSheet::from_rgba(2, 2, 1, 1, vec![7; 16]);
+        let json = serde_json::to_string(&original).unwrap();
+        let restored: SpriteSheet = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(restored.width, 2);
+        assert_eq!(restored.pixels, original.pixels);
+    }
+}

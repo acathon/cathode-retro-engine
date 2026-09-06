@@ -301,3 +301,151 @@ fn build_note_table() -> HashMap<&'static str, f32> {
     }
     m
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn two_note_pattern() -> Pattern {
+        Pattern {
+            events: vec![
+                NoteEvent {
+                    channel: 0,
+                    note: 440.0,
+                    waveform: 1,
+                    volume: 0.5,
+                    duration: 1.0,
+                },
+                NoteEvent {
+                    channel: 0,
+                    note: 0.0,
+                    waveform: 1,
+                    volume: 0.0,
+                    duration: 1.0,
+                },
+            ],
+            bpm: 120.0,
+        }
+    }
+
+    #[test]
+    fn sequencer_only_fires_while_playing() {
+        let mut seq = Sequencer::new();
+        seq.load(two_note_pattern());
+        assert!(seq.update(1.0).is_empty());
+
+        seq.play();
+        let fired = seq.update(0.1);
+        assert_eq!(fired.len(), 1);
+        assert_eq!(fired[0].note, 440.0);
+    }
+
+    #[test]
+    fn events_fire_in_order_and_loop() {
+        let mut seq = Sequencer::new();
+        seq.load(two_note_pattern());
+        seq.play();
+
+        assert_eq!(seq.update(0.5)[0].note, 440.0);
+        assert!(seq.update(0.25).is_empty());
+        assert_eq!(seq.update(0.5)[0].note, 0.0);
+        // After the last event the pattern wraps back to the first.
+        assert_eq!(seq.update(1.0)[0].note, 440.0);
+    }
+
+    #[test]
+    fn a_large_dt_fires_multiple_events_at_once() {
+        let mut seq = Sequencer::new();
+        seq.load(two_note_pattern());
+        seq.play();
+        let fired = seq.update(2.5);
+        assert!(fired.len() >= 2);
+        assert_eq!(fired[0].note, 440.0);
+        assert_eq!(fired[1].note, 0.0);
+    }
+
+    #[test]
+    fn stop_rewinds_and_pause_holds_position() {
+        let mut seq = Sequencer::new();
+        seq.load(two_note_pattern());
+        seq.play();
+        seq.update(0.5); // fires event 0
+
+        seq.pause();
+        assert!(seq.update(10.0).is_empty());
+        seq.resume();
+        assert_eq!(seq.update(0.6)[0].note, 0.0);
+
+        seq.stop();
+        seq.play();
+        assert_eq!(seq.update(0.1)[0].note, 440.0, "stop should rewind");
+    }
+
+    #[test]
+    fn empty_or_missing_patterns_are_safe() {
+        let mut seq = Sequencer::new();
+        seq.play();
+        assert!(seq.update(1.0).is_empty());
+
+        seq.load(Pattern {
+            events: Vec::new(),
+            bpm: 120.0,
+        });
+        assert!(seq.update(1.0).is_empty());
+    }
+
+    #[test]
+    fn set_bpm_updates_the_loaded_pattern() {
+        let mut seq = Sequencer::new();
+        seq.load(two_note_pattern());
+        seq.set_bpm(90.0);
+        assert_eq!(seq.pattern.as_ref().unwrap().bpm, 90.0);
+    }
+
+    #[test]
+    fn mml_notes_get_pitch_and_beat_based_durations() {
+        // At 120 BPM one beat is 0.5s; ":4" is a full beat (4/divisor beats).
+        let pattern = Sequencer::parse_mml("A4 C4:8 REST:2", 120.0);
+        assert_eq!(pattern.events.len(), 3);
+
+        assert_eq!(pattern.events[0].note, 440.0);
+        assert!((pattern.events[0].duration - 0.5).abs() < 1e-4);
+
+        assert!((pattern.events[1].note - 261.63).abs() < 0.01);
+        assert!((pattern.events[1].duration - 0.25).abs() < 1e-4);
+
+        assert_eq!(pattern.events[2].note, 0.0, "REST should be silent");
+        assert!((pattern.events[2].duration - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn mml_dotted_notes_are_half_again_longer() {
+        let pattern = Sequencer::parse_mml("A4:4.", 120.0);
+        assert!((pattern.events[0].duration - 0.75).abs() < 1e-4);
+    }
+
+    #[test]
+    fn mml_unknown_notes_fall_back_to_a4() {
+        let pattern = Sequencer::parse_mml("Z9", 120.0);
+        assert_eq!(pattern.events[0].note, 440.0);
+    }
+
+    #[test]
+    fn multi_channel_mml_interleaves_steps_with_zero_gap() {
+        let pattern = Sequencer::parse_mml("C4 D4|E4 F4", 120.0);
+        assert_eq!(pattern.events.len(), 4);
+
+        // Step 0: both channels fire together; only the first event carries
+        // the step duration so the second plays simultaneously.
+        assert_eq!(pattern.events[0].channel, 0);
+        assert!(pattern.events[0].duration > 0.0);
+        assert_eq!(pattern.events[1].channel, 1);
+        assert_eq!(pattern.events[1].duration, 0.0);
+
+        // Step 1 repeats the shape.
+        assert_eq!(pattern.events[2].channel, 0);
+        assert!(pattern.events[2].duration > 0.0);
+        assert_eq!(pattern.events[3].channel, 1);
+        assert_eq!(pattern.events[3].duration, 0.0);
+    }
+}

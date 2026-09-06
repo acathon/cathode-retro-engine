@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 
 export default async function buildCommand() {
-  console.log(chalk.cyan('Building retro-engine project for production...\n'));
+  console.log(chalk.cyan('Building Cathode project for production...\n'));
   
   const spinner1 = ora('Building WASM bundle').start();
   try {

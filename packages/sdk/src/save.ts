@@ -1,9 +1,9 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 
 export class SaveManager {
   private lastAutosave = 0;
 
-  constructor(private engine: RetroEngine) { }
+  constructor(private engine: Cathode) { }
 
   set(key: string, value: unknown, slot = 0): void {
     if (this.engine.raw) {

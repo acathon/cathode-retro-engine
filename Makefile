@@ -9,7 +9,7 @@ wasm-dev:
 	npm run build:wasm:dev
 
 native:
-	cargo build -p retro-platform-native
+	cargo build -p cathode-platform-native
 
 sdk:
 	npm run build:sdk

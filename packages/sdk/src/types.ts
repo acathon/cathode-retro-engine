@@ -19,6 +19,24 @@ export interface SpriteOptions {
   layer?: number;
 }
 
+/** Options for handing a sprite's movement to the engine's physics step. */
+export interface PhysicsOptions {
+  /**
+   * Gravity strength as a multiple of the engine's base gravity. 1 is a
+   * normal fall, 0.35 is floaty. Omit it for top-down games, where nothing
+   * should be pulled downward.
+   */
+  gravity?: number;
+  /** Collision box size in pixels. Without one the sprite passes through solids. */
+  width?: number;
+  height?: number;
+  /** Collision box offset from the sprite's position. Defaults to 0. */
+  offsetX?: number;
+  offsetY?: number;
+  /** Solid sprites never move and block other bodies (floors, walls, platforms). */
+  solid?: boolean;
+}
+
 export interface TileMapOptions {
   name: string;
   cols: number;

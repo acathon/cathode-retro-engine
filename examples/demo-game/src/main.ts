@@ -1,9 +1,9 @@
-import { RetroEngine, Scene, Sprite, TileMap, SoundChannel } from '@retro-engine/sdk';
+import { Cathode, Scene, Sprite, TileMap, SoundChannel } from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 
 async function initGame() {
-    const engine = await RetroEngine.gameboy(canvas);
+    const engine = await Cathode.gameboy(canvas);
     const scene = new Scene(engine);
 
     // 1. Generate a 40x8 sprite sheet in memory (5 tiles of 8x8)
@@ -99,6 +99,9 @@ async function initGame() {
     }
 
     scene.follow(hero, 0, 0);
+    // Without bounds the camera keeps centring the hero at the edges of the
+    // level, so a third of the screen showed empty space beyond the map.
+    engine.raw.set_camera_bounds(0, 0, MAP_COLS * TILE_SIZE, 18 * TILE_SIZE);
 
     engine.loop((dt) => {
         shootTimer = Math.max(0, shootTimer - dt);

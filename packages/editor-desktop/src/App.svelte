@@ -59,7 +59,7 @@
       </div>
     {:else}
       <div class="welcome">
-        <h1>retro-engine editor</h1>
+        <h1>Cathode Editor</h1>
         <p>Open or create a project to get started.</p>
         <p class="hint">File → New Project / Open Project</p>
       </div>

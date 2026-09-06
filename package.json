@@ -1,5 +1,5 @@
 {
-  "name": "retro-engine-monorepo",
+  "name": "cathode-monorepo",
   "private": true,
   "engines": {
     "node": ">=20.0.0"
@@ -9,16 +9,17 @@
     "examples/*"
   ],
   "scripts": {
-    "build:wasm": "wasm-pack build crates/platform-web --target web",
-    "build:wasm:dev": "wasm-pack build crates/platform-web --target web --dev",
-    "build:sdk": "npm run build --workspace=@retro-engine/sdk",
-    "build:cli": "npm run build --workspace=@retro-engine/cli",
-    "build:editor": "npm run build --workspace=@retro-engine/editor",
+    "build:wasm": "wasm-pack build crates/platform-web --out-dir ../../packages/sdk/wasm --target web",
+    "build:wasm:dev": "wasm-pack build crates/platform-web --out-dir ../../packages/sdk/wasm --target web --dev",
+    "build:sdk": "npm run build --workspace=@cathode/sdk",
+    "build:cli": "npm run build --workspace=@cathode/cli",
+    "build:editor": "npm run build --workspace=@cathode/editor",
     "build:all": "npm run build:wasm && npm run build:sdk && npm run build:cli",
-    "dev:editor": "npm run dev --workspace=@retro-engine/editor",
-    "dev:demo": "npm run dev --workspace=@retro-engine/demo-game",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "dev:editor": "npm run dev --workspace=@cathode/editor",
+    "dev:demo": "npm run dev --workspace=@cathode/demo-game",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev:studio": "npm run dev --workspace=@cathode/studio"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

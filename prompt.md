@@ -39,12 +39,12 @@ retro-engine/
 │   ├── architecture.md
 │   └── contributing.md
 ├── crates/
-│   ├── core/                   ← retro-core (pure Rust)
-│   ├── platform-web/           ← retro-platform-web (cdylib, wasm-bindgen)
-│   └── platform-native/        ← retro-platform-native (winit + pixels)
+│   ├── core/                   ← cathode-core (pure Rust)
+│   ├── platform-web/           ← cathode-platform-web (cdylib, wasm-bindgen)
+│   └── platform-native/        ← cathode-platform-native (winit + pixels)
 ├── packages/
-│   ├── sdk/                    ← @retro-engine/sdk (TypeScript)
-│   ├── cli/                    ← @retro-engine/cli (retro-cli)
+│   ├── sdk/                    ← @cathode/sdk (TypeScript)
+│   ├── cli/                    ← @cathode/cli (retro-cli)
 │   └── editor/                 ← browser tilemap + sprite editor (vanilla JS)
 └── examples/
     └── demo-game/              ← playable side-scroller demo
@@ -161,7 +161,7 @@ retro-engine/
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-retro-core = { path = "../core" }
+cathode-core = { path = "../core" }
 wasm-bindgen = "0.2"
 js-sys = "0.3"
 console_error_panic_hook = "0.1"
@@ -203,11 +203,11 @@ features = [
 ### Cargo.toml
 ```toml
 [[bin]]
-name = "retro-native"
+name = "cathode-native"
 path = "src/main.rs"
 
 [dependencies]
-retro-core = { path = "../core" }
+cathode-core = { path = "../core" }
 winit = "0.29"
 pixels = "0.13"
 cpal = "0.15"
@@ -241,7 +241,7 @@ type PlayerIndex = 0 | 1
 type ButtonName = "up"|"down"|"left"|"right"|"a"|"b"|"x"|"y"|"start"|"select"|"l"|"r"
 ```
 
-### `src/engine.ts` — `class RetroEngine`
+### `src/engine.ts` — `class Cathode`
 - Static factories: `gameboy(canvas, scale=3)`, `nes(canvas, scale=3)`, `neogeo(canvas, scale=2)`, `custom(canvas, cfg, scale=3)`
 - `_init(preset, config?)` — dynamic import of WASM module, set canvas CSS size + `image-rendering: pixelated`
 - `loop(cb: (dt: number) => void)` — rAF loop, calls `wasm.tick(ts)`, `cb(dt)`, `wasm.render_to_canvas`
@@ -296,7 +296,7 @@ type ButtonName = "up"|"down"|"left"|"right"|"a"|"b"|"x"|"y"|"start"|"select"|"l
 - `destroy()` removes the overlay
 
 ### `src/index.ts`
-Export everything: `RetroEngine`, `Scene`, `Sprite`, `TileMap`, `SoundChannel`, `NOTE`, `InputReader`, `TouchControls`, and all types.
+Export everything: `Cathode`, `Scene`, `Sprite`, `TileMap`, `SoundChannel`, `NOTE`, `InputReader`, `TouchControls`, and all types.
 
 ---
 
@@ -316,7 +316,7 @@ Export everything: `RetroEngine`, `Scene`, `Sprite`, `TileMap`, `SoundChannel`, 
 - Use `ora` for spinner, `chalk` for colors, `fs-extra` for file ops
 
 ### `src/commands/run.ts`
-- Load `retro.config.json`, call `ensureWasm()` (check if `node_modules/retro-platform-web` exists, if not run wasm-pack), spawn Vite dev server
+- Load `retro.config.json`, call `ensureWasm()` (check if `node_modules/cathode-platform-web` exists, if not run wasm-pack), spawn Vite dev server
 
 ### `src/commands/build.ts`
 - Step 1: `wasm-pack build` (with `--dev` or release flag)
@@ -444,7 +444,7 @@ Three jobs:
 ## Requirements
 
 - Every file must be **fully implemented** — no `todo!()`, no `unimplemented!()`, no empty function bodies, no placeholder comments like `// ... implementation here`
-- All Rust code must compile with `cargo check --workspace` and `cargo check -p retro-core -p retro-platform-web --target wasm32-unknown-unknown`
+- All Rust code must compile with `cargo check --workspace` and `cargo check -p cathode-core -p cathode-platform-web --target wasm32-unknown-unknown`
 - All TypeScript must be strict-mode valid
 - The demo game must be self-contained (no external PNG or asset files required)
 - The editor must work as a single HTML+JS pair with no build step

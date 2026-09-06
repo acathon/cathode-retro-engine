@@ -46,7 +46,10 @@ fn preset_project(name: &str, preset: &str) -> RetroProject {
         name: name.to_string(),
         version: "0.1.0".to_string(),
         preset: preset.to_string(),
-        resolution: Resolution { width: w, height: h },
+        resolution: Resolution {
+            width: w,
+            height: h,
+        },
         target_fps: 60,
         audio_channels: 4,
         sprite_limit: 64,
@@ -79,7 +82,7 @@ fn starter_main_ts(preset: &str, project_name: &str) -> String {
     };
 
     format!(
-        "import {{ BitmapFont, RetroEngine, Scene, Sprite }} from '@retro-engine/sdk';\n\nconst canvas = document.getElementById('game') as HTMLCanvasElement;\n\nfunction hash(text: string): number {{\n  let value = 0;\n  for (let i = 0; i < text.length; i += 1) {{\n    value = (value * 31 + text.charCodeAt(i)) >>> 0;\n  }}\n  return value;\n}}\n\nfunction createPreviewSheet(engine: RetroEngine): number {{\n  const tileSize = 8;\n  const cols = 4;\n  const rows = 4;\n  const sheetCanvas = document.createElement('canvas');\n  sheetCanvas.width = cols * tileSize;\n  sheetCanvas.height = rows * tileSize;\n\n  const ctx = sheetCanvas.getContext('2d')!;\n  const colors = [\n    '#9bbc0f', '#8bac0f', '#306230', '#0f380f',\n    '#7c3aed', '#f97316', '#22c55e', '#eab308',\n    '#38bdf8', '#ef4444', '#f472b6', '#a855f7',\n    '#14b8a6', '#84cc16', '#f59e0b', '#64748b',\n  ];\n\n  colors.forEach((color, index) => {{\n    const x = (index % cols) * tileSize;\n    const y = Math.floor(index / cols) * tileSize;\n    ctx.fillStyle = color;\n    ctx.fillRect(x, y, tileSize, tileSize);\n    ctx.fillStyle = 'rgba(255,255,255,0.28)';\n    ctx.fillRect(x + 1, y + 1, tileSize - 2, 2);\n    ctx.fillStyle = 'rgba(0,0,0,0.28)';\n    ctx.fillRect(x + 1, y + tileSize - 3, tileSize - 2, 2);\n  }});\n\n  return engine.loadSheetFromCanvas(sheetCanvas, tileSize, tileSize);\n}}\n\ntype SceneFile = {{\n  name: string;\n  entities: Array<{{\n    id: string;\n    name: string;\n    x: number;\n    y: number;\n    frame?: number;\n    layer?: number;\n    visible?: boolean;\n    collider?: {{ offsetX: number; offsetY: number; w: number; h: number }};\n  }}>;\n  camera: {{ x: number; y: number; lerp: number }};\n  bgColor: [number, number, number];\n}};\n\nasync function bootstrap() {{\n  const engine = await RetroEngine.{ctor}(canvas, 3);\n  const runtimeScene = new Scene(engine);\n  const font = BitmapFont.builtin(engine);\n  const sheet = createPreviewSheet(engine);\n  const sprites = new Map<string, Sprite>();\n  let sceneData: SceneFile | null = null;\n  let lastSceneSignature = '';\n  let timeSinceSync = 0;\n\n  async function loadScene() {{\n    const project = await fetch(`/retro.project.json?t=${{Date.now()}}`).then((res) => res.json());\n    const nextScene = await fetch(`/${{project.entryScene}}?t=${{Date.now()}}`).then((res) => res.json()) as SceneFile;\n    const signature = JSON.stringify(nextScene);\n    if (signature === lastSceneSignature) return;\n    lastSceneSignature = signature;\n    sceneData = nextScene;\n\n    const liveIds = new Set(nextScene.entities.filter((entity) => entity.visible !== false).map((entity) => entity.id));\n    for (const [id, sprite] of sprites) {{\n      if (!liveIds.has(id)) {{\n        sprite.destroy();\n        sprites.delete(id);\n      }}\n    }}\n\n    for (const entity of nextScene.entities) {{\n      if (entity.visible === false) continue;\n      const frame = typeof entity.frame === 'number' ? Math.abs(entity.frame) % 16 : hash(entity.name) % 16;\n      const layer = entity.layer ?? 0;\n      const existing = sprites.get(entity.id);\n      if (!existing) {{\n        sprites.set(entity.id, new Sprite(runtimeScene, {{\n          x: entity.x,\n          y: entity.y,\n          sheet,\n          frame,\n          layer,\n        }}));\n        continue;\n      }}\n\n      existing.x = entity.x;\n      existing.y = entity.y;\n      existing.frame = frame;\n    }}\n\n    engine.setBgColor(nextScene.bgColor[0], nextScene.bgColor[1], nextScene.bgColor[2]);\n    engine.setCamera(nextScene.camera.x, nextScene.camera.y);\n  }}\n\n  await loadScene();\n\n  engine.loop((dt) => {{\n    timeSinceSync += dt;\n    if (timeSinceSync >= 0.5) {{\n      timeSinceSync = 0;\n      void loadScene();\n    }}\n\n    runtimeScene.update(dt);\n\n    if (sceneData) {{\n      font.draw(sceneData.name || '{project_name}', 4, 4, 1);\n      font.draw(`ENTITIES ${{sceneData.entities.filter((entity) => entity.visible !== false).length}}`, 4, 14, 1);\n      font.draw('LIVE PREVIEW', 4, engine.height - 12, 1);\n    }} else {{\n      font.draw('{project_name}', 4, 4, 1);\n      font.draw('LOADING SCENE...', 4, 14, 1);\n    }}\n  }});\n}}\n\nbootstrap();\n"
+        "import {{ BitmapFont, Cathode, Scene, Sprite }} from '@cathode/sdk';\n\nconst canvas = document.getElementById('game') as HTMLCanvasElement;\n\nfunction hash(text: string): number {{\n  let value = 0;\n  for (let i = 0; i < text.length; i += 1) {{\n    value = (value * 31 + text.charCodeAt(i)) >>> 0;\n  }}\n  return value;\n}}\n\nfunction createPreviewSheet(engine: Cathode): number {{\n  const tileSize = 8;\n  const cols = 4;\n  const rows = 4;\n  const sheetCanvas = document.createElement('canvas');\n  sheetCanvas.width = cols * tileSize;\n  sheetCanvas.height = rows * tileSize;\n\n  const ctx = sheetCanvas.getContext('2d')!;\n  const colors = [\n    '#9bbc0f', '#8bac0f', '#306230', '#0f380f',\n    '#7c3aed', '#f97316', '#22c55e', '#eab308',\n    '#38bdf8', '#ef4444', '#f472b6', '#a855f7',\n    '#14b8a6', '#84cc16', '#f59e0b', '#64748b',\n  ];\n\n  colors.forEach((color, index) => {{\n    const x = (index % cols) * tileSize;\n    const y = Math.floor(index / cols) * tileSize;\n    ctx.fillStyle = color;\n    ctx.fillRect(x, y, tileSize, tileSize);\n    ctx.fillStyle = 'rgba(255,255,255,0.28)';\n    ctx.fillRect(x + 1, y + 1, tileSize - 2, 2);\n    ctx.fillStyle = 'rgba(0,0,0,0.28)';\n    ctx.fillRect(x + 1, y + tileSize - 3, tileSize - 2, 2);\n  }});\n\n  return engine.loadSheetFromCanvas(sheetCanvas, tileSize, tileSize);\n}}\n\ntype SceneFile = {{\n  name: string;\n  entities: Array<{{\n    id: string;\n    name: string;\n    x: number;\n    y: number;\n    frame?: number;\n    layer?: number;\n    visible?: boolean;\n    collider?: {{ offsetX: number; offsetY: number; w: number; h: number }};\n  }}>;\n  camera: {{ x: number; y: number; lerp: number }};\n  bgColor: [number, number, number];\n}};\n\nasync function bootstrap() {{\n  const engine = await Cathode.{ctor}(canvas, 3);\n  const runtimeScene = new Scene(engine);\n  const font = BitmapFont.builtin(engine);\n  const sheet = createPreviewSheet(engine);\n  const sprites = new Map<string, Sprite>();\n  let sceneData: SceneFile | null = null;\n  let lastSceneSignature = '';\n  let timeSinceSync = 0;\n\n  async function loadScene() {{\n    const project = await fetch(`/retro.project.json?t=${{Date.now()}}`).then((res) => res.json());\n    const nextScene = await fetch(`/${{project.entryScene}}?t=${{Date.now()}}`).then((res) => res.json()) as SceneFile;\n    const signature = JSON.stringify(nextScene);\n    if (signature === lastSceneSignature) return;\n    lastSceneSignature = signature;\n    sceneData = nextScene;\n\n    const liveIds = new Set(nextScene.entities.filter((entity) => entity.visible !== false).map((entity) => entity.id));\n    for (const [id, sprite] of sprites) {{\n      if (!liveIds.has(id)) {{\n        sprite.destroy();\n        sprites.delete(id);\n      }}\n    }}\n\n    for (const entity of nextScene.entities) {{\n      if (entity.visible === false) continue;\n      const frame = typeof entity.frame === 'number' ? Math.abs(entity.frame) % 16 : hash(entity.name) % 16;\n      const layer = entity.layer ?? 0;\n      const existing = sprites.get(entity.id);\n      if (!existing) {{\n        sprites.set(entity.id, new Sprite(runtimeScene, {{\n          x: entity.x,\n          y: entity.y,\n          sheet,\n          frame,\n          layer,\n        }}));\n        continue;\n      }}\n\n      existing.x = entity.x;\n      existing.y = entity.y;\n      existing.frame = frame;\n    }}\n\n    engine.setBgColor(nextScene.bgColor[0], nextScene.bgColor[1], nextScene.bgColor[2]);\n    engine.setCamera(nextScene.camera.x, nextScene.camera.y);\n  }}\n\n  await loadScene();\n\n  engine.loop((dt) => {{\n    timeSinceSync += dt;\n    if (timeSinceSync >= 0.5) {{\n      timeSinceSync = 0;\n      void loadScene();\n    }}\n\n    runtimeScene.update(dt);\n\n    if (sceneData) {{\n      font.draw(sceneData.name || '{project_name}', 4, 4, 1);\n      font.draw(`ENTITIES ${{sceneData.entities.filter((entity) => entity.visible !== false).length}}`, 4, 14, 1);\n      font.draw('LIVE PREVIEW', 4, engine.height - 12, 1);\n    }} else {{\n      font.draw('{project_name}', 4, 4, 1);\n      font.draw('LOADING SCENE...', 4, 14, 1);\n    }}\n  }});\n}}\n\nbootstrap();\n"
     )
 }
 
@@ -104,7 +107,11 @@ pub async fn save_project(path: String, project: RetroProject) -> Result<(), Str
 }
 
 #[tauri::command]
-pub async fn new_project(path: String, name: String, preset: String) -> Result<RetroProject, String> {
+pub async fn new_project(
+    path: String,
+    name: String,
+    preset: String,
+) -> Result<RetroProject, String> {
     let project_dir = Path::new(&path);
     std::fs::create_dir_all(project_dir)
         .map_err(|e| format!("Failed to create directory: {}", e))?;
@@ -126,8 +133,8 @@ pub async fn new_project(path: String, name: String, preset: String) -> Result<R
     let project = preset_project(&name, &preset);
 
     // Write project file
-    let content = serde_json::to_string_pretty(&project)
-        .map_err(|e| format!("Serialize error: {}", e))?;
+    let content =
+        serde_json::to_string_pretty(&project).map_err(|e| format!("Serialize error: {}", e))?;
     std::fs::write(project_dir.join("retro.project.json"), content)
         .map_err(|e| format!("Write error: {}", e))?;
 
@@ -142,7 +149,7 @@ pub async fn new_project(path: String, name: String, preset: String) -> Result<R
             "preview": "vite preview"
         },
         "dependencies": {
-            "@retro-engine/sdk": sdk_dependency_path()
+            "@cathode/sdk": sdk_dependency_path()
         },
         "devDependencies": {
             "typescript": "^5.5.0",
@@ -151,7 +158,8 @@ pub async fn new_project(path: String, name: String, preset: String) -> Result<R
     });
     std::fs::write(
         project_dir.join("package.json"),
-        serde_json::to_string_pretty(&package_json).map_err(|e| format!("Package serialize error: {}", e))?,
+        serde_json::to_string_pretty(&package_json)
+            .map_err(|e| format!("Package serialize error: {}", e))?,
     )
     .map_err(|e| format!("Write package.json error: {}", e))?;
 
@@ -201,8 +209,11 @@ export default defineConfig({
     )
     .map_err(|e| format!("Write index.html error: {}", e))?;
 
-    std::fs::write(project_dir.join("src/main.ts"), starter_main_ts(&preset, &name))
-        .map_err(|e| format!("Write src/main.ts error: {}", e))?;
+    std::fs::write(
+        project_dir.join("src/main.ts"),
+        starter_main_ts(&preset, &name),
+    )
+    .map_err(|e| format!("Write src/main.ts error: {}", e))?;
 
     std::fs::write(
         project_dir.join("scripts/player.ts"),
@@ -283,13 +294,19 @@ pub async fn list_assets(project_dir: String) -> Result<Vec<AssetInfo>, String> 
     Ok(results)
 }
 
-fn collect_assets(dir: &Path, project_root: &Path, results: &mut Vec<AssetInfo>) -> Result<(), String> {
-    let entries =
-        std::fs::read_dir(dir).map_err(|e| format!("Failed to read dir {}: {}", dir.display(), e))?;
+fn collect_assets(
+    dir: &Path,
+    project_root: &Path,
+    results: &mut Vec<AssetInfo>,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read dir {}: {}", dir.display(), e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("Dir entry error: {}", e))?;
-        let ft = entry.file_type().map_err(|e| format!("File type error: {}", e))?;
+        let ft = entry
+            .file_type()
+            .map_err(|e| format!("File type error: {}", e))?;
         let path = entry.path();
 
         if ft.is_dir() {
@@ -307,7 +324,8 @@ fn collect_assets(dir: &Path, project_root: &Path, results: &mut Vec<AssetInfo>)
                 _ => "other",
             };
 
-            let metadata = std::fs::metadata(&path).map_err(|e| format!("Metadata error: {}", e))?;
+            let metadata =
+                std::fs::metadata(&path).map_err(|e| format!("Metadata error: {}", e))?;
 
             results.push(AssetInfo {
                 name: path
@@ -333,7 +351,8 @@ pub async fn read_script(path: String) -> Result<String, String> {
 #[tauri::command]
 pub async fn write_script(path: String, content: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&path).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dir: {}", e))?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create parent dir: {}", e))?;
     }
     std::fs::write(&path, &content).map_err(|e| format!("Failed to write script: {}", e))?;
     Ok(())
@@ -342,7 +361,8 @@ pub async fn write_script(path: String, content: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn copy_file(src: String, dest: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&dest).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dir: {}", e))?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create parent dir: {}", e))?;
     }
     std::fs::copy(&src, &dest).map_err(|e| format!("Failed to copy file: {}", e))?;
     Ok(())

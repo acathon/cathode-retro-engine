@@ -6,7 +6,7 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "retro-engine editor",
+    "productName": "Cathode Editor",
     "version": "0.1.0"
   },
   "tauri": {
@@ -31,12 +31,12 @@
     },
     "bundle": {
       "active": true,
-      "identifier": "com.retro-engine.editor",
+      "identifier": "com.cathode.editor",
       "icon": []
     },
     "windows": [
       {
-        "title": "retro-engine editor",
+        "title": "Cathode Editor",
         "width": 1280,
         "height": 800,
         "resizable": true,

@@ -29,11 +29,8 @@ impl FrameBuffer {
     }
 
     pub fn clear(&mut self, r: u8, g: u8, b: u8) {
-        for chunk in self.pixels.chunks_exact_mut(4) {
-            chunk[0] = r;
-            chunk[1] = g;
-            chunk[2] = b;
-            chunk[3] = 255;
+        for px in self.pixels.as_chunks_mut::<4>().0 {
+            *px = [r, g, b, 255];
         }
     }
 
@@ -62,10 +59,10 @@ impl FrameBuffer {
         for y in (1..self.height).step_by(2) {
             let row_start = (y * self.width * 4) as usize;
             let row_end = row_start + (self.width * 4) as usize;
-            for chunk in self.pixels[row_start..row_end].chunks_exact_mut(4) {
-                chunk[0] = (chunk[0] as f32 * inv) as u8;
-                chunk[1] = (chunk[1] as f32 * inv) as u8;
-                chunk[2] = (chunk[2] as f32 * inv) as u8;
+            for px in self.pixels[row_start..row_end].as_chunks_mut::<4>().0 {
+                px[0] = (px[0] as f32 * inv) as u8;
+                px[1] = (px[1] as f32 * inv) as u8;
+                px[2] = (px[2] as f32 * inv) as u8;
             }
         }
     }
@@ -82,25 +79,28 @@ impl FrameBuffer {
             return;
         }
 
-        for chunk in self.pixels.chunks_exact_mut(4) {
+        for px in self.pixels.as_chunks_mut::<4>().0 {
             let mut best = colors[0];
-            let mut best_dist = u32::MAX;
+            let mut best_dist = f32::MAX;
 
             for color in &colors {
-                let dr = chunk[0] as i32 - color.0 as i32;
-                let dg = chunk[1] as i32 - color.1 as i32;
-                let db = chunk[2] as i32 - color.2 as i32;
-                let dist = (dr * dr + dg * dg + db * db) as u32;
+                let dr = px[0] as f32 - color.0 as f32;
+                let dg = px[1] as f32 - color.1 as f32;
+                let db = px[2] as f32 - color.2 as f32;
+                // Weighted by how much each channel contributes to perceived
+                // brightness. Plain RGB distance is dominated by green, which
+                // sends mid-brightness colours to the wrong end of a short
+                // palette: magenta (255,0,255) landed on the Game Boy's
+                // *lightest* shade, so a magenta sprite came out the same
+                // colour as the sky and vanished.
+                let dist = 0.299 * dr * dr + 0.587 * dg * dg + 0.114 * db * db;
                 if dist < best_dist {
                     best_dist = dist;
                     best = *color;
                 }
             }
 
-            chunk[0] = best.0;
-            chunk[1] = best.1;
-            chunk[2] = best.2;
-            chunk[3] = 255;
+            *px = [best.0, best.1, best.2, 255];
         }
     }
 
@@ -119,7 +119,14 @@ impl FrameBuffer {
 
 pub struct Renderer {
     pub resolution: (u32, u32),
+    /// 0 means unlimited, which is the default. See [`crate::config::EngineConfig`].
     pub sprite_limit: u32,
+    /// Most sprites drawn in any single frame so far.
+    ///
+    /// This is what makes hardware budgets checkable at export time instead
+    /// of enforced at run time: compare it against
+    /// [`crate::config::HardwareProfile::sprite_budget`].
+    pub peak_sprites: usize,
     pub camera: Vec2,
     pub bg_color: Color,
     pub scanlines: bool,
@@ -154,6 +161,7 @@ impl Renderer {
         Self {
             resolution: (width, height),
             sprite_limit,
+            peak_sprites: 0,
             camera: Vec2::ZERO,
             bg_color,
             scanlines,
@@ -189,6 +197,30 @@ impl Renderer {
         let sy =
             ((seed.wrapping_mul(214013).wrapping_add(2531011) >> 16) % 200) as f32 / 100.0 - 1.0;
         Vec2::new(sx * mag, sy * mag)
+    }
+
+    /// Switch the *look* of the engine at run time: palette, background and
+    /// scanlines.
+    ///
+    /// The hardware profile is a view setting, not a contract. Being able to
+    /// author in full colour and flip to Game Boy to check how it reads is
+    /// worth more than locking the choice in at construction.
+    pub fn set_profile(&mut self, profile: HardwareProfile) {
+        self.palette = match profile {
+            HardwareProfile::GameBoy => Some(Palette::gameboy()),
+            _ => None,
+        };
+        self.bg_color = self
+            .palette
+            .as_ref()
+            .map(|palette| palette.get(1))
+            .unwrap_or(Color::BLACK);
+        self.scanlines = matches!(profile, HardwareProfile::Nes | HardwareProfile::NeoGeo);
+    }
+
+    /// Forget the peak sprite count, e.g. when starting a new level.
+    pub fn reset_peak_sprites(&mut self) {
+        self.peak_sprites = 0;
     }
 
     pub fn render(&mut self, world: &World, assets: &AssetStore) -> &FrameBuffer {
@@ -252,14 +284,28 @@ impl Renderer {
         let mut sprite_data: Vec<_> = world
             .query::<(&Position, &SpriteIndex)>()
             .iter()
+            .filter(|(_, (_, index))| index.visible)
             .map(|(_, (pos, index))| (pos.0, *index))
             .collect();
 
         // sort by layer back to front
         sprite_data.sort_by_key(|(_, idx)| idx.layer);
 
-        let limit = self.sprite_limit as usize;
-        let drawn_sprites = sprite_data.iter().take(limit);
+        self.peak_sprites = self.peak_sprites.max(sprite_data.len());
+
+        // A limit of 0 draws everything, which is the default: the presets
+        // model how a machine *looked*, not how few objects it could hold.
+        // When a limit is deliberately set, keep the sprites nearest the
+        // front. Taking the first N of a back-to-front sort dropped the
+        // topmost layers, so exceeding the budget made the player vanish
+        // while background scenery survived.
+        let drawn_sprites: &[_] = if self.sprite_limit == 0 {
+            &sprite_data
+        } else {
+            let limit = self.sprite_limit as usize;
+            let start = sprite_data.len().saturating_sub(limit);
+            &sprite_data[start..]
+        };
 
         for (pos, idx) in drawn_sprites {
             if let Some(sheet) = assets.sprite_sheets.get(idx.sheet as usize) {
@@ -350,5 +396,501 @@ impl Renderer {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assets::SpriteSheet;
+    use crate::ecs::{Position, SpriteIndex};
+
+    fn pixel(fb: &FrameBuffer, x: u32, y: u32) -> [u8; 4] {
+        let i = ((y * fb.width + x) * 4) as usize;
+        [
+            fb.pixels[i],
+            fb.pixels[i + 1],
+            fb.pixels[i + 2],
+            fb.pixels[i + 3],
+        ]
+    }
+
+    #[test]
+    fn framebuffer_clear_fills_every_pixel_opaque() {
+        let mut fb = FrameBuffer::new(4, 3);
+        assert_eq!(fb.len(), 4 * 3 * 4);
+        fb.clear(10, 20, 30);
+        for y in 0..3 {
+            for x in 0..4 {
+                assert_eq!(pixel(&fb, x, y), [10, 20, 30, 255]);
+            }
+        }
+    }
+
+    #[test]
+    fn set_pixel_ignores_out_of_bounds_writes() {
+        let mut fb = FrameBuffer::new(2, 2);
+        fb.set_pixel(2, 0, 255, 0, 0, 255);
+        fb.set_pixel(0, 2, 255, 0, 0, 255);
+        fb.set_pixel(999, 999, 255, 0, 0, 255);
+        assert!(fb.pixels.iter().all(|&p| p == 0));
+    }
+
+    #[test]
+    fn set_pixel_blends_partial_alpha_over_background() {
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(0, 0, 0);
+        fb.set_pixel(0, 0, 255, 255, 255, 128);
+        let p = pixel(&fb, 0, 0);
+        assert!((126..=129).contains(&p[0]), "got {}", p[0]);
+        assert_eq!(p[3], 255);
+
+        // Zero alpha leaves the pixel untouched.
+        let before = pixel(&fb, 0, 0);
+        fb.set_pixel(0, 0, 0, 255, 0, 0);
+        assert_eq!(pixel(&fb, 0, 0), before);
+    }
+
+    #[test]
+    fn scanlines_darken_only_odd_rows() {
+        let mut fb = FrameBuffer::new(2, 4);
+        fb.clear(100, 100, 100);
+        fb.apply_scanlines(0.5);
+        assert_eq!(pixel(&fb, 0, 0)[0], 100);
+        assert_eq!(pixel(&fb, 0, 1)[0], 50);
+        assert_eq!(pixel(&fb, 0, 2)[0], 100);
+        assert_eq!(pixel(&fb, 0, 3)[0], 50);
+    }
+
+    #[test]
+    fn a_mid_brightness_colour_does_not_snap_to_the_lightest_shade() {
+        // Regression: plain RGB distance is dominated by the green channel,
+        // so magenta's nearest Game Boy colour came out as #e0f8cf — the same
+        // shade the screen is cleared to. A magenta sprite drew itself in the
+        // background colour and disappeared, which is exactly what happened
+        // to the hero in examples/demo-game.
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(255, 0, 255);
+        fb.apply_palette(&Palette::gameboy());
+
+        let lightest = Palette::gameboy().get(1);
+        assert_ne!(
+            pixel(&fb, 0, 0),
+            [lightest.0, lightest.1, lightest.2, 255],
+            "magenta must not land on the background shade"
+        );
+    }
+
+    #[test]
+    fn palette_matching_still_separates_light_from_dark() {
+        let palette = Palette::gameboy();
+        for (input, expect_light) in [((250, 250, 250), true), ((5, 5, 5), false)] {
+            let mut fb = FrameBuffer::new(1, 1);
+            fb.clear(input.0, input.1, input.2);
+            fb.apply_palette(&palette);
+            let px = pixel(&fb, 0, 0);
+            let luma = 0.299 * px[0] as f32 + 0.587 * px[1] as f32 + 0.114 * px[2] as f32;
+            assert_eq!(luma > 128.0, expect_light, "{input:?} mapped to {px:?}");
+        }
+    }
+
+    #[test]
+    fn every_gameboy_shade_is_reachable() {
+        // A palette that only ever emits two of its four shades is not really
+        // a four-shade palette.
+        let palette = Palette::gameboy();
+        let mut seen = std::collections::HashSet::new();
+        for v in 0..=255u8 {
+            let mut fb = FrameBuffer::new(1, 1);
+            fb.clear(v, v, v);
+            fb.apply_palette(&palette);
+            seen.insert(pixel(&fb, 0, 0));
+        }
+        assert_eq!(seen.len(), 4, "grey ramp should reach all four shades");
+    }
+
+    #[test]
+    fn apply_palette_snaps_to_nearest_opaque_color() {
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(100, 100, 100);
+        let mut palette = Palette::new("test".to_string());
+        palette.set(1, Color::BLACK);
+        palette.set(2, Color::WHITE);
+        fb.apply_palette(&palette);
+        // (100,100,100) is nearer to black than white; the transparent
+        // index 0 must not participate in matching.
+        assert_eq!(pixel(&fb, 0, 0), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn apply_palette_with_no_opaque_colors_is_a_no_op() {
+        let mut fb = FrameBuffer::new(1, 1);
+        fb.clear(42, 42, 42);
+        let palette = Palette::new("empty".to_string()); // only transparent
+        fb.apply_palette(&palette);
+        assert_eq!(pixel(&fb, 0, 0), [42, 42, 42, 255]);
+    }
+
+    fn test_renderer(w: u32, h: u32) -> Renderer {
+        Renderer::new(w, h, 64, false, HardwareProfile::Custom)
+    }
+
+    fn solid_sheet(w: u32, h: u32, tw: u32, th: u32, rgba: [u8; 4]) -> SpriteSheet {
+        let mut pixels = Vec::with_capacity((w * h * 4) as usize);
+        for _ in 0..(w * h) {
+            pixels.extend_from_slice(&rgba);
+        }
+        SpriteSheet::from_rgba(w, h, tw, th, pixels)
+    }
+
+    fn sprite_world(x: f32, y: f32, sheet: u32, layer: u8) -> World {
+        let mut world = World::new();
+        world.spawn((
+            Position(Vec2::new(x, y)),
+            SpriteIndex {
+                sheet,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer,
+                visible: true,
+            },
+        ));
+        world
+    }
+
+    #[test]
+    fn render_draws_a_sprite_at_its_world_position() {
+        let mut renderer = test_renderer(8, 8);
+        let mut assets = AssetStore::new();
+        assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let world = sprite_world(3.0, 2.0, 0, 0);
+        renderer.render(&world, &assets);
+
+        assert_eq!(pixel(&renderer.framebuffer, 3, 2), [255, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_applies_camera_offset() {
+        let mut renderer = test_renderer(8, 8);
+        renderer.camera = Vec2::new(2.0, 1.0);
+        let mut assets = AssetStore::new();
+        assets.add_sheet(solid_sheet(1, 1, 1, 1, [0, 255, 0, 255]));
+
+        let world = sprite_world(3.0, 2.0, 0, 0);
+        renderer.render(&world, &assets);
+
+        assert_eq!(pixel(&renderer.framebuffer, 1, 1), [0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn render_clips_sprites_that_hang_off_screen_edges() {
+        let mut renderer = test_renderer(4, 4);
+        let mut assets = AssetStore::new();
+        assets.add_sheet(solid_sheet(2, 2, 2, 2, [255, 0, 0, 255]));
+
+        let world = sprite_world(-1.0, -1.0, 0, 0);
+        renderer.render(&world, &assets);
+
+        // Only the bottom-right pixel of the 2x2 sprite is on screen.
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [255, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 1, 0), [0, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 0, 1), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_ignores_missing_sheets() {
+        let mut renderer = test_renderer(4, 4);
+        let assets = AssetStore::new();
+        let world = sprite_world(0.0, 0.0, 99, 0);
+        renderer.render(&world, &assets); // must not panic
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [0, 0, 0, 255]);
+    }
+
+    #[test]
+    fn render_orders_sprites_by_layer() {
+        let mut renderer = test_renderer(4, 4);
+        let mut assets = AssetStore::new();
+        let red = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+        let blue = assets.add_sheet(solid_sheet(1, 1, 1, 1, [0, 0, 255, 255]));
+
+        let mut world = World::new();
+        // Spawn the high layer first to prove ordering comes from `layer`,
+        // not spawn order.
+        world.spawn((
+            Position(Vec2::new(1.0, 1.0)),
+            SpriteIndex {
+                sheet: blue,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer: 5,
+                visible: true,
+            },
+        ));
+        world.spawn((
+            Position(Vec2::new(1.0, 1.0)),
+            SpriteIndex {
+                sheet: red,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer: 0,
+                visible: true,
+            },
+        ));
+
+        renderer.render(&world, &assets);
+        assert_eq!(pixel(&renderer.framebuffer, 1, 1), [0, 0, 255, 255]);
+    }
+
+    #[test]
+    fn an_invisible_sprite_is_not_drawn() {
+        // Regression: an entity with a SpriteIndex was drawn unconditionally,
+        // so "hide this" had no engine-side meaning and games resorted to
+        // moving sprites to -9999 to get them off the screen.
+        let mut renderer = Renderer::new(4, 4, 0, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        let entity = world.spawn((
+            Position(Vec2::ZERO),
+            SpriteIndex {
+                sheet,
+                frame: 0,
+                flip_x: false,
+                flip_y: false,
+                layer: 0,
+                visible: true,
+            },
+        ));
+
+        renderer.render(&world, &assets);
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [255, 0, 0, 255]);
+
+        world.get::<&mut SpriteIndex>(entity).unwrap().visible = false;
+        renderer.render(&world, &assets);
+        assert_ne!(
+            pixel(&renderer.framebuffer, 0, 0),
+            [255, 0, 0, 255],
+            "a hidden sprite must leave the screen"
+        );
+    }
+
+    #[test]
+    fn sprites_are_visible_unless_told_otherwise() {
+        let index = SpriteIndex {
+            sheet: 0,
+            frame: 0,
+            flip_x: false,
+            flip_y: false,
+            layer: 0,
+            visible: true,
+        };
+        assert!(index.visible);
+
+        // Scenes saved before the flag existed must still load, drawn.
+        let restored: SpriteIndex = serde_json::from_str(
+            r#"{"sheet":0,"frame":0,"flip_x":false,"flip_y":false,"layer":0}"#,
+        )
+        .expect("older scene JSON should still parse");
+        assert!(restored.visible, "an absent flag means visible");
+    }
+
+    #[test]
+    fn a_sprite_limit_keeps_the_front_layers_not_the_back() {
+        // Regression: sprites were sorted back-to-front and then truncated
+        // from the front, so exceeding the budget dropped the topmost layers
+        // — the player — while background scenery survived.
+        let mut renderer = Renderer::new(4, 4, 1, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let back = assets.add_sheet(solid_sheet(1, 1, 1, 1, [0, 0, 255, 255]));
+        let front = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        for (x, sheet, layer) in [(0u32, back, 0u8), (1, front, 10)] {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer,
+                    visible: true,
+                },
+            ));
+        }
+
+        renderer.render(&world, &assets);
+        assert_eq!(
+            pixel(&renderer.framebuffer, 1, 0),
+            [255, 0, 0, 255],
+            "the front layer must survive the cap"
+        );
+        assert_ne!(
+            pixel(&renderer.framebuffer, 0, 0),
+            [0, 0, 255, 255],
+            "the back layer is the one to drop"
+        );
+    }
+
+    #[test]
+    fn a_zero_limit_draws_every_sprite() {
+        let mut renderer = Renderer::new(8, 4, 0, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        for x in 0..8 {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer: 0,
+                    visible: true,
+                },
+            ));
+        }
+
+        renderer.render(&world, &assets);
+        let drawn = (0..8)
+            .filter(|&x| pixel(&renderer.framebuffer, x, 0) == [255, 0, 0, 255])
+            .count();
+        assert_eq!(drawn, 8, "0 means unlimited, not none");
+    }
+
+    #[test]
+    fn the_peak_sprite_count_is_what_export_checks_against() {
+        let mut renderer = Renderer::new(8, 4, 0, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+        assert_eq!(renderer.peak_sprites, 0);
+
+        let mut world = World::new();
+        for x in 0..5 {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer: 0,
+                    visible: true,
+                },
+            ));
+        }
+        renderer.render(&world, &assets);
+        assert_eq!(renderer.peak_sprites, 5);
+
+        // A quieter frame must not lower the peak: the busiest moment is the
+        // one a hardware budget has to survive.
+        renderer.render(&World::new(), &assets);
+        assert_eq!(renderer.peak_sprites, 5);
+
+        renderer.reset_peak_sprites();
+        assert_eq!(renderer.peak_sprites, 0);
+    }
+
+    #[test]
+    fn switching_profile_swaps_the_look_without_rebuilding() {
+        let mut renderer = Renderer::new(4, 4, 0, false, HardwareProfile::Custom);
+        assert!(renderer.palette.is_none());
+
+        renderer.set_profile(HardwareProfile::GameBoy);
+        assert!(renderer.palette.is_some(), "Game Boy has a palette");
+        assert_eq!(renderer.bg_color, Palette::gameboy().get(1));
+        assert!(!renderer.scanlines, "a DMG has no scanlines");
+
+        renderer.set_profile(HardwareProfile::Nes);
+        assert!(
+            renderer.palette.is_none(),
+            "the NES is not palette-clamped here"
+        );
+        assert!(renderer.scanlines);
+
+        renderer.set_profile(HardwareProfile::Custom);
+        assert!(renderer.palette.is_none());
+        assert!(!renderer.scanlines);
+    }
+
+    #[test]
+    fn render_respects_the_sprite_limit() {
+        let mut renderer = Renderer::new(4, 4, 1, false, HardwareProfile::Custom);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(1, 1, 1, 1, [255, 0, 0, 255]));
+
+        let mut world = World::new();
+        for x in 0..3 {
+            world.spawn((
+                Position(Vec2::new(x as f32, 0.0)),
+                SpriteIndex {
+                    sheet,
+                    frame: 0,
+                    flip_x: false,
+                    flip_y: false,
+                    layer: 0,
+                    visible: true,
+                },
+            ));
+        }
+
+        renderer.render(&world, &assets);
+        let drawn = (0..3)
+            .filter(|&x| pixel(&renderer.framebuffer, x, 0) == [255, 0, 0, 255])
+            .count();
+        assert_eq!(drawn, 1);
+    }
+
+    #[test]
+    fn render_draws_tilemap_tiles_one_based() {
+        let mut renderer = test_renderer(4, 4);
+        let mut assets = AssetStore::new();
+        let sheet = assets.add_sheet(solid_sheet(2, 2, 2, 2, [0, 255, 0, 255]));
+
+        let mut map = TileMap::new("map".to_string(), 2, 2, 2, 2);
+        let layer = map.add_layer("bg".to_string(), sheet, false);
+        // Tile id 0 = empty, id 1 = first tile in the sheet.
+        map.set_tile(layer, 1, 1, 1);
+        renderer.tilemaps.push(map);
+
+        let world = World::new();
+        renderer.render(&world, &assets);
+
+        assert_eq!(pixel(&renderer.framebuffer, 0, 0), [0, 0, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 2, 2), [0, 255, 0, 255]);
+        assert_eq!(pixel(&renderer.framebuffer, 3, 3), [0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn gameboy_profile_installs_its_palette() {
+        let renderer = Renderer::new(8, 8, 40, false, HardwareProfile::GameBoy);
+        assert!(renderer.palette.is_some());
+        assert_eq!(renderer.bg_color, Palette::gameboy().get(1));
+
+        let plain = test_renderer(8, 8);
+        assert!(plain.palette.is_none());
+        assert_eq!(plain.bg_color, Color::BLACK);
+    }
+
+    #[test]
+    fn shake_offsets_decay_back_to_zero() {
+        let mut renderer = test_renderer(8, 8);
+        renderer.shake(5.0, 0.1);
+        let world = World::new();
+        let assets = AssetStore::new();
+        // Render enough frames (at the internal 60fps step) to outlast the
+        // shake duration.
+        for _ in 0..20 {
+            renderer.render(&world, &assets);
+        }
+        assert!(renderer.shake_timer <= 0.0);
     }
 }

@@ -1,4 +1,4 @@
-import { RetroEngine } from './engine';
+import { Cathode } from './engine';
 
 export type TransitionType =
   | 'fade'
@@ -11,7 +11,7 @@ export class SceneTransition {
   private duration: number;
 
   constructor(
-    private engine: RetroEngine,
+    private engine: Cathode,
     private type: TransitionType,
     durationSecs = 0.5,
   ) {

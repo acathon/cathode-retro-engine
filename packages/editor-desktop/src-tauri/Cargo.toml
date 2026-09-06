@@ -1,3 +1,7 @@
+# Standalone workspace: this app needs GTK/WebKit system libraries, so it is
+# deliberately kept out of the root engine workspace (see the root Cargo.toml).
+[workspace]
+
 [package]
 name = "retro-editor-desktop"
 version = "0.1.0"

@@ -1,10 +1,10 @@
+use cathode_core::config::EngineConfig;
+use cathode_core::ecs::GamepadState;
+use cathode_core::renderer::tilemap::TileMap;
+use cathode_core::Engine;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use gilrs::{Button, Event as GilrsEvent, Gilrs};
 use pixels::{Pixels, SurfaceTexture};
-use retro_core::config::EngineConfig;
-use retro_core::ecs::GamepadState;
-use retro_core::renderer::tilemap::TileMap;
-use retro_core::Engine;
 use std::env;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -61,7 +61,7 @@ fn main() {
             pixels_data[i * 4 + 3] = a;
         }
 
-        let sheet = retro_core::assets::SpriteSheet::from_rgba(8, 8, 8, 8, pixels_data);
+        let sheet = cathode_core::assets::SpriteSheet::from_rgba(8, 8, 8, 8, pixels_data);
         let sheet_handle = eng.assets.add_sheet(sheet);
 
         let mut map = TileMap::new("Demo".to_string(), 10, 10, 8, 8);
