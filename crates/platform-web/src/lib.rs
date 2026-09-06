@@ -675,6 +675,31 @@ impl WebEngine {
         }
     }
 
+    /// Shear the horizon: positive pitch looks down, negative looks up.
+    /// Measured in framebuffer pixels.
+    #[wasm_bindgen]
+    pub fn raycaster_set_pitch(&mut self, pitch: f32) {
+        if let Some(rc) = &mut self.engine.raycaster {
+            rc.camera.pitch = pitch;
+        }
+    }
+
+    /// Where the eye sits between floor (0.0) and ceiling (1.0). 0.5 stands.
+    #[wasm_bindgen]
+    pub fn raycaster_set_eye_height(&mut self, height: f32) {
+        if let Some(rc) = &mut self.engine.raycaster {
+            rc.camera.eye_height = height;
+        }
+    }
+
+    /// Raise or lower one billboard between the floor and the ceiling.
+    #[wasm_bindgen]
+    pub fn raycaster_set_billboard_elevation(&mut self, id: u32, elevation: f32) {
+        if let Some(rc) = &mut self.engine.raycaster {
+            rc.set_billboard_elevation(id, elevation);
+        }
+    }
+
     /// Fire a shot from `(x, y)` along `angle` and report what it hit.
     ///
     /// Returned flat so no object crosses the WASM boundary per bullet:

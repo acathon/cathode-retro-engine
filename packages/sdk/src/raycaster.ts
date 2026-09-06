@@ -121,6 +121,29 @@ export class Raycaster {
   }
 
   /**
+   * Shear the horizon, in framebuffer pixels: positive looks down.
+   *
+   * A raycaster cannot really tilt, but shifting the horizon reads as
+   * looking up and down — which is all the shooters of the era ever did.
+   */
+  setPitch(pixels: number): void {
+    this.engine.raw!.raycaster_set_pitch(pixels);
+  }
+
+  /**
+   * Where the eye sits between floor (0) and ceiling (1). 0.5 is standing;
+   * lower to crouch, raise to jump.
+   */
+  setEyeHeight(height: number): void {
+    this.engine.raw!.raycaster_set_eye_height(height);
+  }
+
+  /** Raise or lower a billboard between the floor (0) and ceiling (1). */
+  setBillboardElevation(id: number, elevation: number): void {
+    this.engine.raw!.raycaster_set_billboard_elevation(id, elevation);
+  }
+
+  /**
    * Fire a shot and report the first thing it hits.
    *
    * The ray walks the same DDA the renderer uses for a screen column, so a

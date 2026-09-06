@@ -23,6 +23,7 @@ export class InputReader {
     'x': [0, 'b'],
     'a': [0, 'x'],
     's': [0, 'y'],
+    ' ': [0, 'a'],
     'Enter': [0, 'start'],
     'Backspace': [0, 'select'],
     'q': [0, 'l'],

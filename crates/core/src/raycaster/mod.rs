@@ -33,6 +33,18 @@ pub struct RaycastCamera {
     pub move_speed: f32,
     pub turn_speed: f32,
     pub fog_dist: f32,
+    /// Horizon offset in pixels; positive looks down.
+    ///
+    /// A raycaster cannot tilt the projection without becoming a different
+    /// renderer, but shearing the horizon reads as looking up and down, which
+    /// is exactly what the shooters of the era did.
+    pub pitch: f32,
+    /// Where the eye sits between floor (0.0) and ceiling (1.0).
+    ///
+    /// 0.5 is the default standing height. Lower it to crouch, raise it to
+    /// jump — the walls grow and shrink around the viewer correctly, because
+    /// this shifts the projection rather than the screen.
+    pub eye_height: f32,
 }
 
 impl Default for RaycastCamera {
@@ -44,6 +56,8 @@ impl Default for RaycastCamera {
             move_speed: 3.0,
             turn_speed: 2.5,
             fog_dist: 10.0,
+            pitch: 0.0,
+            eye_height: 0.5,
         }
     }
 }
@@ -58,6 +72,12 @@ pub struct Billboard {
     pub pos: Vec2,
     pub texture: u32,
     pub scale: f32,
+    /// Height of the sprite's centre between floor (0.0) and ceiling (1.0).
+    ///
+    /// 0.5 is eye level, which is where every billboard sat before this
+    /// existed. Drop it to stand something on the floor, raise it to hang a
+    /// lamp — or animate it, to bounce a ball.
+    pub elevation: f32,
 }
 
 pub struct RaycastRenderer {
@@ -96,12 +116,15 @@ impl RaycastRenderer {
             self.zbuffer.fill(f32::MAX);
         }
 
-        let half_h = h as f32 / 2.0;
+        // Everything vertical is measured from the horizon, not the middle of
+        // the screen, so pitch shears the whole view consistently.
+        let horizon = h as f32 / 2.0 + self.camera.pitch;
+        let eye = self.camera.eye_height;
 
         // Draw ceiling and floor
         for y in 0..h {
             for x in 0..w {
-                if (y as f32) < half_h {
+                if (y as f32) < horizon {
                     fb.set_pixel(
                         x as u32,
                         y as u32,
@@ -200,9 +223,13 @@ impl RaycastRenderer {
             let perp_dist = perp_dist.max(0.001);
             self.zbuffer[x] = perp_dist;
 
-            let line_height = (h as f32 / perp_dist) as i32;
-            let draw_start = (-line_height / 2 + h as i32 / 2).max(0) as usize;
-            let draw_end = (line_height / 2 + h as i32 / 2).min(h as i32) as usize;
+            let line_height = h as f32 / perp_dist;
+            // A wall runs floor to ceiling: the eye splits it by height, so a
+            // crouching viewer sees more ceiling and a raised one more floor.
+            let wall_top = horizon - line_height * (1.0 - eye);
+            let wall_bottom = horizon + line_height * eye;
+            let draw_start = (wall_top.ceil() as i32).max(0) as usize;
+            let draw_end = (wall_bottom.ceil() as i32).clamp(0, h as i32) as usize;
 
             // Wall hit position for texture coordinates
             let wall_x = if side == 0 {
@@ -221,8 +248,7 @@ impl RaycastRenderer {
                 && !self.textures[tex_idx].pixels.is_empty();
 
             for y in draw_start..draw_end {
-                let d = y as f32 - h as f32 / 2.0 + line_height as f32 / 2.0;
-                let tex_y_f = d / line_height as f32;
+                let tex_y_f = ((y as f32 - wall_top) / line_height).clamp(0.0, 0.999);
 
                 let (r, g, b) = if has_texture {
                     let tex = &self.textures[tex_idx];
@@ -271,6 +297,8 @@ impl RaycastRenderer {
 
         let dir = Vec2::new(self.camera.angle.cos(), self.camera.angle.sin());
         let plane = Vec2::new(-dir.y, dir.x) * (self.camera.fov / 2.0).tan();
+        let horizon = screen_h as f32 / 2.0 + self.camera.pitch;
+        let eye = self.camera.eye_height;
 
         // Sort billboards by distance (farthest first)
         let mut sorted: Vec<(usize, f32)> = self
@@ -302,8 +330,14 @@ impl RaycastRenderer {
             let sprite_height = ((screen_h as f32 / transform_y) * bb.scale).abs() as i32;
             let sprite_width = sprite_height;
 
-            let draw_start_y = (-sprite_height / 2 + screen_h as i32 / 2).max(0);
-            let draw_end_y = (sprite_height / 2 + screen_h as i32 / 2).min(screen_h as i32);
+            // One world unit of height is screen_h / distance pixels, so the
+            // gap between the eye and the sprite's own elevation decides how
+            // far from the horizon it hangs.
+            let center_y = horizon + (eye - bb.elevation) * (screen_h as f32 / transform_y);
+            let top_y = center_y as i32 - sprite_height / 2;
+
+            let draw_start_y = top_y.max(0);
+            let draw_end_y = (top_y + sprite_height).min(screen_h as i32);
             let draw_start_x = (-sprite_width / 2 + sprite_screen_x).max(0);
             let draw_end_x = (sprite_width / 2 + sprite_screen_x).min(screen_w as i32);
 
@@ -325,9 +359,8 @@ impl RaycastRenderer {
                             let tx = ((stripe - (-sprite_width / 2 + sprite_screen_x)) as f32
                                 / sprite_width as f32
                                 * tex.size as f32) as u32;
-                            let ty = ((y - (-sprite_height / 2 + screen_h as i32 / 2)) as f32
-                                / sprite_height as f32
-                                * tex.size as f32) as u32;
+                            let ty = ((y - top_y) as f32 / sprite_height as f32 * tex.size as f32)
+                                as u32;
                             let tx = tx.min(tex.size.saturating_sub(1));
                             let ty = ty.min(tex.size.saturating_sub(1));
                             let pi = ((ty * tex.size + tx) * 4) as usize;
@@ -418,6 +451,7 @@ impl RaycastRenderer {
             pos: Vec2::new(x, y),
             texture,
             scale,
+            elevation: 0.5,
         });
     }
 
@@ -428,6 +462,13 @@ impl RaycastRenderer {
     pub fn update_billboard(&mut self, id: u32, x: f32, y: f32) {
         if let Some(bb) = self.billboards.iter_mut().find(|b| b.id == id) {
             bb.pos = Vec2::new(x, y);
+        }
+    }
+
+    /// Raise or lower a billboard between the floor (0.0) and ceiling (1.0).
+    pub fn set_billboard_elevation(&mut self, id: u32, elevation: f32) {
+        if let Some(bb) = self.billboards.iter_mut().find(|b| b.id == id) {
+            bb.elevation = elevation;
         }
     }
 }
@@ -1085,5 +1126,185 @@ mod tests {
         let rc = hall();
         let moved = rc.slide_circle(Vec2::new(1.5, 1.5), Vec2::new(0.3, 0.4), 0.2);
         assert!((moved - Vec2::new(1.8, 1.9)).length() < 1e-4, "{moved:?}");
+    }
+
+    // --- Pitch, eye height, billboard elevation ---------------------------
+
+    /// A room with a textured wall and one red billboard ahead.
+    fn scene_with_billboard() -> RaycastRenderer {
+        let mut rc = RaycastRenderer::new(RaycastMap::new(8, 8, vec![0u8; 64]));
+        rc.camera.pos = Vec2::new(2.5, 2.5);
+        rc.camera.angle = 0.0;
+        rc.camera.fog_dist = 100.0;
+        rc.textures.push(solid_texture(8, [90, 90, 90]));
+        rc.textures.push(solid_texture(8, [255, 0, 0]));
+        rc.add_billboard(1, 5.5, 2.5, 1, 1.0);
+        rc
+    }
+
+    /// Mean row of every red pixel, or None when nothing red was drawn.
+    fn red_center_row(fb: &FrameBuffer) -> Option<f32> {
+        let w = fb.width as usize;
+        let mut sum = 0.0;
+        let mut n = 0.0;
+        for (i, p) in fb.pixels.chunks(4).enumerate() {
+            if p[0] > 200 && p[1] < 60 && p[2] < 60 {
+                sum += (i / w) as f32;
+                n += 1.0;
+            }
+        }
+        if n == 0.0 {
+            None
+        } else {
+            Some(sum / n)
+        }
+    }
+
+    /// Row where the ceiling colour gives way to the floor colour, down the
+    /// centre column — the horizon, wherever the wall does not cover it.
+    fn horizon_row(rc: &mut RaycastRenderer) -> usize {
+        let mut fb = FrameBuffer::new(64, 48);
+        rc.render(&mut fb);
+        let x = 32usize;
+        let ceiling = rc.ceiling_color;
+        for y in 0..fb.height as usize {
+            let i = (y * fb.width as usize + x) * 4;
+            if fb.pixels[i..i + 3] != ceiling[..] {
+                return y;
+            }
+        }
+        fb.height as usize
+    }
+
+    #[test]
+    fn a_new_camera_looks_straight_ahead_from_standing_height() {
+        let cam = RaycastCamera::default();
+        assert_eq!(cam.pitch, 0.0);
+        assert_eq!(cam.eye_height, 0.5);
+    }
+
+    #[test]
+    fn pitching_down_moves_the_horizon_down_the_screen() {
+        // An empty map so the wall never covers the centre column.
+        let mut rc = RaycastRenderer::new(RaycastMap::new(64, 64, vec![0u8; 64 * 64]));
+        rc.camera.pos = Vec2::new(32.5, 32.5);
+        rc.camera.fog_dist = 100.0;
+        rc.ceiling_color = [10, 10, 40];
+        rc.floor_color = [40, 10, 10];
+
+        let level = horizon_row(&mut rc);
+        rc.camera.pitch = 8.0;
+        let down = horizon_row(&mut rc);
+        rc.camera.pitch = -8.0;
+        let up = horizon_row(&mut rc);
+
+        assert!(down > level, "pitch down: {level} -> {down}");
+        assert!(up < level, "pitch up: {level} -> {up}");
+        assert_eq!(down - level, level - up, "the shear is symmetric");
+    }
+
+    #[test]
+    fn pitch_carries_billboards_with_the_view() {
+        let mut rc = scene_with_billboard();
+        let mut fb = FrameBuffer::new(64, 48);
+        rc.render(&mut fb);
+        let level = red_center_row(&fb).expect("billboard should be drawn");
+
+        rc.camera.pitch = 10.0;
+        let mut tilted = FrameBuffer::new(64, 48);
+        rc.render(&mut tilted);
+        let moved = red_center_row(&tilted).expect("still drawn");
+
+        assert!(
+            moved > level + 5.0,
+            "a pitched view must move the sprite too: {level} -> {moved}"
+        );
+    }
+
+    #[test]
+    fn raising_the_eye_pushes_the_floor_wall_seam_down() {
+        let mut rc = RaycastRenderer::new(RaycastMap::new(8, 8, vec![0u8; 64]));
+        rc.camera.pos = Vec2::new(4.0, 4.0);
+        rc.camera.fog_dist = 100.0;
+        rc.textures.push(solid_texture(8, [90, 90, 90]));
+
+        // How many rows of wall are drawn below the horizon.
+        let below = |rc: &mut RaycastRenderer| {
+            let mut fb = FrameBuffer::new(64, 48);
+            rc.render(&mut fb);
+            let mid = 24usize;
+            (mid..48)
+                .filter(|y| {
+                    let i = (y * 64 + 32) * 4;
+                    fb.pixels[i] > 60 && fb.pixels[i] == fb.pixels[i + 1]
+                })
+                .count()
+        };
+
+        let standing = below(&mut rc);
+        rc.camera.eye_height = 0.9; // stand on a crate
+        let raised = below(&mut rc);
+
+        assert!(
+            raised > standing,
+            "a higher eye sees more floor-side wall: {standing} -> {raised}"
+        );
+    }
+
+    #[test]
+    fn a_billboard_defaults_to_eye_level() {
+        let mut rc = scene_with_billboard();
+        assert_eq!(rc.billboards[0].elevation, 0.5);
+
+        let mut fb = FrameBuffer::new(64, 48);
+        rc.render(&mut fb);
+        let row = red_center_row(&fb).unwrap();
+        assert!(
+            (row - 24.0).abs() < 2.0,
+            "should sit on the horizon, got row {row}"
+        );
+    }
+
+    #[test]
+    fn lowering_a_billboard_drops_it_towards_the_floor() {
+        let mut rc = scene_with_billboard();
+        let mut fb = FrameBuffer::new(64, 48);
+        rc.render(&mut fb);
+        let eye_level = red_center_row(&fb).unwrap();
+
+        rc.set_billboard_elevation(1, 0.15);
+        let mut low = FrameBuffer::new(64, 48);
+        rc.render(&mut low);
+        let dropped = red_center_row(&low).unwrap();
+
+        assert!(
+            dropped > eye_level,
+            "a floor-level sprite draws lower: {eye_level} -> {dropped}"
+        );
+    }
+
+    #[test]
+    fn raising_a_billboard_lifts_it_towards_the_ceiling() {
+        let mut rc = scene_with_billboard();
+        let mut fb = FrameBuffer::new(64, 48);
+        rc.render(&mut fb);
+        let eye_level = red_center_row(&fb).unwrap();
+
+        rc.set_billboard_elevation(1, 0.9);
+        let mut high = FrameBuffer::new(64, 48);
+        rc.render(&mut high);
+        let lifted = red_center_row(&high).unwrap();
+
+        assert!(
+            lifted < eye_level,
+            "a hanging sprite draws higher: {eye_level} -> {lifted}"
+        );
+    }
+
+    #[test]
+    fn setting_the_elevation_of_an_unknown_billboard_is_harmless() {
+        let mut rc = scene_with_billboard();
+        rc.set_billboard_elevation(99, 0.1);
+        assert_eq!(rc.billboards[0].elevation, 0.5);
     }
 }
