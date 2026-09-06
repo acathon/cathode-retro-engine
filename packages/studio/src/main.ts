@@ -19,7 +19,7 @@ import {
   type KeyName,
   type RaycastView,
 } from '@cathode/blocks';
-import { Raycaster, Cathode, Scene, SoundChannel, Sprite } from '@cathode/sdk';
+import { Raycaster, Cathode, Scene, SoundChannel, Sprite, TileMap } from '@cathode/sdk';
 import { scriptsFromWorkspace, variablesFromWorkspace } from './from-blockly';
 import { SAMPLE_WORKSPACE } from './sample';
 import {
@@ -28,6 +28,7 @@ import {
   clearSaved,
   createProject,
   loadProject,
+  resizeLevel,
   saveProject,
   type StudioProject,
   type StudioSprite,
@@ -37,6 +38,7 @@ import { Inspector } from './docks/inspector';
 import { SpriteEditor } from './panels/sprite-editor';
 import { SoundMaker } from './panels/sound-maker';
 import { SceneEditor } from './panels/scene-editor';
+import { LevelEditor } from './panels/level-editor';
 import { MapEditor } from './panels/map-editor';
 import { buildWallTextures } from './wall-textures';
 
@@ -238,6 +240,10 @@ const sceneEditor = new SceneEditor(project, {
   },
 });
 
+const levelEditor = new LevelEditor(project, {
+  onChange: () => persist(),
+});
+
 const mapEditor = new MapEditor(project, {
   onChange: () => persist(),
 });
@@ -257,6 +263,8 @@ function selectSprite(id: string): void {
   inspector.render(sprite);
   sceneTree.render();
   sceneEditor.render();
+  // The tile palette *is* the sprite list, so it changes whenever that does.
+  levelEditor.render();
   setStatus(sprite ? `Selected ${sprite.name}.` : 'Nothing selected.');
 }
 
@@ -305,11 +313,16 @@ async function run(): Promise<void> {
 
     project.sprites.forEach((def, index) => {
       const first = sheet.firstFrame.get(def.id) ?? 0;
+      // The level's spawn point places the first sprite, so moving the ◎ in
+      // the level editor moves where the game actually starts.
+      const level = project.level;
+      const spawned = index === 0 && project.mode !== 'raycaster'
+        && level.tiles.some((t) => t !== 0);
       const sprite = new Sprite(scene, {
         sheet: sheetHandle,
         frame: first,
-        x: def.x,
-        y: def.y,
+        x: spawned ? level.spawnCol * level.tileSize : def.x,
+        y: spawned ? level.spawnRow * level.tileSize : def.y,
         layer: def.layer,
       });
       sprite.active = def.visible;
@@ -346,6 +359,46 @@ async function run(): Promise<void> {
 
       actors.set(program.sprites[index].name, new SpriteActor(sprite));
     });
+
+    // 2D mode: build the painted level as a real tilemap, so the engine's
+    // physics resolves collision against it rather than the game doing it in
+    // TypeScript.
+    if (project.mode !== 'raycaster') {
+      const level = project.level;
+      const [br, bg, bb] = level.bg;
+      eng.raw.set_bg_color(br, bg, bb);
+
+      const anyTiles = level.tiles.some((t) => t !== 0);
+      if (anyTiles) {
+        const map = new TileMap(scene, {
+          name: 'Level',
+          cols: level.cols,
+          rows: level.rows,
+          tileWidth: level.tileSize,
+          tileHeight: level.tileSize,
+        });
+        const layer = map.addLayer('Level', sheetHandle, false);
+
+        for (let row = 0; row < level.rows; row++) {
+          for (let col = 0; col < level.cols; col++) {
+            const id = level.tiles[row * level.cols + col] ?? 0;
+            if (id === 0) continue;
+            // A level tile stores which sprite to draw; the tilemap wants the
+            // 1-based frame within the shared sheet.
+            const def = project.sprites[id - 1];
+            const frame = def ? (sheet.firstFrame.get(def.id) ?? 0) : 0;
+            map.setTile(layer, col, row, frame + 1);
+          }
+        }
+
+        const solidFrames = level.solid
+          .map((id) => project.sprites[id - 1])
+          .filter((def): def is NonNullable<typeof def> => Boolean(def))
+          .map((def) => (sheet.firstFrame.get(def.id) ?? 0) + 1);
+        if (solidFrames.length) map.setSolidTiles(layer, solidFrames);
+        map.commit();
+      }
+    }
 
     // First-person mode: swap the sprite stage for the DDA raycaster.
     raycaster = null;
@@ -520,9 +573,9 @@ modeSelect.addEventListener('change', () => {
   setStatus(
     project.mode === 'raycaster'
       ? 'First-person mode — paint a maze in Map Editor, then press ▶.'
-      : '2D mode — arrange sprites in the Scene view.',
+      : '2D mode — paint a level in the Level tab, then press ▶.',
   );
-  if (project.mode === 'raycaster') showPanel('map');
+  showPanel(project.mode === 'raycaster' ? 'map' : 'level');
 });
 
 /** Bottom dock tabs. */
@@ -537,6 +590,7 @@ function showPanel(name: string): void {
   if (name === 'blocks') window.setTimeout(() => Blockly.svgResize(workspace), 0);
   if (name === 'sprite') spriteEditor.render();
   if (name === 'map') mapEditor.render();
+  if (name === 'level') levelEditor.render();
 }
 
 document.querySelectorAll<HTMLElement>('#bottom-tabs .dock-tab').forEach((tab) => {
@@ -616,5 +670,23 @@ setStatus('Ready — press ▶ to run, or edit blocks, sprites and sound below.'
   },
   mode: () => project.mode,
   mapCells: () => project.raycast.cells.filter((c) => c !== 0).length,
+  levelTiles: () => project.level.tiles.filter((t) => t !== 0).length,
+  levelSize: () => ({ cols: project.level.cols, rows: project.level.rows }),
+  levelSolid: () => [...project.level.solid],
+  levelSpawn: () => ({ col: project.level.spawnCol, row: project.level.spawnRow }),
+  paintLevel: (col: number, row: number, id: number) => {
+    project.level.tiles[row * project.level.cols + col] = id;
+    levelEditor.render();
+    persist();
+  },
+  resizeLevel: (cols: number, rows: number) => {
+    resizeLevel(project.level, cols, rows);
+    levelEditor.render();
+    persist();
+  },
+  spritePos: (name: string) => {
+    const def = project.sprites.find((sp) => sp.name === name);
+    return def ? { x: def.x, y: def.y } : null;
+  },
   cameraPos: () => (raycaster ? raycaster.pos : null),
 };

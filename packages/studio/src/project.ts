@@ -67,6 +67,28 @@ export interface RaycastMapData {
   fogDist: number;
 }
 
+/**
+ * The 2D level: a tile grid painted with the project's own sprites.
+ *
+ * Tile 0 is empty; tile N draws sprite N-1's first frame. Reusing the
+ * sprites you already drew means there is no separate tileset to manage —
+ * paint the pixel editor, then paint the level with it.
+ */
+export interface LevelData {
+  cols: number;
+  rows: number;
+  /** Pixels per tile. Matches the sprite frame size.  */
+  tileSize: number;
+  /** cols * rows entries; 0 is empty, N draws sprite N-1. */
+  tiles: number[];
+  /** Tile ids the engine's physics treats as walls. */
+  solid: number[];
+  spawnCol: number;
+  spawnRow: number;
+  /** Background colour behind the level, as r,g,b. */
+  bg: [number, number, number];
+}
+
 export type ProjectMode = '2d' | 'raycaster';
 
 export interface StudioProject {
@@ -74,6 +96,7 @@ export interface StudioProject {
   /** 2D sprite game, or a first-person raycaster game. */
   mode: ProjectMode;
   sprites: StudioSprite[];
+  level: LevelData;
   raycast: RaycastMapData;
   sound: StudioSound;
   activeSpriteId: string | null;
@@ -96,6 +119,53 @@ export function defaultRaycastMap(): RaycastMapData {
   cells[7 * cols + 13] = 3;             // a gold door to aim for
 
   return { cols, rows, cells, spawnX: 2.5, spawnY: 2.5, spawnAngle: 0, fogDist: 9 };
+}
+
+/**
+ * A starter level: a floor, two ledges, and a spawn on the left.
+ *
+ * `groundTile` is which sprite paints it — 1-based, matching the tile ids —
+ * so the floor is made of the Ground sprite rather than of whatever happens
+ * to be first in the list.
+ */
+export function defaultLevel(groundTile = 2): LevelData {
+  const cols = 32;
+  const rows = 15;
+  const tiles = new Array(cols * rows).fill(0);
+  const at = (c: number, r: number) => r * cols + c;
+
+  for (let c = 0; c < cols; c++) tiles[at(c, rows - 1)] = groundTile;
+  for (let c = 6; c < 12; c++) tiles[at(c, rows - 5)] = groundTile;
+  for (let c = 18; c < 25; c++) tiles[at(c, rows - 8)] = groundTile;
+
+  return {
+    cols,
+    rows,
+    tileSize: TILE,
+    tiles,
+    solid: [groundTile],
+    spawnCol: 2,
+    spawnRow: rows - 2,
+    bg: [29, 34, 41],
+  };
+}
+
+/** Resize a level, keeping whatever tiles still fit. */
+export function resizeLevel(level: LevelData, cols: number, rows: number): void {
+  const next = new Array(cols * rows).fill(0);
+  const keepCols = Math.min(cols, level.cols);
+  const keepRows = Math.min(rows, level.rows);
+  for (let r = 0; r < keepRows; r++) {
+    for (let c = 0; c < keepCols; c++) {
+      next[r * cols + c] = level.tiles[r * level.cols + c] ?? 0;
+    }
+  }
+  level.tiles = next;
+  level.cols = cols;
+  level.rows = rows;
+  // A spawn left outside the new bounds would put the player in the void.
+  level.spawnCol = Math.min(level.spawnCol, cols - 1);
+  level.spawnRow = Math.min(level.spawnRow, rows - 1);
 }
 
 let counter = 0;
@@ -162,15 +232,18 @@ export function createProject(): StudioProject {
     for (let y = 4; y < TILE; y++) for (let x = 0; x < TILE; x++) f[y * TILE + x] = 4;
     return f;
   })()];
+  // The floor is painted in the level editor now, so the Ground sprite is a
+  // tile to paint with rather than a body sitting in the scene. Parked out of
+  // the way so it does not double up on the level's own floor.
   ground.x = 0;
-  ground.y = 200;
+  ground.y = -TILE * 2;
   ground.layer = 4;
-  ground.physics = { gravity: 0, width: 256, height: TILE, solid: true };
 
   return {
     name: 'Untitled Project',
     mode: '2d',
     sprites: [player, ground],
+    level: defaultLevel(2),
     raycast: defaultRaycastMap(),
     sound: defaultSound(),
     activeSpriteId: player.id,
@@ -210,6 +283,9 @@ export function loadProject(): StudioProject | null {
     return {
       ...data,
       mode: data.mode === 'raycaster' ? 'raycaster' : '2d',
+      // Merged against the defaults so a project saved before levels existed
+      // still opens, rather than loading with an undefined grid.
+      level: { ...defaultLevel(), ...(data.level ?? {}) },
       raycast: { ...defaultRaycastMap(), ...(data.raycast ?? {}) },
       sound: { ...defaultSound(), ...(data.sound ?? {}) },
       sprites: data.sprites.map((s) => ({

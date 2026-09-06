@@ -11,7 +11,7 @@
 <body>
   <!-- Menu bar -->
   <div id="menubar">
-    <span class="logo">◆ RETRO STUDIO</span>
+    <span class="logo">◆ CATHODE STUDIO</span>
     <button class="menu" id="menu-new">Project</button>
     <button class="menu" id="menu-save">Save</button>
     <button class="menu" id="menu-export">Export TS</button>
@@ -74,6 +74,7 @@
         <div class="dock-tabs" id="bottom-tabs">
           <button class="dock-tab active" data-panel="blocks">Blocks</button>
           <button class="dock-tab" data-panel="sprite">Sprite Editor</button>
+          <button class="dock-tab" data-panel="level">Level</button>
           <button class="dock-tab" data-panel="map">Map Editor</button>
           <button class="dock-tab" data-panel="sound">Sound Maker</button>
           <button class="dock-tab" data-panel="code">Code</button>
@@ -107,6 +108,20 @@
                   <canvas id="sprite-preview" width="64" height="64"></canvas>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="panel" data-panel="level">
+            <div class="panel-body split">
+              <aside class="panel-side">
+                <h3>Tiles</h3>
+                <div id="level-tools" class="tool-group"></div>
+                <p class="hint">
+                  Every sprite is a tile. Tick <b>wall</b> to make the engine's
+                  physics collide with it. Right-drag erases.
+                </p>
+              </aside>
+              <div id="level-grid" class="level-grid"></div>
             </div>
           </div>
 

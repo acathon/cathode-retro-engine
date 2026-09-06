@@ -199,12 +199,23 @@ works. Blocks are not a dead end: the Code tab shows the TypeScript your
 blocks generate, in the same style as the examples in this repo, so a project
 can graduate to hand-written code without starting over.
 
-Studio projects come in two modes. **2D** gives you a scene editor you drag
-sprites around in; **Raycaster** swaps the viewport for a first-person view
-and the scene editor for a grid map editor you paint walls into. The First
-Person block category drives it — move, strafe, turn, teleport, set fog, and
-ask how far the wall ahead is — so a first-person game is buildable without
-writing a line of code.
+Studio projects come in two modes.
+
+**2D** gives you a scene editor you drag sprites around in, and a **Level**
+tab for building the world itself. The tile palette *is* your sprite list —
+draw something in the pixel editor and it is immediately a tile you can paint
+with, so a level and its art stay in one place with no tileset to import or
+keep in sync. Tick **wall** on a tile and the engine's own physics collides
+with it; solidity is a per-tile toggle rather than a property of the art,
+because the same block can be a wall in one level and scenery in the next.
+Drag to paint, right-drag to erase, drop the spawn point with ◎, and resize
+the level in place.
+
+**Raycaster** swaps the viewport for a first-person view and the scene editor
+for a grid map editor you paint walls into. The First Person block category
+drives it — move, strafe, turn, teleport, set fog, and ask how far the wall
+ahead is — so a first-person game is buildable without writing a line of
+code.
 
 ## Monorepo Map
 
