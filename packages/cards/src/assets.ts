@@ -10,7 +10,6 @@ export const CARD_SHEET_URL = new URL('../assets/playing_cards.png', import.meta
 
 export interface ArtCredit {
   title: string;
-  /** Empty until the pack's author is known — see ASSETS.md. */
   author: string;
   license: string;
   url: string;
@@ -24,9 +23,9 @@ export interface ArtCredit {
  */
 export const CARD_ART: ArtCredit = {
   title: '8-BIT PLAYING CARDS',
-  author: '',
+  author: 'sdkfz181tiger',
   license: 'Free for personal and commercial use',
-  url: '',
+  url: 'https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games',
 };
 
 /** A one-line credit for a HUD. Reads correctly with or without an author. */

@@ -35,8 +35,10 @@ pixel arithmetic.
 
 ## The card art
 
-The four card games use **8-bit Playing Cards**, a sheet the repository owner
-licensed and cleared for use here. Its terms, in full:
+The four card games use **[8-bit Playing Cards][pack]** by **sdkfz181tiger**.
+Its terms, in full:
+
+[pack]: https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games
 
 ```
 - Free to use for personal and commercial projects
@@ -47,12 +49,10 @@ licensed and cleared for use here. Its terms, in full:
 ```
 
 Credit is not required and is given anyway: every card game prints
-`CARD ART: 8-BIT PLAYING CARDS` under its controls, and repeats it under the
-canvas on the page. That line comes from one place —
-`packages/cards/src/assets.ts` — so crediting the artist by name is a
-one-string change once we have it. **The pack ships no author name or URL**;
-if you know them, put them in `CARD_ART.author` and they will appear
-everywhere at once.
+`CARD ART: 8-BIT PLAYING CARDS BY SDKFZ181TIGER` under its controls, and
+repeats it with a link under the canvas on the page. That text comes from one
+place — `CARD_ART` in `packages/cards/src/assets.ts` — so it stays consistent
+across all four games and is one edit to change.
 
 The last clause is about repackaging or reselling the sheet as an asset, not
 about using it in a game. Do not lift `packages/cards/assets/playing_cards.png`
