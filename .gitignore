@@ -9,7 +9,22 @@
 /examples/*/dist
 /examples/*/node_modules
 /pkg
+
+# ...except the web engine's own build output. `packages/sdk/wasm` is committed
+# so that cloning the repository and running `npm install` is enough to play and
+# build games: no Rust toolchain, no wasm-pack, no C++ linker. Rebuild it with
+# `npm run build:wasm` after changing anything under `crates/`, and commit the
+# result -- CI fails if the checked-in bindings drift from the Rust source.
 *.wasm
+
+# `package-lock.json` is the lockfile this repository validates: CI installs
+# with `npm ci`, so it cannot silently rot. A `bun.lock` used to live here too
+# and did rot -- it still pinned the web engine to `crates/platform-web/pkg`
+# long after that output moved, so `bun install` failed on a fresh clone even
+# though npm limped along. Bun resolves fine from `package.json` alone; let it
+# write its own lockfile locally rather than shipping a second, unchecked one.
+bun.lock
+bun.lockb
 
 .DS_Store
 Thumbs.db

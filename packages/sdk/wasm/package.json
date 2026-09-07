@@ -1,0 +1,18 @@
+{
+  "name": "cathode-platform-web",
+  "type": "module",
+  "collaborators": [
+    "Cathode Contributors"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "cathode_platform_web_bg.wasm",
+    "cathode_platform_web.js",
+    "cathode_platform_web.d.ts"
+  ],
+  "main": "cathode_platform_web.js",
+  "types": "cathode_platform_web.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

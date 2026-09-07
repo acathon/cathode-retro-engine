@@ -40,35 +40,43 @@ Choose the shortest path for what you want to do:
 
 ## Quick Start
 
+**You do not need Rust to make games with Cathode.** The compiled web engine is
+committed to the repository at `packages/sdk/wasm`, so a clone is ready to run.
+
 ### 1. Install the prerequisites
 
-- [Rust](https://rustup.rs/)
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
-- [Bun](https://bun.sh/) 1.x
+- [Node.js](https://nodejs.org/) 20+ — or [Bun](https://bun.sh/) 1.x, either works
 
 ### 2. Clone and install
 
 ```bash
-git clone https://github.com/acathon/retor-engine.git
-cd retor-engine
-bun install
+git clone https://github.com/acathon/cathode-retro-engine.git
+cd cathode-retro-engine
+npm install          # or: bun install
 ```
 
-### 3. Build the engine pieces used by the examples
-
-```bash
-bun run build:wasm
-bun run build:sdk
-```
-
-### 4. Run an example
+### 3. Run an example
 
 ```bash
 cd examples/trex-game
-bun dev
+npm run dev          # or: bun dev
 ```
 
-Then open the local Vite URL shown in the terminal.
+Then open the local Vite URL shown in the terminal. To browse all sixteen games
+at once, run `npx vite` from the repository root and open `/site/index.html`.
+
+### Changing the engine itself
+
+Only when you edit the Rust under `crates/` — this is the step that needs a
+full toolchain, including a C++ linker on Windows:
+
+```bash
+npm run build:wasm            # rebuilds packages/sdk/wasm
+git add packages/sdk/wasm     # commit it; CI checks it matches the Rust
+```
+
+See [docs/getting-started.md](./docs/getting-started.md#changing-the-engine-itself)
+for the per-platform requirements.
 
 ## New Developer Checklist
 
@@ -121,23 +129,30 @@ Every example runs standalone:
 cd examples/dust-protocol && bun dev
 ```
 
-## Bun-First Commands
+## Daily Commands
 
-These are the most useful commands for daily work:
+Every command below works with `npm run` or `bun run`; pick either.
 
 | Task | Command |
 | --- | --- |
-| Install dependencies | `bun install` |
-| Build web bindings | `bun run build:wasm` |
-| Build SDK package | `bun run build:sdk` |
-| Build CLI package | `bun run build:cli` |
-| Build everything exposed by root scripts | `bun run build:all` |
-| Run the web editor | `bun run dev:editor` |
-| Run Cathode Studio | `bun run dev:studio` (needs `build:wasm` + `build:sdk` first) |
-| Run the demo example | `bun run dev:demo` |
-| Build an example | `cd examples/doom-game && bun run build` |
+| Install dependencies | `npm install` |
+| Run the demo example | `npm run dev:demo` |
+| Run the web editor | `npm run dev:editor` |
+| Run Cathode Studio | `npm run dev:studio` |
+| Build an example | `cd examples/doom-game && npm run build` |
+| Build the project site | `npm run build:site` |
+| Build a deployable site bundle | `npm run build:dist` |
 | Run the test suite | `make test` |
 | Run linters and formatting checks | `make lint` |
+
+Only needed when you change the Rust engine:
+
+| Task | Command |
+| --- | --- |
+| Rebuild the committed web engine | `npm run build:wasm` |
+| Check it still matches the source | `node scripts/check-wasm-current.mjs` |
+| Build the SDK as a publishable package | `npm run build:sdk` |
+| Build the CLI package | `npm run build:cli` |
 
 ## One Engine, Any Device
 
@@ -229,8 +244,7 @@ the block editor, a pixel sprite editor, a sound maker, the generated
 TypeScript, and an output log.
 
 ```bash
-bun run build:wasm && bun run build:sdk   # the studio runs the real engine
-bun run dev:studio
+npm run dev:studio        # the studio runs the real engine, already built
 ```
 
 Each sprite owns its own pixels and its own stack of blocks, the way Scratch
@@ -259,7 +273,7 @@ code.
 ## Monorepo Map
 
 ```text
-retor-engine/
+cathode-retro-engine/
 ├── crates/
 │   ├── core/               # Portable Rust engine core: ECS, renderer, audio,
 │   │                       #   physics, raycaster, pathfinding, netcode
@@ -329,7 +343,10 @@ If you are opening an issue or planning a contribution, start with [docs/contrib
 
 ## Repository Name Note
 
-The GitHub repository is named `retor-engine` for historical reasons. The engine itself is **Cathode**: Rust crates are published as `cathode-*` and TypeScript packages under the `@cathode/` scope.
+The repository is `cathode-retro-engine`; the engine is **Cathode**. Rust crates
+are published as `cathode-*` and TypeScript packages under the `@cathode/`
+scope. It was previously named `retor-engine` — GitHub redirects the old clone
+URLs, but new clones should use the current one.
 
 ## License
 

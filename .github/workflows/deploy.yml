@@ -1,4 +1,4 @@
-name: Deploy Demo to GitHub Pages
+name: Deploy Site to GitHub Pages
 
 on:
   push:
@@ -20,20 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Build WASM
-        run: wasm-pack build crates/platform-web --out-dir ../../packages/sdk/wasm --target web --release
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -43,25 +29,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build SDK
-        run: npm run build:sdk
+      # Renders docs/*.md into site/docs/, builds every example under
+      # site/dist/games/<name>/, and rewrites the gallery links to match.
+      # Games are built with a relative base, so the result works unchanged
+      # at a user site, a project site, or any subdirectory.
+      #
+      # No Rust step: the web engine is committed at packages/sdk/wasm, the
+      # same build a contributor gets from a plain clone. Publishing exactly
+      # what everyone else runs is the point.
+      - name: Build the site
+        run: npm run build:dist
 
-      # Build each example game into the site directory
-      - name: Build Space Invaders
-        working-directory: examples/space-game
-        run: npx vite build --base /retor-engine/space-game/ --outDir ../../_site/space-game
-
-      - name: Build Tetris
-        working-directory: examples/tetris
-        run: npx vite build --base /retor-engine/tetris/ --outDir ../../_site/tetris
-
-      - name: Copy landing page
-        run: cp examples/landing.html _site/index.html
+      - name: Check the site is not missing its games
+        run: |
+          count=$(find site/dist/games -mindepth 1 -maxdepth 1 -type d | wc -l)
+          echo "$count games built"
+          test "$count" -ge 16
+          test -f site/dist/index.html
+          test -f site/dist/games.html
+          test -f site/dist/docs.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: site/dist
 
   deploy:
     runs-on: ubuntu-latest

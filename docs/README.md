@@ -76,6 +76,7 @@ Community contribution expectations, local validation commands, and repo convent
 | --- | --- |
 | Engine core | `crates/core/src` |
 | Browser bindings | `crates/platform-web/src` |
+| Committed web engine build | `packages/sdk/wasm` |
 | Native runtime | `crates/platform-native/src` |
 | TypeScript SDK | `packages/sdk/src` |
 | CLI | `packages/cli/src` |
