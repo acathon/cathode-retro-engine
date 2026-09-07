@@ -20,6 +20,7 @@ node scripts/verify/rummy.mjs --port 3018
 | `blackjack.mjs` | `examples/blackjack` | 3016 |
 | `holdem.mjs` | `examples/holdem` | 3017 |
 | `rummy.mjs` | `examples/gin-rummy` | 3018 |
+| `site.mjs` | the whole site, plus all sixteen games | 3021 |
 
 Each exits non-zero if any check fails, so they can be chained.
 
@@ -38,3 +39,9 @@ keys for two minutes is not a test, it is a wait.
 `lib.mjs` measures "ink" rather than counting colours: the share of pixels
 that are not the most common one. Counting distinct colours calls a healthy
 two-tone Game Boy screen blank.
+
+`site.mjs` checks that each game *boots*, not that its URL returns 200. An
+earlier version checked only status codes and passed while every game on the
+site was broken: the HTML loaded, the module inside it 404'd, and the canvas
+sat at its untouched 300x150 default. A status code is not evidence that
+anything ran.

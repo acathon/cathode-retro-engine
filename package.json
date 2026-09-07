@@ -20,7 +20,8 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "dev:studio": "npm run dev --workspace=@cathode/studio",
-    "build:site": "node scripts/build-site.mjs"
+    "build:site": "node scripts/build-site.mjs",
+    "build:dist": "node scripts/build-site.mjs && node scripts/build-dist.mjs"
   },
   "devDependencies": {
     "marked": "^14.1.3",

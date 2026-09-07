@@ -111,7 +111,9 @@ tested without a canvas — see [docs/tutorial-cards.md](./docs/tutorial-cards.m
 to build a fifth.
 
 All sixteen are on the [demo gallery](./site/games.html), part of the
-[project site](./site/index.html) in `site/`.
+[project site](./site/index.html) in `site/`. Serve the repository root and
+open `/site/index.html` to browse it, or run `npm run build:dist` to assemble
+a static bundle with every game built in — see [site/README.md](./site/README.md).
 
 Every example runs standalone:
 
