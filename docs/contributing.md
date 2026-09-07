@@ -60,6 +60,27 @@ node scripts/check-wasm-current.mjs
 The binary itself is not compared — two builds of identical source do not
 produce identical bytes, so that check would fail constantly and mean nothing.
 
+## The Lockfile Must Stay Cross-Platform
+
+Rollup, esbuild and the Tauri CLI each ship their native binary as a set of
+optional dependencies, one per platform. `package-lock.json` has to list all of
+them, because npm can only install what the lockfile names -- and CI, running
+on Linux, cannot notice when the others go missing.
+
+The trap: regenerating the lockfile while `node_modules` exists writes it from
+the installed tree, which only holds the current platform's binary. Always
+clear both first:
+
+```bash
+rm -rf node_modules packages/*/node_modules examples/*/node_modules
+rm package-lock.json
+npm install
+node scripts/check-lockfile-portable.mjs
+```
+
+CI runs that check before installing, so a Linux-only lockfile fails the build
+rather than a contributor's clone.
+
 ## Repository Layout
 
 | Path | Purpose |

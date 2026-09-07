@@ -189,6 +189,25 @@ tools (see [Changing The Engine Itself](#changing-the-engine-itself)), or skip
 the build entirely — the compiled engine is already in the repository, and
 `npm install` is enough to run every example.
 
+### `Cannot find module @rollup/rollup-win32-x64-msvc` (or `@esbuild/...`)
+
+Rollup and esbuild ship their native binary as one optional dependency per
+platform. If `package-lock.json` was generated without the entry for yours, npm
+cannot install it, and npm's own error blames a bug in npm and tells you to
+delete your lockfile.
+
+Deleting it is not the fix here -- the lockfile in this repository lists every
+platform, so first make sure you are up to date with `main`:
+
+```bash
+git pull
+rm -rf node_modules
+npm install
+```
+
+`node scripts/check-lockfile-portable.mjs` reports whether the lockfile covers
+Windows, macOS and Linux; CI runs it on every push.
+
 ### `Failed to load cathode-platform-web WASM module` in the browser
 
 The package is not linked into `node_modules`. Re-run `npm install`, and check

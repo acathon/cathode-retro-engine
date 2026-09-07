@@ -90,6 +90,13 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      # CI only ever installs on Linux, so a lockfile that lost its Windows and
+      # macOS binaries installs fine here and fails on a contributor's machine.
+      # Checked before npm ci, so the report names the cause rather than a
+      # missing module several steps later.
+      - name: Lockfile works on every platform
+        run: node scripts/check-lockfile-portable.mjs
+
       - name: Install dependencies
         run: npm ci
         
