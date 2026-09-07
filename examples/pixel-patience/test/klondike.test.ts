@@ -1,9 +1,9 @@
+import { freshDeck, isRed, makeRng, shuffle } from '@cathode/cards';
 import { describe, expect, it } from 'vitest';
 import {
   FOUNDATION_0, PILE_COUNT, STOCK, TABLEAU_0, WASTE,
   applyMove, autoFinishStep, canAutoFinish, canDrop, deal, drawFromStock,
-  freshDeck, grab, isLegal, isRed, isWon, makeRng, runLength, shuffle,
-  suggestDestination, top,
+  grab, isLegal, isWon, runLength, suggestDestination, top,
   type Card, type Game,
 } from '../src/klondike';
 

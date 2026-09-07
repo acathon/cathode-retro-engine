@@ -1,4 +1,5 @@
 import { Cathode } from './engine';
+import { GLYPH_H, GLYPH_W, glyphFor } from './font-glyphs';
 
 export class BitmapFont {
   private handle: number;
@@ -29,88 +30,44 @@ export class BitmapFont {
   }
 
   /**
-   * Generate a minimal built-in 8x8 monospace ASCII font (chars 32-127)
-   * using the browser Canvas API. No PNG needed.
+   * The built-in 8x8 font: chars 32-127, drawn from the glyph table rather
+   * than rasterised from a system face.
+   *
+   * A game that wants exact glyphs of its own should supply a sheet to the
+   * constructor; this is the fallback that means `font.draw` works before you
+   * have drawn anything.
    */
   static builtin(engine: Cathode): BitmapFont {
     const charW = 8;
     const charH = 8;
     const firstChar = 32;
-    const charCount = 96; // 32..127
+    const charCount = 96;                 // 32..127
     const cols = 16;
     const rows = Math.ceil(charCount / cols);
     const sheetW = cols * charW;
     const sheetH = rows * charH;
 
-    // Rasterise large, then reduce. Asking the browser for 8px text gives
-    // glyphs whose strokes are thinner than a pixel, so they arrive as faint
-    // antialiasing that a hardware palette snaps away — letters came out with
-    // holes in them ("NEXT" reading as "N E X I"). Drawing at 4x and taking a
-    // majority vote per 4x4 block keeps every stroke at least one pixel wide.
-    const SS = 4;
-    const bigW = sheetW * SS;
-    const bigH = sheetH * SS;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = bigW;
-    canvas.height = bigH;
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, bigW, bigH);
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    // Alphabetic rather than top: 'top' measures from the em box, which
-    // includes the ascender, and pushed capitals off the bottom of the cell.
-    ctx.textBaseline = 'alphabetic';
-    // Sans, not monospace: a monospace 'I' carries serifs, and at this size
-    // they survive the reduction as a crossbar — "LINES" came out "LTNES".
-    // Each glyph is centred in its own fixed cell here, so the font itself
-    // does not need to be monospaced.
-    ctx.font = `bold ${charH * SS - SS}px "DejaVu Sans", Arial, sans-serif`;
-
-    for (let i = 0; i < charCount; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      ctx.fillText(
-        String.fromCharCode(firstChar + i),
-        (col + 0.5) * charW * SS,
-        (row + 1) * charH * SS - SS * 1.5,
-      );
-    }
-
-    const big = ctx.getImageData(0, 0, bigW, bigH).data;
     const pixels = new Uint8Array(sheetW * sheetH * 4);
 
-    for (let y = 0; y < sheetH; y++) {
-      for (let x = 0; x < sheetW; x++) {
-        let lit = 0;
-        for (let sy = 0; sy < SS; sy++) {
-          for (let sx = 0; sx < SS; sx++) {
-            const bi = (((y * SS + sy) * bigW) + (x * SS + sx)) * 4;
-            if (big[bi + 3] > 90) lit++;
-          }
+    for (let i = 0; i < charCount; i++) {
+      const glyph = glyphFor(firstChar + i);
+      const originX = (i % cols) * charW;
+      const originY = Math.floor(i / cols) * charH;
+
+      for (let y = 0; y < GLYPH_H; y++) {
+        for (let x = 0; x < GLYPH_W; x++) {
+          if (glyph[y][x] !== '#') continue;
+          // One pixel of left bearing, so consecutive glyphs do not touch.
+          const o = (((originY + y) * sheetW) + originX + x + 1) * 4;
+          pixels[o] = 255;
+          pixels[o + 1] = 255;
+          pixels[o + 2] = 255;
+          pixels[o + 3] = 255;
         }
-        // Five samples of sixteen. A third dropped the leg off an "R" so it
-        // read as "N"; a quarter thickened strokes until the counters in "S"
-        // and "O" closed up. This is a fallback font at 8x8 — a game that
-        // wants exact glyphs should supply its own sheet, which BitmapFont's
-        // constructor already takes.
-        const on = lit * 16 >= SS * SS * 5;
-        const i = (y * sheetW + x) * 4;
-        pixels[i] = on ? 255 : 0;
-        pixels[i + 1] = on ? 255 : 0;
-        pixels[i + 2] = on ? 255 : 0;
-        pixels[i + 3] = on ? 255 : 0;
       }
     }
 
-    const sheetHandle = engine.raw!.upload_sheet(
-      sheetW,
-      sheetH,
-      charW,
-      charH,
-      pixels,
-    );
-
+    const sheetHandle = engine.raw!.upload_sheet(sheetW, sheetH, charW, charH, pixels);
     return new BitmapFont(engine, sheetHandle, charW, charH, cols, firstChar);
   }
 }

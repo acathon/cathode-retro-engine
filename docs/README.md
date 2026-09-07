@@ -11,6 +11,7 @@ This folder is the documentation map for Cathode. Use it as the table of content
 | learn from a full project | [tutorial-trex.md](./tutorial-trex.md) |
 | build a physics game with the engine's own collisions | [tutorial-bounce.md](./tutorial-bounce.md) |
 | build a first-person game | [tutorial-bounce-3d.md](./tutorial-bounce-3d.md) |
+| build a card game | [tutorial-cards.md](./tutorial-cards.md) |
 | understand internals | [architecture.md](./architecture.md) |
 | contribute changes | [contributing.md](./contributing.md) |
 
@@ -49,6 +50,13 @@ The same game from inside the ball. Covers the raycaster's vertical axis —
 eye height, horizon pitch and billboard elevation — and how to tune a jump
 against a ceiling rather than against gravity.
 
+### [tutorial-cards.md](./tutorial-cards.md)
+
+Builds a working game of War on `@cathode/cards`, and explains the split every
+card game here uses: rules as a plain value with no engine imports, so a poker
+evaluator or a gin rummy meld search can be unit-tested without a browser.
+Also covers picking your own screen size instead of a console preset.
+
 ### [architecture.md](./architecture.md)
 
 Subsystem reference for the Rust core, WASM bindings, SDK, runtime targets, and editor layout.
@@ -71,6 +79,8 @@ Community contribution expectations, local validation commands, and repo convent
 | Learning examples | `examples/*/src/main.ts` |
 | Block language | `packages/blocks/src` |
 | Cathode Studio | `packages/studio/src` |
+| Card game layer | `packages/cards/src` |
+| Headless game checks | `scripts/verify` |
 
 ## Recommended Learning Strategy
 

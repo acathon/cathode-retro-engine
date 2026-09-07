@@ -4,7 +4,7 @@
 
 **A retro game engine with a Rust core, a WebAssembly runtime, a TypeScript SDK, a block-based visual editor, and a first-person raycaster.**
 
-[Docs Hub](./docs/README.md) · [Getting Started](./docs/getting-started.md) · [First Game](./docs/first-game.md) · [Bounce Tutorial](./docs/tutorial-bounce.md) · [First-Person Tutorial](./docs/tutorial-bounce-3d.md) · [Architecture](./docs/architecture.md) · [Assets](./ASSETS.md) · [Contributing](./docs/contributing.md)
+[Docs Hub](./docs/README.md) · [Getting Started](./docs/getting-started.md) · [First Game](./docs/first-game.md) · [Bounce Tutorial](./docs/tutorial-bounce.md) · [First-Person Tutorial](./docs/tutorial-bounce-3d.md) · [Card Games](./docs/tutorial-cards.md) · [Architecture](./docs/architecture.md) · [Assets](./ASSETS.md) · [Contributing](./docs/contributing.md)
 
 Cathode is for people who want the feel of old-school consoles without giving up modern tooling. Build with blocks if you have never written code, graduate to the TypeScript SDK when you outgrow them, and drop into the Rust core when you need to. Twelve complete games live in this repository, and none of them is a stub.
 
@@ -19,6 +19,7 @@ Choose the shortest path for what you want to do:
 | Build a tiny playable game | [docs/first-game.md](./docs/first-game.md) |
 | Build a physics game, step by step | [docs/tutorial-bounce.md](./docs/tutorial-bounce.md) |
 | Build a first-person game | [docs/tutorial-bounce-3d.md](./docs/tutorial-bounce-3d.md) |
+| Build a card game | [docs/tutorial-cards.md](./docs/tutorial-cards.md) |
 | Learn by reading a full example | [docs/tutorial-trex.md](./docs/tutorial-trex.md) |
 | Understand the engine internals | [docs/architecture.md](./docs/architecture.md) |
 | Contribute fixes or features | [docs/contributing.md](./docs/contributing.md) |
@@ -99,6 +100,18 @@ These examples are part demo, part reference implementation.
 | **Bounce 3D** | `examples/bounce-raycaster` | The same game in first person: eye height, horizon pitch, sprite elevation — [tutorial](./docs/tutorial-bounce-3d.md) |
 | **Dust Protocol** | `examples/dust-protocol` | Round-based FPS: hitscan, A* bots, line of sight, tab-to-tab netplay |
 | **Pixel Patience** | `examples/pixel-patience` | Klondike solitaire: a custom hardware profile, 52 sprites at once, unit-tested rules, a deck drawn in code |
+| **Twenty-One** | `examples/blackjack` | Blackjack: soft/hard aces, splits, doubles, insurance, chip betting |
+| **River Street** | `examples/holdem` | No-limit hold'em: a best-five-of-seven evaluator, side pots, three bots with distinct personalities |
+| **Ten Card** | `examples/gin-rummy` | Gin rummy: an exhaustive meld solver, lay-offs, undercuts — and the solver's answer drawn on the table |
+
+The last four share [`packages/cards`](./packages/cards): one deck, one
+bankroll, one pooled table renderer. None of the rules modules import the
+engine, which is why a poker hand evaluator and a gin rummy meld search can be
+tested without a canvas — see [docs/tutorial-cards.md](./docs/tutorial-cards.md)
+to build a fifth.
+
+All sixteen demos are listed in [`examples/landing.html`](./examples/landing.html),
+which is the gallery page.
 
 Every example runs standalone:
 
@@ -233,9 +246,11 @@ retor-engine/
 │   ├── editor/             # Browser-based editor
 │   ├── editor-desktop/     # Tauri desktop editor
 │   ├── blocks/             # Block language: IR, interpreter, TypeScript codegen
+│   ├── cards/              # Deck, bankroll and table renderer for the card games
 │   └── studio/             # Cathode Studio: scene tree, inspector, blocks,
 │                           #   pixel sprite editor, sound maker, map editor
 ├── examples/               # Reference games and demos
+├── scripts/verify/         # Headless browser checks for the games
 └── docs/                   # Onboarding, tutorials, architecture, contribution docs
 ```
 
@@ -273,6 +288,7 @@ retor-engine/
 - [T-Rex Tutorial](./docs/tutorial-trex.md)
 - [Bounce Tutorial](./docs/tutorial-bounce.md)
 - [Bounce in First Person](./docs/tutorial-bounce-3d.md)
+- [Building a Card Game](./docs/tutorial-cards.md)
 - [Architecture](./docs/architecture.md)
 - [Contributing](./docs/contributing.md)
 

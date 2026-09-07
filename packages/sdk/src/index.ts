@@ -10,6 +10,7 @@ export * from './camera';
 export * from './particles';
 export * from './tween';
 export * from './text';
+export * from './font-glyphs';
 export * from './timer';
 export * from './state-machine';
 export * from './transitions';

@@ -4,152 +4,479 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cathode — Live Demos</title>
+  <title>Cathode — Demo Gallery</title>
+  <meta name="description"
+    content="Sixteen games built on Cathode, a Rust and WebAssembly engine for retro hardware profiles." />
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --bg: #070b0a;
+      --panel: #0d1513;
+      --panel-hi: #132320;
+      --line: #1e332d;
+      --line-hi: #2f5a4b;
+      --phosphor: #4ade80;
+      --phosphor-dim: #2b7a52;
+      --amber: #fbbf24;
+      --text: #cfdcd5;
+      --muted: #7b968b;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .35);
     }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'Courier New', monospace;
-      background: #0a0a1a;
-      color: #e0e0e0;
+      font: 15px/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
+      /* A faint scanline wash. Two pixels, so it reads as a CRT rather than
+         as a pattern, and it sits under everything at low opacity. */
+      background-image: repeating-linear-gradient(
+        to bottom, rgba(255, 255, 255, .016) 0 1px, transparent 1px 3px);
     }
 
+    a { color: var(--phosphor); }
+
+    :focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+    /* --- Header ---------------------------------------------------------- */
     header {
-      text-align: center;
-      padding: 3rem 1rem 2rem;
-      background: linear-gradient(135deg, #1a0a2e 0%, #0a1628 100%);
-      border-bottom: 2px solid #333;
+      border-bottom: 1px solid var(--line);
+      background:
+        radial-gradient(1200px 340px at 50% -140px, rgba(74, 222, 128, .10), transparent 70%),
+        var(--panel);
     }
 
-    header h1 {
-      font-size: 2.5rem;
-      color: #00ff88;
-      text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
-      letter-spacing: 0.15em;
+    .masthead { padding: 56px 0 44px; }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3.1rem);
+      letter-spacing: .22em;
+      color: var(--phosphor);
+      text-shadow: 0 0 28px rgba(74, 222, 128, .28);
+      font-weight: 700;
     }
 
-    header p {
-      margin-top: 0.5rem;
-      color: #888;
-      font-size: 0.95rem;
+    .tagline {
+      margin-top: 14px;
+      max-width: 62ch;
+      color: var(--muted);
+      font-size: .95rem;
     }
 
-    header a {
-      color: #66aaff;
+    .tagline strong { color: var(--text); font-weight: 400; }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 28px;
+      margin-top: 26px;
+      font-size: .82rem;
+      color: var(--muted);
+      letter-spacing: .05em;
+    }
+
+    .stats b {
+      display: block;
+      color: var(--phosphor);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      line-height: 1.2;
+    }
+
+    .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+
+    .links a {
+      display: inline-block;
+      padding: 8px 16px;
+      border: 1px solid var(--line-hi);
+      border-radius: 6px;
       text-decoration: none;
+      font-size: .84rem;
+      letter-spacing: .06em;
+      color: var(--text);
+      background: var(--panel-hi);
+      transition: border-color .15s, color .15s, background .15s;
     }
 
-    header a:hover {
-      text-decoration: underline;
+    .links a:hover { border-color: var(--phosphor); color: var(--phosphor); }
+
+    .links a.primary { border-color: var(--phosphor-dim); color: var(--phosphor); }
+
+    /* --- Sections -------------------------------------------------------- */
+    section { padding: 44px 0 8px; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      flex-wrap: wrap;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--line);
     }
 
-    .games {
+    h2 {
+      font-size: 1.05rem;
+      letter-spacing: .18em;
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .section-head p { color: var(--muted); font-size: .84rem; }
+
+    .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
-      max-width: 1000px;
-      margin: 2.5rem auto;
-      padding: 0 1.5rem;
+      /* 250px fits four across the 1080px content column, so each section is
+         one clean row rather than three cards and a lonely fourth. */
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 22px;
     }
 
+    /* --- Cards ----------------------------------------------------------- */
     .card {
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 8px;
-      overflow: hidden;
-      transition: border-color 0.2s, transform 0.2s;
+      display: flex;
+      flex-direction: column;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 18px 18px 16px;
       text-decoration: none;
       color: inherit;
-      display: block;
+      box-shadow: var(--shadow);
+      transition: border-color .16s, transform .16s, background .16s;
     }
 
     .card:hover {
-      border-color: #00ff88;
-      transform: translateY(-3px);
+      border-color: var(--line-hi);
+      background: var(--panel-hi);
+      transform: translateY(-2px);
     }
 
-    .card-img {
-      height: 160px;
+    .card h3 {
+      font-size: 1rem;
+      color: var(--phosphor);
+      letter-spacing: .08em;
+      font-weight: 700;
+    }
+
+    .card .path {
+      font-size: .72rem;
+      color: var(--muted);
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    .card p {
+      margin-top: 11px;
+      font-size: .84rem;
+      color: var(--text);
+      opacity: .88;
+      flex: 1;
+    }
+
+    .tags {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 3rem;
-    }
-
-    .card-body {
-      padding: 1rem 1.2rem 1.2rem;
-    }
-
-    .card-body h2 {
-      font-size: 1.15rem;
-      color: #00ff88;
-      margin-bottom: 0.3rem;
-    }
-
-    .card-body p {
-      font-size: 0.82rem;
-      color: #999;
-      line-height: 1.4;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 14px;
     }
 
     .tag {
-      display: inline-block;
-      font-size: 0.7rem;
-      background: #1a2a1a;
-      color: #00cc66;
-      padding: 2px 8px;
-      border-radius: 3px;
-      margin-top: 0.5rem;
+      font-size: .68rem;
+      letter-spacing: .07em;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--line-hi);
+      color: var(--muted);
+      white-space: nowrap;
     }
 
+    .tag.hw { color: var(--phosphor); border-color: var(--phosphor-dim); }
+
+    /* --- Footer ---------------------------------------------------------- */
     footer {
-      text-align: center;
-      padding: 2rem;
-      color: #555;
-      font-size: 0.8rem;
-      border-top: 1px solid #222;
+      margin-top: 56px;
+      border-top: 1px solid var(--line);
+      background: var(--panel);
+      padding: 30px 0 44px;
+      font-size: .82rem;
+      color: var(--muted);
     }
 
-    footer a {
-      color: #66aaff;
-      text-decoration: none;
+    footer p + p { margin-top: 10px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .card, .links a { transition: none; }
+      .card:hover { transform: none; }
     }
   </style>
 </head>
 
 <body>
   <header>
-    <h1>🕹️ RETRO ENGINE</h1>
-    <p>A Rust + WASM retro game engine — <a href="https://github.com/acathon/retor-engine">Source on GitHub</a></p>
+    <div class="wrap masthead">
+      <h1>CATHODE</h1>
+      <p class="tagline">
+        A retro game engine in <strong>Rust and WebAssembly</strong>. Hardware profiles are a
+        starting position, not a cage — build against a Game Boy, an NES, a Neo Geo, or a
+        screen you pick yourself, and choose the target when you export.
+      </p>
+
+      <div class="stats">
+        <div><b>16</b> playable demos</div>
+        <div><b>628</b> tests</div>
+        <div><b>3</b> console presets, plus custom</div>
+        <div><b>0</b> third-party runtime deps</div>
+      </div>
+
+      <nav class="links">
+        <a class="primary" href="https://github.com/acathon/retor-engine">Source on GitHub</a>
+        <a href="https://github.com/acathon/retor-engine#quick-start">Quick start</a>
+        <a href="https://github.com/acathon/retor-engine/blob/main/docs/tutorial-bounce.md">Build a game</a>
+        <a href="https://github.com/acathon/retor-engine/blob/main/docs/architecture.md">Architecture</a>
+      </nav>
+    </div>
   </header>
 
-  <div class="games">
-    <a class="card" href="./space-game/">
-      <div class="card-img" style="background:#0a0a2a;">👾</div>
-      <div class="card-body">
-        <h2>Space Invaders</h2>
-        <p>Classic alien shooter with procedural pixel art. Game Boy resolution, chiptune SFX.</p>
-        <span class="tag">160×144 · Game Boy</span>
+  <main class="wrap">
+    <section>
+      <div class="section-head">
+        <h2>CARD GAMES</h2>
+        <p>One deck, one bankroll, one pooled table renderer — and rules modules that never touch the engine.</p>
       </div>
-    </a>
+      <div class="grid">
+        <a class="card" href="./pixel-patience/">
+          <h3>Pixel Patience</h3>
+          <div class="path">examples/pixel-patience</div>
+          <p>Klondike solitaire with all 52 cards on screen as individual sprites. The rules are a
+            pure state machine, so every legal move is unit-tested without a canvas.</p>
+          <div class="tags">
+            <span class="tag hw">464 × 416 · custom</span>
+            <span class="tag">45 tests</span>
+            <span class="tag">sprite pooling</span>
+          </div>
+        </a>
 
-    <a class="card" href="./tetris/">
-      <div class="card-img" style="background:#0f380f;">🧱</div>
-      <div class="card-body">
-        <h2>Tetris</h2>
-        <p>Game Boy Tetris with Korobeiniki melody, ghost piece, wall kicks, and 7-bag randomizer.</p>
-        <span class="tag">160×144 · Game Boy</span>
+        <a class="card" href="./blackjack/">
+          <h3>Twenty-One</h3>
+          <div class="path">examples/blackjack</div>
+          <p>Blackjack against a six-deck shoe. Soft and hard aces, the S17/H17 split, splits,
+            doubles, insurance, and a payout table tested case by case.</p>
+          <div class="tags">
+            <span class="tag hw">464 × 360 · custom</span>
+            <span class="tag">52 tests</span>
+            <span class="tag">chip betting</span>
+          </div>
+        </a>
+
+        <a class="card" href="./holdem/">
+          <h3>River Street</h3>
+          <div class="path">examples/holdem</div>
+          <p>No-limit hold'em against three bots you can tell apart. A best-five-of-seven evaluator,
+            real side pots, and opponents whose every decision is readable.</p>
+          <div class="tags">
+            <span class="tag hw">560 × 400 · custom</span>
+            <span class="tag">83 tests</span>
+            <span class="tag">side pots</span>
+          </div>
+        </a>
+
+        <a class="card" href="./gin-rummy/">
+          <h3>Ten Card</h3>
+          <div class="path">examples/gin-rummy</div>
+          <p>Gin rummy to a hundred. What a hand is worth is a search, not a lookup — and the table
+            draws the answer, outlining melded cards and leaving loose ones plain.</p>
+          <div class="tags">
+            <span class="tag hw">520 × 400 · custom</span>
+            <span class="tag">65 tests</span>
+            <span class="tag">meld solver</span>
+          </div>
+        </a>
       </div>
-    </a>
-  </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>FIRST PERSON</h2>
+        <p>The raycaster: DDA walls, billboards, hitscan and A* — no 3D pipeline anywhere.</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="./dust-protocol/">
+          <h3>Dust Protocol</h3>
+          <div class="path">examples/dust-protocol</div>
+          <p>Round-based tactical FPS. Hitscan weapons, bots that path with A* and check line of
+            sight, and tab-to-tab multiplayer over a BroadcastChannel transport.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">bots</span>
+            <span class="tag">netplay</span>
+          </div>
+        </a>
+
+        <a class="card" href="./doom-game/">
+          <h3>Doom-style demo</h3>
+          <div class="path">examples/doom-game</div>
+          <p>The raycaster at its simplest: textured walls, billboard sprites, and distance fog,
+            with every texture generated at start-up.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">billboards</span>
+          </div>
+        </a>
+
+        <a class="card" href="./crypt-courier/">
+          <h3>Crypt Courier</h3>
+          <div class="path">examples/crypt-courier</div>
+          <p>A procedurally generated maze to navigate in first person, with fog that makes the
+            draw distance part of the puzzle.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">procedural</span>
+          </div>
+        </a>
+
+        <a class="card" href="./bounce-raycaster/">
+          <h3>Bounce 3D</h3>
+          <div class="path">examples/bounce-raycaster</div>
+          <p>The physics game below, in first person. Eye height, horizon pitch and sprite elevation
+            turn the same simulation into a different game.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">tutorial</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>PHYSICS AND PLATFORMS</h2>
+        <p>Collision, gravity and tilemaps driven by the engine rather than re-implemented per game.</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="./bounce-classic/">
+          <h3>Bounce</h3>
+          <div class="path">examples/bounce-classic</div>
+          <p>A ball with weight: bouncing physics, buoyancy in water, and charge jumps. The subject of
+            a step-by-step tutorial that explains why each number is what it is.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">tutorial</span>
+          </div>
+        </a>
+
+        <a class="card" href="./cavern-dash/">
+          <h3>Cavern Dash</h3>
+          <div class="path">examples/cavern-dash</div>
+          <p>Engine-driven tilemap collision and gravity through <code>usePhysics</code>, with the
+            level as data rather than as code.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">tilemap physics</span>
+          </div>
+        </a>
+
+        <a class="card" href="./demo-game/">
+          <h3>Demo platformer</h3>
+          <div class="path">examples/demo-game</div>
+          <p>The smallest complete game here: side-scrolling movement, a tilemap, and simple
+            collisions. Start here if you are reading one example.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">start here</span>
+          </div>
+        </a>
+
+        <a class="card" href="./metal-slug/">
+          <h3>Metal Slug-inspired demo</h3>
+          <div class="path">examples/metal-slug</div>
+          <p>Multi-layer parallax scenes and the pacing of a run-and-gun, with art generated onto a
+            canvas and uploaded as a sheet.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">parallax</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>ARCADE</h2>
+        <p>Grid logic, endless runners and team AI on the console presets.</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="./tetris/">
+          <h3>Tetris</h3>
+          <div class="path">examples/tetris</div>
+          <p>Ghost piece, wall kicks, a seven-bag randomiser and the Korobeiniki melody — drawn with
+            pooled engine sprites rather than a second renderer.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">grid logic</span>
+          </div>
+        </a>
+
+        <a class="card" href="./space-game/">
+          <h3>Space game</h3>
+          <div class="path">examples/space-game</div>
+          <p>Waves, projectiles and touch controls, with every sprite generated procedurally at
+            start-up.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">touch</span>
+          </div>
+        </a>
+
+        <a class="card" href="./trex-game/">
+          <h3>T-Rex Runner</h3>
+          <div class="path">examples/trex-game</div>
+          <p>The endless-runner shape: obstacle spawning, an accelerating difficulty curve, and a
+            restart loop that costs one keypress.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">endless runner</span>
+          </div>
+        </a>
+
+        <a class="card" href="./ice-hockey-game/">
+          <h3>Ice Hockey</h3>
+          <div class="path">examples/ice-hockey-game</div>
+          <p>Five-a-side with team AI: state machines for possession and defence, period and score
+            management, and a rink drawn in code.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">team AI</span>
+          </div>
+        </a>
+      </div>
+    </section>
+  </main>
 
   <footer>
-    Built with Rust + WebAssembly · <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    <div class="wrap">
+      <p>
+        Built with Rust and WebAssembly ·
+        <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a>
+      </p>
+      <p>
+        Card art: <a href="https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games">8-bit
+        Playing Cards</a> by sdkfz181tiger — free for personal and commercial use.
+        Every other sprite in every other demo is generated in code at start-up; see
+        <a href="https://github.com/acathon/retor-engine/blob/main/ASSETS.md">ASSETS.md</a>.
+      </p>
+    </div>
   </footer>
 </body>
 

@@ -12,18 +12,14 @@
  * only became possible once hardware sprite caps stopped being enforced at
  * run time.
  */
-import { BitmapFont, Cathode, Scene, SoundChannel, Sprite, TileMap } from '@cathode/sdk';
+import { CARD_H, CARD_W, CardTable, CARD_SHEET_URL, cardArtCredit } from '@cathode/cards';
+import { BitmapFont, Cathode, Scene, SoundChannel } from '@cathode/sdk';
 import {
   FOUNDATION_0, PILE_COUNT, STOCK, TABLEAU_0, WASTE,
   applyMove, autoFinishStep, canAutoFinish, deal, drawFromStock, grab,
   isLegal, runLength, suggestDestination, top,
   type Game,
 } from './klondike';
-import { generateDeckSheet } from './deck';
-import {
-  BACK_FRAME, CARD_H, CARD_W, O_CURSOR, O_EMPTY, O_HELD, O_TARGET,
-  T_FELT, T_FELT_DARK, TILE, cardFrame, feltSheet, overlaySheet,
-} from './table';
 
 // --- Layout ----------------------------------------------------------------
 const SCREEN_W = 464;
@@ -87,45 +83,15 @@ async function init(): Promise<void> {
   const font = BitmapFont.builtin(engine);
   engine.setBgColor(18, 62, 40);
 
-  // --- Sheets ---------------------------------------------------------------
-  // `playing_cards.png` is licensed for use but not for redistribution, so it
-  // is not in the repository. Drop a sheet with that name beside this folder
-  // and the game picks it up; without one it draws its own deck, which has
-  // the same 15x4 geometry so nothing downstream can tell the difference.
-  const cardsUrl = new URL('../playing_cards.png', import.meta.url).href;
-  let cardSheet: number;
-  let deckSource: string;
-  try {
-    cardSheet = await engine.loadSheet(cardsUrl, CARD_W, CARD_H);
-    deckSource = 'playing_cards.png';
-  } catch {
-    const deck = generateDeckSheet();
-    cardSheet = engine.raw.upload_sheet(deck.w, deck.h, CARD_W, CARD_H, deck.pixels);
-    deckSource = 'generated deck';
-  }
-
-  const felt = feltSheet();
-  const feltHandle = engine.raw.upload_sheet(felt.w, felt.h, TILE, TILE, felt.pixels);
-  const overlay = overlaySheet();
-  const overlayHandle = engine.raw.upload_sheet(overlay.w, overlay.h, CARD_W, CARD_H, overlay.pixels);
-
-  // The felt is a tilemap so the table is drawn once and never touched again.
-  {
-    const map = new TileMap(scene, {
-      name: 'Felt',
-      cols: Math.ceil(SCREEN_W / TILE),
-      rows: Math.ceil(SCREEN_H / TILE),
-      tileWidth: TILE,
-      tileHeight: TILE,
-    });
-    const layer = map.addLayer('Felt', feltHandle, false);
-    for (let row = 0; row < Math.ceil(SCREEN_H / TILE); row++) {
-      for (let col = 0; col < Math.ceil(SCREEN_W / TILE); col++) {
-        map.setTile(layer, col, row, (col + row) % 2 ? T_FELT : T_FELT_DARK);
-      }
-    }
-    map.commit();
-  }
+  // --- Table ----------------------------------------------------------------
+  // The shared layer owns the sheets, the felt and the sprite pools. It reads
+  // `playing_cards.png` when one is there and draws its own deck when it is
+  // not, so this file never learns which of the two it is showing.
+  const table = await CardTable.create(engine, scene, {
+    cardsUrl: CARD_SHEET_URL,
+    width: SCREEN_W,
+    height: SCREEN_H,
+  });
 
   const sfxDeal = new SoundChannel(engine, 0);
   const sfxMove = new SoundChannel(engine, 1);
@@ -136,32 +102,6 @@ async function init(): Promise<void> {
     ch.play(freq, wave, vol);
     setTimeout(() => ch.stop(), ms);
   };
-
-  // --- Sprite pools ---------------------------------------------------------
-  // One sprite per card, created once and repositioned every frame. Cards are
-  // never created or destroyed mid-game, so nothing allocates in the loop.
-  const cardSprites: Sprite[] = Array.from({ length: 52 }, () => {
-    const s = new Sprite(scene, { sheet: cardSheet, frame: 0, x: 0, y: 0, layer: 10 });
-    s.active = false;
-    return s;
-  });
-
-  const emptySprites: Sprite[] = Array.from({ length: PILE_COUNT }, () => {
-    const s = new Sprite(scene, { sheet: overlayHandle, frame: O_EMPTY, x: 0, y: 0, layer: 5 });
-    s.active = false;
-    return s;
-  });
-
-  const cursorSprite = new Sprite(scene, { sheet: overlayHandle, frame: O_CURSOR, x: 0, y: 0, layer: 40 });
-  const targetSprite = new Sprite(scene, { sheet: overlayHandle, frame: O_TARGET, x: 0, y: 0, layer: 39 });
-  // Enough held-highlights for the longest run a tableau can carry.
-  const heldSprites: Sprite[] = Array.from({ length: 13 }, () => {
-    const s = new Sprite(scene, { sheet: overlayHandle, frame: O_HELD, x: 0, y: 0, layer: 41 });
-    s.active = false;
-    return s;
-  });
-  targetSprite.active = false;
-  cursorSprite.active = false;
 
   // --- State ----------------------------------------------------------------
   let game: Game = deal(Date.now() & 0xffff);
@@ -270,18 +210,19 @@ async function init(): Promise<void> {
   }
 
   // --- Drawing --------------------------------------------------------------
-  function layout(): void {
-    let used = 0;
+  // One draw list per frame. The table hands out sprites in call order and
+  // layers them the same way, so a card drawn later sits on top of one drawn
+  // earlier — which is exactly how the piles overlap.
+  let cardsDrawn = 0;
+
+  function draw(): void {
+    table.begin();
+    cardsDrawn = 0;
 
     // Empty-pile outlines, so the table reads even with nothing on it.
     for (let i = 0; i < PILE_COUNT; i++) {
-      const pile = game.piles[i];
-      const outline = emptySprites[i];
-      const show = pile.cards.length === 0 && i !== WASTE;
-      outline.active = show;
-      if (show) {
-        outline.x = pileX(i);
-        outline.y = pileY(i);
+      if (game.piles[i].cards.length === 0 && i !== WASTE) {
+        table.marker('empty', pileX(i), pileY(i));
       }
     }
 
@@ -291,23 +232,16 @@ async function init(): Promise<void> {
       const y = pileY(i);
 
       pile.cards.forEach((card, n) => {
-        // The stock is a deck, not a column: only the top card is drawn, and
-        // drawing all 24 stacked would cost 24 sprites to show one.
-        if (pile.kind === 'stock' && n < pile.cards.length - 1) return;
-        if (pile.kind === 'waste' && n < pile.cards.length - 1) return;
-        if (pile.kind === 'foundation' && n < pile.cards.length - 1) return;
-
-        const sprite = cardSprites[used++];
-        sprite.active = true;
-        sprite.frame = card.faceUp ? cardFrame(card.suit, card.rank) : BACK_FRAME;
-        sprite.x = x;
-        sprite.y = y + cardOffset(game, i, n);
-        // Layer by depth so a lower card never draws over the one above it.
-        sprite.layer = 10 + Math.min(n, 40);
+        // The stock, waste and foundations are decks, not columns: drawing all
+        // 24 stacked cards would cost 24 sprites to show one.
+        if (pile.kind !== 'tableau' && n < pile.cards.length - 1) return;
+        table.card(card, x, y + cardOffset(game, i, n));
+        cardsDrawn++;
       });
     }
 
-    for (let i = used; i < cardSprites.length; i++) cardSprites[i].active = false;
+    drawCursor();
+    table.end();
   }
 
   function drawCursor(): void {
@@ -315,32 +249,38 @@ async function init(): Promise<void> {
     const pile = game.piles[cursor];
     const n = Math.max(0, pile.cards.length - depth);
 
-    cursorSprite.active = true;
-    cursorSprite.x = pileX(cursor);
-    cursorSprite.y = pileY(cursor) + (pile.cards.length ? cardOffset(game, cursor, n) : 0);
+    table.marker(
+      'cursor',
+      pileX(cursor),
+      pileY(cursor) + (pile.cards.length ? cardOffset(game, cursor, n) : 0),
+    );
 
     // Highlight every card being carried, wherever it currently sits.
-    const source = heldFrom >= 0 ? game.piles[heldFrom] : null;
-    heldSprites.forEach((s, i) => {
-      const show = source !== null && i < heldCount;
-      s.active = show;
-      if (show) {
-        const index = source!.cards.length - heldCount + i;
-        s.x = pileX(heldFrom);
-        s.y = pileY(heldFrom) + cardOffset(game, heldFrom, index);
+    if (heldFrom >= 0) {
+      const source = game.piles[heldFrom];
+      for (let i = 0; i < heldCount; i++) {
+        const index = source.cards.length - heldCount + i;
+        table.marker('held', pileX(heldFrom), pileY(heldFrom) + cardOffset(game, heldFrom, index));
       }
-    });
+    }
 
     // Where those cards would land, if they can.
     const wouldLand = heldFrom >= 0
       && heldFrom !== cursor
       && isLegal(game, { from: heldFrom, to: cursor, count: heldCount });
-    targetSprite.active = wouldLand;
     if (wouldLand) {
-      targetSprite.x = pileX(cursor);
-      targetSprite.y = pileY(cursor)
-        + (pile.kind === 'tableau' ? cardOffset(game, cursor, pile.cards.length) : 0);
+      table.marker(
+        'target',
+        pileX(cursor),
+        pileY(cursor) + (pile.kind === 'tableau' ? cardOffset(game, cursor, pile.cards.length) : 0),
+      );
     }
+  }
+
+  /** The art credit, on the row above the controls. */
+  function drawCredit(): void {
+    const text = cardArtCredit();
+    font.draw(text, Math.max(4, Math.round(SCREEN_W / 2 - text.length * 4)), SCREEN_H - 28, 1);
   }
 
   function drawHud(): void {
@@ -363,7 +303,7 @@ async function init(): Promise<void> {
 
   // --- Boot -----------------------------------------------------------------
   say('Z PICK UP   X SEND   ENTER NEW DEAL', 5);
-  el.status.textContent = `Klondike — clear all four foundations, Ace to King. (${deckSource})`;
+  el.status.textContent = `Klondike — clear all four foundations, Ace to King. (${table.deckSource})`;
 
   // Exposed for the repo's headless verification scripts.
   (window as unknown as Record<string, unknown>).__patience = {
@@ -374,8 +314,8 @@ async function init(): Promise<void> {
       foundations: game.piles.filter((p) => p.kind === 'foundation').map((p) => p.cards.length),
       tableau: game.piles.filter((p) => p.kind === 'tableau').map((p) => p.cards.length),
       faceUp: game.piles.reduce((n, p) => n + p.cards.filter((c) => c.faceUp).length, 0),
-      visibleCards: cardSprites.filter((s) => s.active).length,
-      deckSource,
+      visibleCards: cardsDrawn,
+      deckSource: table.deckSource,
     }),
     newGame,
     /** Force a near-won board so the finish can be verified without playing. */
@@ -440,9 +380,9 @@ async function init(): Promise<void> {
       if (input.justPressed(0, 'b')) smartMove();
     }
 
-    layout();
-    drawCursor();
+    draw();
     drawHud();
+    drawCredit();
 
     if (game.won) {
       font.draw('ALL FOUR SUITS HOME', SCREEN_W / 2 - 76, SCREEN_H - 60, 1);
