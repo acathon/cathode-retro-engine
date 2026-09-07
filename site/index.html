@@ -114,11 +114,11 @@
             </p>
           </div>
           <div class="card">
-            <h3>Runs where you need it</h3>
+            <h3>Runs on the desktop</h3>
             <p>
-              WebAssembly in a browser today, and a native runtime — winit, GPU blit, cpal
-              audio, gamepad support — in <code>crates/platform-native</code> for a desktop
-              build.
+              The same core, in a native window: winit, a GPU blit, cpal audio and gamepads.
+              <code>cargo run -p cathode-platform-native</code> plays a real game, and
+              <code>--headless</code> renders frames to PNG with no window and no GPU at all.
             </p>
           </div>
         </div>
@@ -261,6 +261,46 @@ engine.<span class="tok-fn">loop</span>((dt) => {
 
         <div class="btns" style="margin-top:22px">
           <a class="btn" href="./games.html">All sixteen demos</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">DESKTOP</div>
+          <h2>The same engine, in a native window</h2>
+          <p class="lede">
+            No browser, no WebAssembly, no JavaScript — <code>crates/core</code> has no idea
+            whether a canvas or a window is driving it. This frame was rendered by the native
+            binary with no GPU at all, through its headless mode.
+          </p>
+        </div>
+
+        <div class="grid two">
+          <div class="crt" style="align-self:start">
+            <img src="./assets/img/desktop-bricks.png" alt="Cathode Bricks running natively:
+              a wall of coloured bricks, a paddle, a ball, and a score of 00370"
+              style="display:block;width:100%;height:auto;image-rendering:pixelated" />
+            <div class="label">CATHODE BRICKS · NATIVE</div>
+          </div>
+
+          <div>
+            <pre><code><span class="tok-com"># A window, with a gamepad if you have one</span>
+cargo run -p cathode-platform-native
+
+<span class="tok-com"># Another machine's look, same binary</span>
+cargo run -p cathode-platform-native -- --preset=gameboy
+
+<span class="tok-com"># No window, no GPU: 900 frames to a PNG</span>
+cargo run -p cathode-platform-native -- \
+  --headless <span class="tok-num">900</span> --shot shot.png</code></pre>
+            <p class="lede" style="margin-top:16px">
+              The rules live in a module that imports nothing but the gamepad state, so the
+              game has unit tests and the headless renderer can check that a build still
+              draws the right thing — which is how both bugs in it were found.
+            </p>
+          </div>
         </div>
       </div>
     </section>

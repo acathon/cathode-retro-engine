@@ -183,6 +183,22 @@ project: Rust has no 16-bit target and the core needs `std`.
 To deliberately reproduce hardware dropout, set `sprite_limit` yourself; it
 then keeps the sprites nearest the front.
 
+## Desktop
+
+The same core runs in a native window — no browser, no WebAssembly:
+
+```bash
+cargo run -p cathode-platform-native                     # a window
+cargo run -p cathode-platform-native -- --preset=dos     # another look
+cargo run -p cathode-platform-native -- --headless 900 --shot shot.png
+```
+
+It is a playable game, not a placeholder: **Cathode Bricks**, with its rules in
+a module that imports nothing but the gamepad state and has 19 unit tests. The
+headless mode renders frames to PNG with no window and no GPU, which is how a
+native build gets checked at all. See
+[crates/platform-native/README.md](./crates/platform-native/README.md).
+
 ## Multiplayer
 
 The engine ships the portable half of netplay in `crates/core/src/netcode`:

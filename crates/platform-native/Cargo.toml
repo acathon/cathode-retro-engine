@@ -10,6 +10,9 @@ path = "src/main.rs"
 
 [dependencies]
 cathode-core = { path = "../core" }
+hecs = { workspace = true }
+glam = { workspace = true }
+png = "0.17"
 winit = "0.28"
 pixels = "0.13"
 cpal = "0.15"
