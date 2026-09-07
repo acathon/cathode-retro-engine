@@ -44,10 +44,15 @@ async function init() {
   const crashSfx = new SoundChannel(engine, 1);
 
   // Load Assets
-  const trexSheet = await loadScaledAsset(engine, '/trex_anim.png', 24, 24, 2); // 2 frames
-  const cactusSheet = await loadScaledAsset(engine, '/cactus.png', 24, 32);
-  const bgSheet = await loadScaledAsset(engine, '/bg.png', 160, 144);
-  const groundSheet = await loadScaledAsset(engine, '/ground.png', 160, 32);
+  // Resolved against this module rather than against the server root. A bare
+  // '/trex_anim.png' only works while this folder is the Vite root, so the
+  // game 404'd its own art the moment it was reached through the site.
+  const asset = (name: string) => new URL(`../public/${name}`, import.meta.url).href;
+
+  const trexSheet = await loadScaledAsset(engine, asset('trex_anim.png'), 24, 24, 2); // 2 frames
+  const cactusSheet = await loadScaledAsset(engine, asset('cactus.png'), 24, 32);
+  const bgSheet = await loadScaledAsset(engine, asset('bg.png'), 160, 144);
+  const groundSheet = await loadScaledAsset(engine, asset('ground.png'), 160, 32);
 
   // Parallax Background Setup (layer 0)
   const bg1 = new Sprite(scene, { x: 0, y: 0, sheet: bgSheet, frame: 0, layer: 0 });

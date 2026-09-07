@@ -220,6 +220,50 @@ graph TD;
 - **ScriptEditor**: Monaco Editor with TypeScript, auto-save
 - **ExportManager**: One-click export to web/desktop/ARM/ROM targets with build log
 
+## Hardware Profiles
+
+A profile sets the screen size, the palette, the audio channel count and the
+sprite budget. It is chosen when the engine boots and can be switched at run
+time with `engine.setProfile(name)`, which changes the *look* without
+rebuilding anything.
+
+| Profile | Resolution | Palette | Sprite budget | Audio |
+|---|---|---|---|---|
+| `gameboy` | 160×144 | 4 shades | 40 | 4 channels |
+| `nes` | 256×240 | 54 colours | 64 | 5 channels |
+| `neogeo` | 320×224 | full | 380 | 8 channels |
+| `dos` | 320×200 | VGA 256 | none | 9 FM (OPL2) |
+| `custom` | anything | none imposed | none | your choice |
+
+Sprite budgets are **advisory**. The engine does not drop sprites while you
+build, because a cap that silently discards them turns "too many objects" into
+"the player character disappeared". Compare `renderer.peak_sprites` against a
+target with `engine.checkTarget(name)` when you export, where the answer is
+actionable. Set `sprite_limit` yourself to deliberately reproduce dropout.
+
+### The DOS profile, and what it is not
+
+`dos` is VGA mode 13h: 320×200 in the default 256-colour VGA palette, at that
+mode's real 70 Hz refresh. VGA had no sprite hardware — everything was blitted
+by the CPU — so there is no sprite count to exceed, and the profile reports
+none.
+
+It models the *look*. **It does not produce an MS-DOS executable**, and that
+is not a small gap:
+
+- Rust has no supported 16-bit target, and real-mode DOS is 16-bit. A 32-bit
+  DOS binary means a DOS extender (DJGPP, DOS/4GW) and a toolchain Rust does
+  not ship.
+- The core uses `std` — heap allocation, `Vec`, `HashMap`. A DOS build would
+  need `no_std` and an allocator written against a DOS memory manager.
+- The renderer writes into a framebuffer the host presents. Under DOS that
+  host is the VGA hardware at segment `0xA000`, reached by inline assembly
+  that has no equivalent in the wasm or native backends.
+
+None of that is impossible; all of it is a separate project from this one.
+What the profile gives you is a game that looks like it came off a 1993
+CD-ROM, running in a browser or as a native desktop binary.
+
 ## Platform Targets
 
 | Target | Method | Binary |

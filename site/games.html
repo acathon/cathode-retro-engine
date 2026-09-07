@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Games — Cathode</title>
+  <meta name="description"
+    content="Sixteen playable demos built on Cathode: card games, first-person raycasting, physics platformers and arcade classics." />
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="./index.html">CATHODE <span>ENGINE</span></a>
+      <a href="./index.html">Overview</a>
+      <a href="./games.html" aria-current="page">Games</a>
+      <a href="./docs.html">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap" style="grid-template-columns:1fr;padding-bottom:44px">
+      <div>
+        <h1 style="font-size:clamp(2rem,5vw,2.8rem)">DEMOS</h1>
+        <p class="pitch">
+          Sixteen games, each a reference for something specific — and none of them draws
+          outside the engine. Run any of them with <code>npm run dev</code> in its folder.
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="section-head">
+        <h2>CARD GAMES</h2>
+        <p>One deck, one bankroll, one pooled table renderer — and rules modules that never touch the engine.</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="../examples/pixel-patience/">
+          <h3>Pixel Patience</h3>
+          <div class="path">examples/pixel-patience</div>
+          <p>Klondike solitaire with all 52 cards on screen as individual sprites. The rules are a
+            pure state machine, so every legal move is unit-tested without a canvas.</p>
+          <div class="tags">
+            <span class="tag hw">464 × 416 · custom</span>
+            <span class="tag">45 tests</span>
+            <span class="tag">sprite pooling</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/blackjack/">
+          <h3>Twenty-One</h3>
+          <div class="path">examples/blackjack</div>
+          <p>Blackjack against a six-deck shoe. Soft and hard aces, the S17/H17 split, splits,
+            doubles, insurance, and a payout table tested case by case.</p>
+          <div class="tags">
+            <span class="tag hw">464 × 360 · custom</span>
+            <span class="tag">52 tests</span>
+            <span class="tag">chip betting</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/holdem/">
+          <h3>River Street</h3>
+          <div class="path">examples/holdem</div>
+          <p>No-limit hold'em against three bots you can tell apart. A best-five-of-seven evaluator,
+            real side pots, and opponents whose every decision is readable.</p>
+          <div class="tags">
+            <span class="tag hw">560 × 400 · custom</span>
+            <span class="tag">83 tests</span>
+            <span class="tag">side pots</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/gin-rummy/">
+          <h3>Ten Card</h3>
+          <div class="path">examples/gin-rummy</div>
+          <p>Gin rummy to a hundred. What a hand is worth is a search, not a lookup — and the table
+            draws the answer, outlining melded cards and leaving loose ones plain.</p>
+          <div class="tags">
+            <span class="tag hw">520 × 400 · custom</span>
+            <span class="tag">65 tests</span>
+            <span class="tag">meld solver</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>FIRST PERSON</h2>
+        <p>The raycaster: DDA walls, billboards, hitscan and A* — no 3D pipeline anywhere.</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="../examples/dust-protocol/">
+          <h3>Dust Protocol</h3>
+          <div class="path">examples/dust-protocol</div>
+          <p>Round-based tactical FPS. Hitscan weapons, bots that path with A* and check line of
+            sight, and tab-to-tab multiplayer over a BroadcastChannel transport.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">bots</span>
+            <span class="tag">netplay</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/doom-game/">
+          <h3>Doom-style demo</h3>
+          <div class="path">examples/doom-game</div>
+          <p>The raycaster at its simplest: textured walls, billboard sprites, and distance fog,
+            with every texture generated at start-up.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">billboards</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/crypt-courier/">
+          <h3>Crypt Courier</h3>
+          <div class="path">examples/crypt-courier</div>
+          <p>A procedurally generated maze to navigate in first person, with fog that makes the
+            draw distance part of the puzzle.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">procedural</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/bounce-raycaster/">
+          <h3>Bounce 3D</h3>
+          <div class="path">examples/bounce-raycaster</div>
+          <p>The physics game below, in first person. Eye height, horizon pitch and sprite elevation
+            turn the same simulation into a different game.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">tutorial</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>PHYSICS AND PLATFORMS</h2>
+        <p>Collision, gravity and tilemaps driven by the engine rather than re-implemented per game.</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="../examples/bounce-classic/">
+          <h3>Bounce</h3>
+          <div class="path">examples/bounce-classic</div>
+          <p>A ball with weight: bouncing physics, buoyancy in water, and charge jumps. The subject of
+            a step-by-step tutorial that explains why each number is what it is.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">tutorial</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/cavern-dash/">
+          <h3>Cavern Dash</h3>
+          <div class="path">examples/cavern-dash</div>
+          <p>Engine-driven tilemap collision and gravity through <code>usePhysics</code>, with the
+            level as data rather than as code.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">tilemap physics</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/demo-game/">
+          <h3>Demo platformer</h3>
+          <div class="path">examples/demo-game</div>
+          <p>The smallest complete game here: side-scrolling movement, a tilemap, and simple
+            collisions. Start here if you are reading one example.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">start here</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/metal-slug/">
+          <h3>Metal Slug-inspired demo</h3>
+          <div class="path">examples/metal-slug</div>
+          <p>Multi-layer parallax scenes and the pacing of a run-and-gun, with art generated onto a
+            canvas and uploaded as a sheet.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">parallax</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>ARCADE</h2>
+        <p>Grid logic, endless runners and team AI on the console presets.</p>
+      </div>
+      <div class="grid">
+        <a class="card" href="../examples/tetris/">
+          <h3>Tetris</h3>
+          <div class="path">examples/tetris</div>
+          <p>Ghost piece, wall kicks, a seven-bag randomiser and the Korobeiniki melody — drawn with
+            pooled engine sprites rather than a second renderer.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">grid logic</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/space-game/">
+          <h3>Space game</h3>
+          <div class="path">examples/space-game</div>
+          <p>Waves, projectiles and touch controls, with every sprite generated procedurally at
+            start-up.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">touch</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/trex-game/">
+          <h3>T-Rex Runner</h3>
+          <div class="path">examples/trex-game</div>
+          <p>The endless-runner shape: obstacle spawning, an accelerating difficulty curve, and a
+            restart loop that costs one keypress.</p>
+          <div class="tags">
+            <span class="tag hw">160 × 144 · Game Boy</span>
+            <span class="tag">endless runner</span>
+          </div>
+        </a>
+
+        <a class="card" href="../examples/ice-hockey-game/">
+          <h3>Ice Hockey</h3>
+          <div class="path">examples/ice-hockey-game</div>
+          <p>Five-a-side with team AI: state machines for possession and defence, period and score
+            management, and a rink drawn in code.</p>
+          <div class="tags">
+            <span class="tag hw">256 × 240 · NES</span>
+            <span class="tag">team AI</span>
+          </div>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>
+        Cathode · Rust and WebAssembly ·
+        <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a>
+      </p>
+      <p>
+        Card art: <a href="https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games">8-bit
+        Playing Cards</a> by sdkfz181tiger. Every other sprite in every demo is generated in
+        code at start-up — see
+        <a href="https://github.com/acathon/retor-engine/blob/main/ASSETS.md">ASSETS.md</a>.
+      </p>
+    </div>
+  </footer>
+</body>
+
+</html>

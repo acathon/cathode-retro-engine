@@ -278,8 +278,11 @@ dependencies = [
  "cathode-core",
  "cpal",
  "gilrs",
+ "glam",
+ "hecs",
  "log",
  "pixels",
+ "png",
  "serde_json",
  "winit",
 ]

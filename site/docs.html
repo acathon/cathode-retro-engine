@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documentation — Cathode</title>
+  <meta name="description"
+    content="Cathode documentation: getting started, tutorials for physics, first-person and card games, and an architecture reference." />
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="./index.html">CATHODE <span>ENGINE</span></a>
+      <a href="./index.html">Overview</a>
+      <a href="./games.html">Games</a>
+      <a href="./docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap" style="grid-template-columns:1fr;padding-bottom:44px">
+      <div>
+        <h1 style="font-size:clamp(2rem,5vw,2.8rem)">DOCS</h1>
+        <p class="pitch">
+          Start by running something. Read the architecture only when you are blocked on
+          internals — it is a reference, not an introduction.
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">START HERE</div>
+          <h2>From nothing to a game on screen</h2>
+        </div>
+        <div class="grid two">
+          <a class="card" href="./docs/getting-started.html">
+            <h3>Getting started</h3>
+            <div class="path">docs/getting-started.md</div>
+            <p>Tooling, installation, the commands that matter, running the examples, and
+              starting a project of your own.</p>
+          </a>
+          <a class="card" href="./docs/first-game.html">
+            <h3>Your first game</h3>
+            <div class="path">docs/first-game.md</div>
+            <p>A tiny playable loop — movement, a score, something to collect — with nothing
+              in it you will have to unlearn.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">TUTORIALS</div>
+          <h2>Four complete games, and why each number is what it is</h2>
+          <p class="lede">
+            Each of these builds a game in the repository from scratch, and each stops to
+            explain the mistakes that are easy to make and hard to see.
+          </p>
+        </div>
+        <div class="grid two">
+          <a class="card" href="./docs/tutorial-bounce.html">
+            <h3>Build a physics game</h3>
+            <div class="path">docs/tutorial-bounce.md</div>
+            <p>Hands a body to the engine's own physics with <code>usePhysics</code>, and
+              covers the two tuning mistakes — air control as a multiplier, buoyancy as a
+              force — that quietly break a bouncing game.</p>
+            <div class="tags"><span class="tag">examples/bounce-classic</span></div>
+          </a>
+          <a class="card" href="./docs/tutorial-bounce-3d.html">
+            <h3>Build a first-person game</h3>
+            <div class="path">docs/tutorial-bounce-3d.md</div>
+            <p>The same game from inside the ball: the raycaster's vertical axis — eye
+              height, horizon pitch, billboard elevation — and tuning a jump against a
+              ceiling rather than against gravity.</p>
+            <div class="tags"><span class="tag">examples/bounce-raycaster</span></div>
+          </a>
+          <a class="card" href="./docs/tutorial-cards.html">
+            <h3>Build a card game</h3>
+            <div class="path">docs/tutorial-cards.md</div>
+            <p>Builds a working game of War, and explains the split the four card games
+              use: rules as plain data with no engine imports, so a poker evaluator can be
+              tested without a browser.</p>
+            <div class="tags"><span class="tag">packages/cards</span></div>
+          </a>
+          <a class="card" href="./docs/tutorial-trex.html">
+            <h3>Walkthrough: T-Rex Runner</h3>
+            <div class="path">docs/tutorial-trex.md</div>
+            <p>An example-driven read through a finished endless runner: spawning, the
+              difficulty curve, and the restart loop.</p>
+            <div class="tags"><span class="tag">examples/trex-game</span></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">REFERENCE</div>
+          <h2>Internals, and how to contribute</h2>
+        </div>
+        <div class="grid two">
+          <a class="card" href="./docs/architecture.html">
+            <h3>Architecture</h3>
+            <div class="path">docs/architecture.md</div>
+            <p>The Rust core, the WebAssembly bindings, the TypeScript SDK, the runtime
+              targets and the editor — what each layer owns and what it does not.</p>
+          </a>
+          <a class="card" href="./docs/contributing.html">
+            <h3>Contributing</h3>
+            <div class="path">docs/contributing.md</div>
+            <p>Local validation commands, repository conventions, and what a change is
+              expected to come with.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">IN THE REPOSITORY</div>
+          <h2>Where things live</h2>
+        </div>
+        <div class="grid three">
+          <div class="card">
+            <h3>Engine core</h3>
+            <div class="path">crates/core/src</div>
+            <p>Framebuffer, ECS, renderer, raycaster, palettes, physics, pathfinding,
+              netcode.</p>
+          </div>
+          <div class="card">
+            <h3>TypeScript SDK</h3>
+            <div class="path">packages/sdk/src</div>
+            <p>The API you write games against, plus the built-in font and the WebAssembly
+              boot.</p>
+          </div>
+          <div class="card">
+            <h3>Card game layer</h3>
+            <div class="path">packages/cards/src</div>
+            <p>Deck, shoe, bankroll, generated card art and a pooled table renderer.</p>
+          </div>
+          <div class="card">
+            <h3>Cathode Studio</h3>
+            <div class="path">packages/studio/src</div>
+            <p>Scene tree, inspector, block language, pixel sprite editor, sound maker and
+              tile level designer.</p>
+          </div>
+          <div class="card">
+            <h3>Native runtime</h3>
+            <div class="path">crates/platform-native/src</div>
+            <p>A desktop window with a GPU blit, audio and gamepad support, running the same
+              core.</p>
+          </div>
+          <div class="card">
+            <h3>Headless checks</h3>
+            <div class="path">scripts/verify</div>
+            <p>Browser checks that assert what a unit test cannot: that a game boots, draws,
+              and answers a d-pad.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>
+        Cathode · Rust and WebAssembly ·
+        <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a>
+      </p>
+      <p>
+        These pages are generated from the markdown in <code>docs/</code> by
+        <code>npm run build:site</code>.
+      </p>
+    </div>
+  </footer>
+</body>
+
+</html>

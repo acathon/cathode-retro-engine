@@ -25,22 +25,36 @@ await s.key('ArrowRight');
 g = await s.state();
 check('the bet can be raised', g.bet > bet0, `${bet0} -> ${g.bet}`);
 
-const before = await s.state();
 await s.key('z');
 g = await s.state();
-check('the deal takes the stake', g.chips === before.chips - g.bet,
-  `chips ${before.chips} -> ${g.chips}, bet ${g.bet}`);
 check('two cards each', g.dealer.length === 2 && g.hands[0]?.cards === 2,
   `dealer ${g.dealer.length}, player ${g.hands[0]?.cards}`);
+check('the round starts', ['insurance', 'player', 'payout'].includes(g.phase), g.phase);
 await s.page.screenshot({ path: '/tmp/bj-deal.png' });
 
 if ((await s.state()).phase === 'insurance') await s.key('x');
 if ((await s.state()).phase === 'player') await s.key('x');
 g = await settle();
 check('standing reaches a payout', g.phase === 'payout', g.phase);
-check('the dealer draws to seventeen', g.dealerTotal >= 17 || g.dealerTotal === 0,
-  `dealer ${g.dealerTotal}`);
 await s.page.screenshot({ path: '/tmp/bj-settle.png' });
+
+/*
+ * The next two were assertions about a live deal, and both were wrong about
+ * one hand in twenty. A natural pays out inside the deal, so the stake is not
+ * simply gone from the stack; and a natural means the dealer never draws, so
+ * their total can be anything. Both are staged now: 10-8 against a dealer 11,
+ * which cannot be a blackjack either way.
+ */
+await s.call('stage', [[0, 4], [0, 5]], [[1, 9], [2, 7]], 100);
+await s.page.waitForTimeout(120);
+g = await s.state();
+check('the deal takes the stake', g.chips === 400 && g.atStake === 100,
+  `chips ${g.chips}, at stake ${g.atStake}`);
+
+await s.call('stand');
+g = await settle();
+check('the dealer draws to seventeen', g.dealerTotal >= 17,
+  `dealer 11 -> ${g.dealerTotal}`);
 
 // A staged blackjack must pay three to two: 100 staked returns 250.
 await s.call('stage', [[0, 9], [0, 6]], [[1, 0], [2, 12]], 100);

@@ -1,6 +1,8 @@
 use crate::assets::AssetStore;
 use crate::renderer::FrameBuffer;
 
+pub mod glyphs;
+
 pub struct BitmapFont {
     pub sheet_handle: u32,
     pub char_width: u32,

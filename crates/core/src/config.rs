@@ -6,6 +6,13 @@ pub enum HardwareProfile {
     Nes,
     GameBoy,
     NeoGeo,
+    /// VGA mode 13h: 320x200 in 256 colours, the shape of a DOS game.
+    ///
+    /// This models the *look*, not the machine. Producing a real MS-DOS
+    /// executable would mean a 16-bit target Rust does not have and a core
+    /// without `std`; what this gives you is the resolution, the refresh rate
+    /// and the palette, running wherever the engine already runs.
+    Dos,
     Custom,
 }
 
@@ -20,6 +27,7 @@ impl HardwareProfile {
             "nes" => Self::Nes,
             "gameboy" | "gb" | "dmg" => Self::GameBoy,
             "neogeo" => Self::NeoGeo,
+            "dos" | "vga" | "mode13h" | "mode13" => Self::Dos,
             _ => Self::Custom,
         }
     }
@@ -29,6 +37,7 @@ impl HardwareProfile {
             Self::Nes => "nes",
             Self::GameBoy => "gameboy",
             Self::NeoGeo => "neogeo",
+            Self::Dos => "dos",
             Self::Custom => "custom",
         }
     }
@@ -39,6 +48,7 @@ impl HardwareProfile {
             Self::Nes => Some((256, 240)),
             Self::GameBoy => Some((160, 144)),
             Self::NeoGeo => Some((320, 224)),
+            Self::Dos => Some((320, 200)),
             Self::Custom => None,
         }
     }
@@ -55,6 +65,9 @@ impl HardwareProfile {
             Self::Nes => Some(64),
             Self::GameBoy => Some(40),
             Self::NeoGeo => Some(380),
+            // VGA had no sprite hardware at all: everything was blitted by
+            // the CPU, so the budget was frame time rather than a count.
+            Self::Dos => None,
             Self::Custom => None,
         }
     }
@@ -65,6 +78,8 @@ impl HardwareProfile {
             Self::Nes => Some(5),
             Self::GameBoy => Some(4),
             Self::NeoGeo => Some(8),
+            // AdLib's OPL2, which is what a DOS game with music assumed.
+            Self::Dos => Some(9),
             Self::Custom => None,
         }
     }
@@ -122,6 +137,26 @@ impl EngineConfig {
         }
     }
 
+    /// VGA mode 13h, at its real 70 Hz refresh.
+    pub fn dos() -> Self {
+        Self {
+            width: 320,
+            height: 200,
+            // Mode 13h ran at 70 Hz, not 60. Games written for it are tuned
+            // to that, so it is the honest default; override it if a browser
+            // running at 60 makes the difference matter to you.
+            fps: 70,
+            audio_channels: 9,
+            sprite_limit: 0,
+            // A CRT running 320x200 stretched to 4:3 had no visible scanline
+            // gaps — the doubled lines filled them.
+            scanlines: false,
+            pixel_perfect: true,
+            profile: HardwareProfile::Dos,
+            title: "DOS Retro Game".to_string(),
+        }
+    }
+
     pub fn neogeo() -> Self {
         Self {
             width: 320,
@@ -133,6 +168,54 @@ impl EngineConfig {
             pixel_perfect: true,
             profile: HardwareProfile::NeoGeo,
             title: "NeoGeo Retro Game".to_string(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod dos_tests {
+    use super::*;
+
+    #[test]
+    fn dos_is_mode_13h() {
+        let config = EngineConfig::dos();
+        assert_eq!((config.width, config.height), (320, 200));
+        assert_eq!(config.profile, HardwareProfile::Dos);
+    }
+
+    #[test]
+    fn dos_runs_at_seventy_hertz() {
+        assert_eq!(EngineConfig::dos().fps, 70);
+    }
+
+    #[test]
+    fn dos_answers_to_the_names_people_type() {
+        for name in ["dos", "DOS", "vga", "mode13h", "mode-13h", "Mode 13"] {
+            assert_eq!(
+                HardwareProfile::from_name(name),
+                HardwareProfile::Dos,
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn dos_reports_no_sprite_budget() {
+        // VGA blitted in software; there was no sprite count to exceed.
+        assert_eq!(HardwareProfile::Dos.sprite_budget(), None);
+        assert_eq!(HardwareProfile::Dos.resolution(), Some((320, 200)));
+    }
+
+    #[test]
+    fn every_profile_round_trips_through_its_name() {
+        for profile in [
+            HardwareProfile::Nes,
+            HardwareProfile::GameBoy,
+            HardwareProfile::NeoGeo,
+            HardwareProfile::Dos,
+            HardwareProfile::Custom,
+        ] {
+            assert_eq!(HardwareProfile::from_name(profile.name()), profile);
         }
     }
 }

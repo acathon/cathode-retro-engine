@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build a card game — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html">Getting started</a>
+        <a href="./first-game.html">Your first game</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
+        <a href="./tutorial-cards.html" aria-current="page">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./architecture.html">Architecture</a>
+        <a href="./contributing.html">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Building a card game</h1>
+<p>Four of the examples are card games, and they share one small package. This
+walks through what is in it, how to build a fifth game on it, and the two
+design decisions that make the difference between a card game you can test and
+one you can only play.</p>
+<p>By the end you will have written a working game of War — the simplest card
+game there is — and will know where to put the interesting parts of a harder
+one.</p>
+<p><strong>Prerequisites:</strong> <a href="./getting-started.html">getting-started.md</a>. This assumes you
+have run an example.</p>
+<hr>
+<h2>1. The one decision that matters</h2>
+<p>Every card game here is split the same way:</p>
+<pre><code>src/
+  &lt;rules&gt;.ts    the game, as a value you push actions into — no engine imports
+  main.ts       the table: layout, input, drawing
+</code></pre>
+<p>That split is not tidiness. It is the reason a poker hand evaluator, a
+blackjack payout table and a gin rummy meld search are covered by 232 unit
+tests that run in under two seconds with no browser anywhere.</p>
+<p>The rule is simple and worth being strict about:</p>
+<blockquote>
+<p>The rules module may not import from <code>@cathode/sdk</code>.</p>
+</blockquote>
+<p>If it needs to know where a card is on screen, the split is in the wrong place.
+<code>main.ts</code> decides <em>which</em> move to ask for; the rules module decides whether it
+is legal and what it does.</p>
+<p>A useful shape for the rules module:</p>
+<pre><code class="language-ts">export interface Game { /* the whole position, as plain data */ }
+
+export function createGame(seed: number): Game;
+export function legalActions(game: Game): Legal;   // what may happen now
+export function act(game: Game, action: Action): boolean;  // false = illegal
+</code></pre>
+<p><code>act</code> returning <code>false</code> rather than throwing means &quot;did it move?&quot; and &quot;was it
+allowed?&quot; are the same question, which is exactly what a UI wants to ask.</p>
+<hr>
+<h2>2. What <code>@cathode/cards</code> gives you</h2>
+<pre><code class="language-ts">import {
+  Bankroll, CARD_SHEET_URL, CardTable, Shoe,
+  freshDeck, makeRng, shuffle, pokerRank, type Card,
+} from &#39;@cathode/cards&#39;;
+</code></pre>
+<h3>Cards</h3>
+<p>A <code>Card</code> is <code>{ suit, rank, faceUp }</code>. Rank runs 0–12 with the <strong>ace at 0</strong>,
+because that is the order the sprite sheet&#39;s columns are in. Every game wants
+something else, so the conversions live in the package rather than in four
+copies:</p>
+<pre><code class="language-ts">pokerRank(card)        // 2..14, ace high
+blackjackValues(card)  // [1, 11] for an ace, [10] for a court card
+</code></pre>
+<h3>Dealing</h3>
+<p><code>shuffle</code> is seeded, so a seed always deals the same game — which is what makes
+a failing test reproducible:</p>
+<pre><code class="language-ts">const deck = shuffle(freshDeck(), makeRng(seed));
+</code></pre>
+<p>For games that deal continuously, <code>Shoe</code> handles multiple decks and reshuffles
+at a penetration point, the way a casino shoe does:</p>
+<pre><code class="language-ts">const shoe = new Shoe(seed, 6);   // six decks
+const card = shoe.draw();         // reshuffles itself when it runs down
+</code></pre>
+<h3>Money</h3>
+<p><code>Bankroll</code> keeps wagers separate from the stack, and clamps an oversized bet to
+the stack rather than erroring — because betting more than you hold is not a
+mistake, it is going all in:</p>
+<pre><code class="language-ts">const bank = new Bankroll(500);
+bank.wager(1000);   // returns 500; that is what all in means
+bank.settle(0);     // a loss: nothing comes back
+bank.settle(bet);   // a push
+bank.settle(bet * 2);  // even money
+</code></pre>
+<h3>The table</h3>
+<p><code>CardTable</code> owns the sheets, the felt and the sprite pools:</p>
+<pre><code class="language-ts">const table = await CardTable.create(engine, scene, {
+  cardsUrl: CARD_SHEET_URL,
+  width: SCREEN_W,
+  height: SCREEN_H,
+});
+</code></pre>
+<p>Then, once per frame, a draw list:</p>
+<pre><code class="language-ts">table.begin();
+hand.forEach((card, i) =&gt; table.card(card, x + i * 24, y));
+table.marker(&#39;cursor&#39;, x + selected * 24, y);
+table.chips(pot, 200, 150);
+table.end();      // hides whatever the frame did not claim
+</code></pre>
+<p>Sprites are handed out in call order and layered in call order, so a card drawn
+later overlaps one drawn earlier — the same rule as a real table. Pools grow to
+the frame&#39;s busiest moment and are never rebuilt, so nothing allocates in the
+loop.</p>
+<hr>
+<h2>3. Pick a screen, not a console</h2>
+<p>A playing card is 58 × 80 pixels. Seven columns of them do not fit on a Game
+Boy, and neither do four hands and a five-card board:</p>
+<pre><code class="language-ts">const engine = await Cathode.custom(canvas, {
+  width: 464, height: 416, fps: 60, audio_channels: 4,
+  sprite_limit: 0,          // 0 is unlimited
+  scanlines: false, pixel_perfect: true,
+  profile: &#39;Custom&#39;, title: &#39;My Card Game&#39;,
+} as never, 2);
+</code></pre>
+<p>Two things there are worth pausing on.</p>
+<p><strong><code>sprite_limit: 0</code>.</strong> The console presets carry real sprite budgets, and a
+full solitaire tableau is 52 cards plus overlays — well past all of them. Caps
+are not enforced at run time; you set one when you <em>want</em> a console&#39;s
+constraint back, and check against a target at export instead.</p>
+<p><strong>The screen size is yours.</strong> Each card game here picks a different one: 464 ×
+416 for solitaire, 464 × 360 for blackjack, 560 × 400 for four-handed poker.
+Padding a game out to a console&#39;s aspect ratio only adds empty felt.</p>
+<hr>
+<h2>4. Writing one: War</h2>
+<p>War has no decisions in it, which makes it a good first target — you can get
+the whole loop working before thinking about rules.</p>
+<h3>The rules module</h3>
+<p><code>src/war.ts</code>, with no engine imports:</p>
+<pre><code class="language-ts">import { freshDeck, makeRng, pokerRank, shuffle, type Card } from &#39;@cathode/cards&#39;;
+
+export interface Game {
+  hands: [Card[], Card[]];
+  /** Cards face up on the table this turn. */
+  table: [Card[], Card[]];
+  winner: number;     // -1 while nobody has won
+  turns: number;
+}
+
+export function createGame(seed: number): Game {
+  const deck = shuffle(freshDeck(true), makeRng(seed));
+  return {
+    hands: [deck.slice(0, 26), deck.slice(26)],
+    table: [[], []],
+    winner: -1,
+    turns: 0,
+  };
+}
+
+/**
+ * Play one turn. Returns false when the game is already over.
+ *
+ * A tie puts three cards face down and turns a fourth — the &quot;war&quot; the game is
+ * named for — and the winner takes everything on the table.
+ */
+export function playTurn(game: Game): boolean {
+  if (game.winner &gt;= 0) return false;
+
+  game.table = [[], []];
+  let contested = true;
+
+  while (contested) {
+    for (const seat of [0, 1]) {
+      const card = game.hands[seat].shift();
+      if (!card) { game.winner = 1 - seat; return true; }
+      game.table[seat].push(card);
+    }
+
+    const a = game.table[0][game.table[0].length - 1];
+    const b = game.table[1][game.table[1].length - 1];
+
+    if (pokerRank(a) === pokerRank(b)) {
+      // Three down each, then turn again.
+      for (const seat of [0, 1]) {
+        for (let i = 0; i &lt; 3; i++) {
+          const card = game.hands[seat].shift();
+          if (card) game.table[seat].push(card);
+        }
+      }
+    } else {
+      const winner = pokerRank(a) &gt; pokerRank(b) ? 0 : 1;
+      game.hands[winner].push(...game.table[0], ...game.table[1]);
+      contested = false;
+    }
+  }
+
+  game.turns++;
+  if (!game.hands[0].length) game.winner = 1;
+  if (!game.hands[1].length) game.winner = 0;
+  return true;
+}
+</code></pre>
+<h3>The tests, before the pixels</h3>
+<pre><code class="language-ts">import { describe, expect, it } from &#39;vitest&#39;;
+import { createGame, playTurn } from &#39;../src/war&#39;;
+
+describe(&#39;war&#39;, () =&gt; {
+  it(&#39;deals twenty-six each&#39;, () =&gt; {
+    const g = createGame(1);
+    expect(g.hands[0]).toHaveLength(26);
+    expect(g.hands[1]).toHaveLength(26);
+  });
+
+  it(&#39;never loses or invents a card&#39;, () =&gt; {
+    const g = createGame(7);
+    for (let i = 0; i &lt; 500 &amp;&amp; g.winner &lt; 0; i++) playTurn(g);
+    const all = [...g.hands[0], ...g.hands[1], ...g.table[0], ...g.table[1]];
+    expect(new Set(all.map((c) =&gt; `${c.suit}:${c.rank}`)).size).toBe(52);
+  });
+
+  it(&#39;ends with somebody holding everything&#39;, () =&gt; {
+    const g = createGame(3);
+    for (let i = 0; i &lt; 5000 &amp;&amp; g.winner &lt; 0; i++) playTurn(g);
+    if (g.winner &gt;= 0) expect(g.hands[g.winner].length).toBeGreaterThan(0);
+  });
+});
+</code></pre>
+<p>That second test — <em>never loses or invents a card</em> — is the single most
+valuable test in any card game. Write it first. It catches every splice
+off-by-one you are going to make.</p>
+<h3>The table</h3>
+<pre><code class="language-ts">const table = await CardTable.create(engine, scene, {
+  cardsUrl: CARD_SHEET_URL, width: SCREEN_W, height: SCREEN_H,
+});
+
+engine.loop((dt) =&gt; {
+  scene.update(dt);
+  if (engine.input.justPressed(0, &#39;a&#39;)) playTurn(game);
+
+  table.begin();
+  // Two decks, face down, and whatever is face up between them.
+  if (game.hands[0].length) table.back(60, 40);
+  if (game.hands[1].length) table.back(60, 240);
+  game.table[0].forEach((c, i) =&gt; table.face(c, 200 + i * 18, 40));
+  game.table[1].forEach((c, i) =&gt; table.face(c, 200 + i * 18, 240));
+  table.end();
+
+  font.draw(`${game.hands[0].length} v ${game.hands[1].length}`, 8, 8, 1);
+});
+</code></pre>
+<p>That is a complete game. Everything harder is more rules, not more drawing.</p>
+<hr>
+<h2>5. Where the hard parts go</h2>
+<p>The three non-trivial card games here each put their difficulty in one pure,
+testable module. If you are writing something similar, copy the shape:</p>
+<table>
+<thead>
+<tr>
+<th>Game</th>
+<th>The hard part</th>
+<th>Where it lives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Blackjack</td>
+<td>Soft/hard aces, and the S17/H17 rule that turns on them</td>
+<td><code>handValue</code> returns <code>{ total, soft }</code> — the <em>hand</em> knows, not the card</td>
+</tr>
+<tr>
+<td>Hold&#39;em</td>
+<td>Best five of seven</td>
+<td><code>evaluate</code> scores all twenty-one subsets and takes the max</td>
+</tr>
+<tr>
+<td>Gin rummy</td>
+<td>Which arrangement of melds leaves least behind</td>
+<td><code>bestArrangement</code> searches, memoised on which cards are used</td>
+</tr>
+</tbody></table>
+<p>Two of those look expensive and are not. Twenty-one five-card scores per hand
+is nothing at four players; a gin rummy hand yields a few dozen candidate melds
+and the search is milliseconds. <strong>Reach for the exhaustive version first.</strong> The
+score a player sees is then the score, not an estimate they can beat by
+rearranging their own cards by hand — and you will not spend an evening
+wondering whether a greedy solver was wrong or the rules were.</p>
+<hr>
+<h2>6. Art</h2>
+<p><code>CardTable</code> prefers the sheet you give it and falls back to a deck it draws
+itself if that fails to load:</p>
+<pre><code class="language-ts">table.deckSource   // &#39;playing_cards.png&#39; or &#39;generated deck&#39;
+</code></pre>
+<p>The generated deck lives in <code>packages/cards/src/sheet.ts</code> — a complete 52 cards
+in about 250 lines of pixel arithmetic, which is worth reading if you have ever
+assumed you need an artist to start. It is also why the card games have two
+paths worth testing, and why <code>scripts/verify/</code> exercises both.</p>
+<p>To use a different sheet, keep the geometry: <strong>15 columns by 4 rows of 58 × 80
+cells</strong>, backs in column 0, ace through king in columns 1–13.
+<code>packages/cards/src/geometry.ts</code> holds those numbers.</p>
+<p>See <a href="https://github.com/acathon/retor-engine/blob/main/ASSETS.md">ASSETS.md</a> for the licence on the art that ships here.</p>
+<hr>
+<h2>7. Checking it works</h2>
+<p>Unit tests cover the rules. For the table itself, <code>scripts/verify/</code> drives a
+real browser against the dev server and asserts what a unit test cannot — that
+the game boots, draws, and answers a d-pad:</p>
+<pre><code class="language-bash">npm i -D --no-save playwright@1.47.2
+cd examples/my-card-game &amp;&amp; npx vite --port 3019 &amp;
+node scripts/verify/my-card-game.mjs --port 3019
+</code></pre>
+<p>Expose a <code>window.__mygame</code> hook with a <code>state()</code> function and whatever else
+lets a check reach a position quickly — <code>stageAlmostWon()</code> in the solitaire,
+<code>autoPlay()</code> in the others. Reaching a rare branch by pressing keys for two
+minutes is not a test, it is a wait.</p>
+<hr>
+<h2>Next</h2>
+<ul>
+<li><a href="https://github.com/acathon/retor-engine/blob/main/packages/cards/README.md"><code>packages/cards/README.md</code></a> — the API in full</li>
+<li><a href="https://github.com/acathon/retor-engine/blob/main/examples/gin-rummy"><code>examples/gin-rummy</code></a> — the most interesting rules module of the four</li>
+<li><a href="https://github.com/acathon/retor-engine/blob/main/examples/holdem"><code>examples/holdem</code></a> — the evaluator, side pots, and opponents</li>
+<li><a href="./tutorial-bounce.html">tutorial-bounce.md</a> — the same treatment for a physics game</li>
+</ul>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/retor-engine/blob/main/docs/tutorial-cards.md">docs/tutorial-cards.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>
