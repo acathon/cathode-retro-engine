@@ -211,6 +211,19 @@ though the output is WebAssembly. Either install the Visual Studio C++ build
 tools (see <a href="#changing-the-engine-itself">Changing The Engine Itself</a>), or skip
 the build entirely — the compiled engine is already in the repository, and
 <code>npm install</code> is enough to run every example.</p>
+<h3><code>Cannot find module @rollup/rollup-win32-x64-msvc</code> (or <code>@esbuild/...</code>)</h3>
+<p>Rollup and esbuild ship their native binary as one optional dependency per
+platform. If <code>package-lock.json</code> was generated without the entry for yours, npm
+cannot install it, and npm&#39;s own error blames a bug in npm and tells you to
+delete your lockfile.</p>
+<p>Deleting it is not the fix here -- the lockfile in this repository lists every
+platform, so first make sure you are up to date with <code>main</code>:</p>
+<pre><code class="language-bash">git pull
+rm -rf node_modules
+npm install
+</code></pre>
+<p><code>node scripts/check-lockfile-portable.mjs</code> reports whether the lockfile covers
+Windows, macOS and Linux; CI runs it on every push.</p>
 <h3><code>Failed to load cathode-platform-web WASM module</code> in the browser</h3>
 <p>The package is not linked into <code>node_modules</code>. Re-run <code>npm install</code>, and check
 that <code>packages/sdk/wasm/cathode_platform_web_bg.wasm</code> exists.</p>
