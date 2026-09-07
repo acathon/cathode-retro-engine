@@ -15,13 +15,15 @@ If your goal is to build a tiny game step by step, continue with [first-game.md]
 
 ## Prerequisites
 
-Install these tools first:
+To build games, one tool:
 
 | Tool | Why you need it |
 | --- | --- |
-| Rust stable | Builds the engine core and native runtime |
-| wasm-pack | Builds the web bindings used by the SDK |
-| Bun 1.x | Installs workspace dependencies and runs the web projects |
+| Node.js 20+, or Bun 1.x | Installs dependencies and runs the web projects |
+
+That is the whole list. The engine's WebAssembly build is committed to the
+repository at `packages/sdk/wasm`, so you do not need Rust, wasm-pack, or a C++
+toolchain to run an example, build a game, or ship one.
 
 Optional but useful:
 
@@ -32,25 +34,14 @@ Optional but useful:
 ## Clone And Install
 
 ```bash
-git clone https://github.com/acathon/retor-engine.git
-cd retor-engine
-bun install
+git clone https://github.com/acathon/cathode-retro-engine.git
+cd cathode-retro-engine
+npm install          # or: bun install
 ```
 
-## Build The Shared Engine Pieces
-
-Examples depend on the web bindings and SDK package being available.
-
-```bash
-bun run build:wasm
-bun run build:sdk
-```
-
-If you are modifying the CLI as well:
-
-```bash
-bun run build:cli
-```
+There is no build step here. `npm install` links the committed engine into
+`packages/sdk/node_modules/cathode-platform-web`, and the SDK is consumed as
+TypeScript source, so Vite compiles both on demand.
 
 ## Run A Known-Good Example
 
@@ -58,7 +49,7 @@ Start with a small example before creating a new project.
 
 ```bash
 cd examples/trex-game
-bun dev
+npm run dev          # or: bun dev
 ```
 
 Other good entry points:
@@ -98,6 +89,52 @@ bun install
 bun dev
 ```
 
+## Changing The Engine Itself
+
+Everything above works without Rust. This section is for editing the engine
+under `crates/` — the core, the web bindings, or the native runtime.
+
+| Tool | Why you need it |
+| --- | --- |
+| [Rust stable](https://rustup.rs/) | Compiles the engine |
+| [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) | Produces the web build |
+| A host C/C++ linker | Rust needs one even for a WebAssembly build |
+
+That last row surprises people. `wasm-pack build` targets
+`wasm32-unknown-unknown`, but Cargo still compiles build scripts and procedural
+macros — `serde`, `quote`, `wasm-bindgen-shared` — **for your own machine**, and
+linking those needs a native linker.
+
+- **Windows** — install [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/)
+  and tick the *Desktop development with C++* workload. VS Code is a different
+  product and is not sufficient. Without it the build stops at
+  `error: linker 'link.exe' not found`.
+- **macOS** — `xcode-select --install`.
+- **Debian/Ubuntu** — `sudo apt install build-essential`. The native runtime
+  additionally needs `libasound2-dev libudev-dev libdbus-1-dev pkg-config`.
+
+Then rebuild the committed engine and commit the result:
+
+```bash
+npm run build:wasm
+git add packages/sdk/wasm
+```
+
+The build output is checked in on purpose, which means it can fall behind the
+code it came from. CI rebuilds it and fails if the generated bindings no longer
+match the Rust source; you can run the same check yourself:
+
+```bash
+node scripts/check-wasm-current.mjs
+```
+
+To validate the Rust without producing a web build:
+
+```bash
+cargo test --workspace
+cargo check -p cathode-platform-web --target wasm32-unknown-unknown
+```
+
 ## What To Read Next
 
 Once you have a project or example running:
@@ -130,18 +167,44 @@ cargo check -p cathode-platform-web --target wasm32-unknown-unknown
 
 ## Troubleshooting
 
-### `cathode-platform-web` or WASM import errors
+### `Could not find package.json for ... dependency "cathode-platform-web"`
 
-Rebuild the web bindings and SDK:
+The committed engine build is missing from your checkout. It lives at
+`packages/sdk/wasm` and is tracked by git, so restore it:
 
 ```bash
-bun run build:wasm
-bun run build:sdk
+git checkout -- packages/sdk/wasm
 ```
+
+If you are on a clone from before that directory was committed, pull `main`.
+npm fails more quietly than Bun here: it prints no error and simply leaves the
+package unlinked, and the game then fails in the browser with
+`Failed to load cathode-platform-web WASM module`.
+
+### `error: linker 'link.exe' not found` on Windows
+
+You are building the engine from source, which needs a native C++ linker even
+though the output is WebAssembly. Either install the Visual Studio C++ build
+tools (see [Changing The Engine Itself](#changing-the-engine-itself)), or skip
+the build entirely — the compiled engine is already in the repository, and
+`npm install` is enough to run every example.
+
+### `Failed to load cathode-platform-web WASM module` in the browser
+
+The package is not linked into `node_modules`. Re-run `npm install`, and check
+that `packages/sdk/wasm/cathode_platform_web_bg.wasm` exists.
 
 ### An example builds but shows stale behavior
 
-You may be using older generated bindings or cached browser assets. Rebuild the shared packages, then restart the example dev server.
+Vite caches aggressively across dependency changes. Clear its cache and restart
+the dev server:
+
+```bash
+rm -rf node_modules/.vite
+```
+
+If you changed Rust, remember that examples use the *committed* build — run
+`npm run build:wasm` to regenerate it.
 
 ### CLI command not found
 

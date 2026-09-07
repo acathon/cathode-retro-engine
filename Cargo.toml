@@ -12,7 +12,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Cathode Contributors"]
 description = "A modern game engine with the look and feel of NES / Game Boy / NeoGeo games."
-repository = "https://github.com/acathon/retor-engine"
+repository = "https://github.com/acathon/cathode-retro-engine"
 license = "MIT"
 
 [workspace.dependencies]
@@ -22,3 +22,12 @@ serde_json = "1.0"
 thiserror = "1.0"
 glam = { version = "0.27", features = ["serde"] }
 hecs = "0.10"
+
+# The web build ships as a committed artifact in packages/sdk/wasm, so its size
+# is a repository cost, not just a download. wasm-opt is unavailable here (see
+# crates/platform-web/Cargo.toml), which leaves link-time optimisation and
+# symbol stripping to do that work in rustc instead.
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

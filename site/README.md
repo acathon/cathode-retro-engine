@@ -32,6 +32,16 @@ copies them under `site/dist/games/<name>/`, and rewrites the gallery links to
 match. The result is a directory you can drop on any static host — no server
 build step, no configuration. `site/dist/` is gitignored.
 
+## Publishing
+
+`.github/workflows/deploy.yml` runs `npm run build:dist` on every push to
+`main` and publishes `site/dist/` to GitHub Pages. It installs Node and nothing
+else: the web engine is committed at `packages/sdk/wasm`, so the published site
+is built from the same artifact a contributor gets from a plain clone.
+
+Games are built with a relative base, so the bundle works unchanged whether it
+is served from a domain root or from `/cathode-retro-engine/`.
+
 ## Editing
 
 - **Prose in the docs pages** — edit the markdown in `docs/`, then run
@@ -55,3 +65,17 @@ node scripts/verify/site.mjs --port 3021
 That asserts every page renders without horizontal overflow, every internal
 link resolves, and — the part that matters — every game actually boots rather
 than merely returning a 200.
+
+The dev server is not what visitors get, though, so check the published bundle
+too. This one serves `site/dist` from a dumb file server under `/cathode-retro-engine/`,
+the way GitHub Pages does:
+
+```bash
+npm run build:dist
+node scripts/verify/dist.mjs
+```
+
+It catches the two failures a dev server hides: a path that only resolves at
+the repository root, and a link that escapes the site root. The published
+`index.html` was once a redirect to `../site/games.html` — a fine link in a
+checkout, a 404 on every host.

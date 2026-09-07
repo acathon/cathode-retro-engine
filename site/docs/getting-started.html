@@ -15,7 +15,7 @@
       <a href="../index.html">Overview</a>
       <a href="../games.html">Games</a>
       <a href="../docs.html" aria-current="page">Docs</a>
-      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+      <a href="https://github.com/acathon/cathode-retro-engine">GitHub</a>
     </div>
   </nav>
 
@@ -47,7 +47,7 @@
 </ul>
 <p>If your goal is to build a tiny game step by step, continue with <a href="./first-game.html">first-game.md</a> after finishing this page.</p>
 <h2>Prerequisites</h2>
-<p>Install these tools first:</p>
+<p>To build games, one tool:</p>
 <table>
 <thead>
 <tr>
@@ -56,18 +56,13 @@
 </tr>
 </thead>
 <tbody><tr>
-<td>Rust stable</td>
-<td>Builds the engine core and native runtime</td>
-</tr>
-<tr>
-<td>wasm-pack</td>
-<td>Builds the web bindings used by the SDK</td>
-</tr>
-<tr>
-<td>Bun 1.x</td>
-<td>Installs workspace dependencies and runs the web projects</td>
+<td>Node.js 20+, or Bun 1.x</td>
+<td>Installs dependencies and runs the web projects</td>
 </tr>
 </tbody></table>
+<p>That is the whole list. The engine&#39;s WebAssembly build is committed to the
+repository at <code>packages/sdk/wasm</code>, so you do not need Rust, wasm-pack, or a C++
+toolchain to run an example, build a game, or ship one.</p>
 <p>Optional but useful:</p>
 <ul>
 <li>Git for cloning and updating the repository</li>
@@ -75,22 +70,17 @@
 <li>VS Code if you want to work on the TypeScript and Rust code together</li>
 </ul>
 <h2>Clone And Install</h2>
-<pre><code class="language-bash">git clone https://github.com/acathon/retor-engine.git
-cd retor-engine
-bun install
+<pre><code class="language-bash">git clone https://github.com/acathon/cathode-retro-engine.git
+cd cathode-retro-engine
+npm install          # or: bun install
 </code></pre>
-<h2>Build The Shared Engine Pieces</h2>
-<p>Examples depend on the web bindings and SDK package being available.</p>
-<pre><code class="language-bash">bun run build:wasm
-bun run build:sdk
-</code></pre>
-<p>If you are modifying the CLI as well:</p>
-<pre><code class="language-bash">bun run build:cli
-</code></pre>
+<p>There is no build step here. <code>npm install</code> links the committed engine into
+<code>packages/sdk/node_modules/cathode-platform-web</code>, and the SDK is consumed as
+TypeScript source, so Vite compiles both on demand.</p>
 <h2>Run A Known-Good Example</h2>
 <p>Start with a small example before creating a new project.</p>
 <pre><code class="language-bash">cd examples/trex-game
-bun dev
+npm run dev          # or: bun dev
 </code></pre>
 <p>Other good entry points:</p>
 <table>
@@ -137,6 +127,55 @@ node packages/cli/dist/index.js new my-first-game --template default
 bun install
 bun dev
 </code></pre>
+<h2>Changing The Engine Itself</h2>
+<p>Everything above works without Rust. This section is for editing the engine
+under <code>crates/</code> — the core, the web bindings, or the native runtime.</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Why you need it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://rustup.rs/">Rust stable</a></td>
+<td>Compiles the engine</td>
+</tr>
+<tr>
+<td><a href="https://rustwasm.github.io/wasm-pack/installer/">wasm-pack</a></td>
+<td>Produces the web build</td>
+</tr>
+<tr>
+<td>A host C/C++ linker</td>
+<td>Rust needs one even for a WebAssembly build</td>
+</tr>
+</tbody></table>
+<p>That last row surprises people. <code>wasm-pack build</code> targets
+<code>wasm32-unknown-unknown</code>, but Cargo still compiles build scripts and procedural
+macros — <code>serde</code>, <code>quote</code>, <code>wasm-bindgen-shared</code> — <strong>for your own machine</strong>, and
+linking those needs a native linker.</p>
+<ul>
+<li><strong>Windows</strong> — install <a href="https://visualstudio.microsoft.com/downloads/">Build Tools for Visual Studio</a>
+and tick the <em>Desktop development with C++</em> workload. VS Code is a different
+product and is not sufficient. Without it the build stops at
+<code>error: linker &#39;link.exe&#39; not found</code>.</li>
+<li><strong>macOS</strong> — <code>xcode-select --install</code>.</li>
+<li><strong>Debian/Ubuntu</strong> — <code>sudo apt install build-essential</code>. The native runtime
+additionally needs <code>libasound2-dev libudev-dev libdbus-1-dev pkg-config</code>.</li>
+</ul>
+<p>Then rebuild the committed engine and commit the result:</p>
+<pre><code class="language-bash">npm run build:wasm
+git add packages/sdk/wasm
+</code></pre>
+<p>The build output is checked in on purpose, which means it can fall behind the
+code it came from. CI rebuilds it and fails if the generated bindings no longer
+match the Rust source; you can run the same check yourself:</p>
+<pre><code class="language-bash">node scripts/check-wasm-current.mjs
+</code></pre>
+<p>To validate the Rust without producing a web build:</p>
+<pre><code class="language-bash">cargo test --workspace
+cargo check -p cathode-platform-web --target wasm32-unknown-unknown
+</code></pre>
 <h2>What To Read Next</h2>
 <p>Once you have a project or example running:</p>
 <ol>
@@ -157,13 +196,31 @@ bun run build
 cargo check -p cathode-platform-web --target wasm32-unknown-unknown
 </code></pre>
 <h2>Troubleshooting</h2>
-<h3><code>cathode-platform-web</code> or WASM import errors</h3>
-<p>Rebuild the web bindings and SDK:</p>
-<pre><code class="language-bash">bun run build:wasm
-bun run build:sdk
+<h3><code>Could not find package.json for ... dependency &quot;cathode-platform-web&quot;</code></h3>
+<p>The committed engine build is missing from your checkout. It lives at
+<code>packages/sdk/wasm</code> and is tracked by git, so restore it:</p>
+<pre><code class="language-bash">git checkout -- packages/sdk/wasm
 </code></pre>
+<p>If you are on a clone from before that directory was committed, pull <code>main</code>.
+npm fails more quietly than Bun here: it prints no error and simply leaves the
+package unlinked, and the game then fails in the browser with
+<code>Failed to load cathode-platform-web WASM module</code>.</p>
+<h3><code>error: linker &#39;link.exe&#39; not found</code> on Windows</h3>
+<p>You are building the engine from source, which needs a native C++ linker even
+though the output is WebAssembly. Either install the Visual Studio C++ build
+tools (see <a href="#changing-the-engine-itself">Changing The Engine Itself</a>), or skip
+the build entirely — the compiled engine is already in the repository, and
+<code>npm install</code> is enough to run every example.</p>
+<h3><code>Failed to load cathode-platform-web WASM module</code> in the browser</h3>
+<p>The package is not linked into <code>node_modules</code>. Re-run <code>npm install</code>, and check
+that <code>packages/sdk/wasm/cathode_platform_web_bg.wasm</code> exists.</p>
 <h3>An example builds but shows stale behavior</h3>
-<p>You may be using older generated bindings or cached browser assets. Rebuild the shared packages, then restart the example dev server.</p>
+<p>Vite caches aggressively across dependency changes. Clear its cache and restart
+the dev server:</p>
+<pre><code class="language-bash">rm -rf node_modules/.vite
+</code></pre>
+<p>If you changed Rust, remember that examples use the <em>committed</em> build — run
+<code>npm run build:wasm</code> to regenerate it.</p>
 <h3>CLI command not found</h3>
 <p>Build the CLI first:</p>
 <pre><code class="language-bash">bun run build:cli
@@ -171,14 +228,14 @@ bun run build:sdk
 <p>Then invoke it from <code>packages/cli/dist/index.js</code> inside the monorepo, or install the package in a separate project once published.</p>
 
       <p class="doc-foot">
-        Edit this page: <a href="https://github.com/acathon/retor-engine/blob/main/docs/getting-started.md">docs/getting-started.md</a>
+        Edit this page: <a href="https://github.com/acathon/cathode-retro-engine/blob/main/docs/getting-started.md">docs/getting-started.md</a>
       </p>
     </article>
   </div>
 
   <footer>
     <div class="wrap">
-      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+      <p>Cathode · <a href="https://github.com/acathon/cathode-retro-engine">github.com/acathon/cathode-retro-engine</a></p>
     </div>
   </footer>
 </body>

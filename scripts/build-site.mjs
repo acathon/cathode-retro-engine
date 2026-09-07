@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { marked } from 'marked';
 
-const REPO = 'https://github.com/acathon/retor-engine/blob/main';
+const REPO = 'https://github.com/acathon/cathode-retro-engine/blob/main';
 const DOCS = 'docs';
 const OUT = 'site/docs';
 
@@ -130,7 +130,7 @@ function page(slug, body) {
       <a href="../index.html">Overview</a>
       <a href="../games.html">Games</a>
       <a href="../docs.html" aria-current="page">Docs</a>
-      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+      <a href="https://github.com/acathon/cathode-retro-engine">GitHub</a>
     </div>
   </nav>
 
@@ -149,7 +149,7 @@ ${body}
 
   <footer>
     <div class="wrap">
-      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+      <p>Cathode · <a href="https://github.com/acathon/cathode-retro-engine">github.com/acathon/cathode-retro-engine</a></p>
     </div>
   </footer>
 </body>

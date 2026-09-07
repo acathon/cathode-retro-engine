@@ -46,49 +46,50 @@ jobs:
       - name: Run Tests
         run: cargo test --workspace
 
+  # `packages/sdk/wasm` is a build artifact that is checked in on purpose, so a
+  # clone runs without a Rust toolchain. This rebuilds it and fails if the
+  # committed bindings no longer match the Rust source -- the one way a
+  # committed artifact can go quietly wrong.
   wasm:
-    name: Build WASM
+    name: Committed WASM Is Current
     runs-on: ubuntu-latest
     needs: rust
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-          
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-        
-      - name: Build WASM
-        run: wasm-pack build crates/platform-web --out-dir ../../packages/sdk/wasm --target web
-        
-      - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sdk-wasm
-          path: packages/sdk/wasm/
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Compare the committed build against the Rust source
+        run: node scripts/check-wasm-current.mjs
+
+  # Deliberately independent of the `wasm` job: this is the contributor who has
+  # only Node installed, building from a plain clone with the committed engine.
   typescript:
     name: TypeScript Build
     runs-on: ubuntu-latest
-    needs: wasm
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          
-      - name: Download WASM artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: sdk-wasm
-          path: packages/sdk/wasm/
-          
+
       - name: Install dependencies
         run: npm ci
         
@@ -107,6 +108,6 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    needs: typescript
+    needs: [wasm, typescript]
     steps:
       - run: echo "Placeholder for release job"
