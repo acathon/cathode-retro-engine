@@ -2,6 +2,11 @@
 
 This folder is the documentation map for Cathode. Use it as the table of contents for the repository.
 
+These pages are also rendered as a website: `npm run build:site` turns every
+`.md` here into a styled page under `site/docs/`, and
+[`site/docs.html`](../site/docs.html) is the hub. Edit the markdown, not the
+generated HTML.
+
 ## Fastest Paths
 
 | If you want to... | Read this first |
@@ -81,6 +86,7 @@ Community contribution expectations, local validation commands, and repo convent
 | Cathode Studio | `packages/studio/src` |
 | Card game layer | `packages/cards/src` |
 | Headless game checks | `scripts/verify` |
+| Project website | `site` |
 
 ## Recommended Learning Strategy
 

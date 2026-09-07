@@ -1,4 +1,4 @@
-export type Preset = "gameboy" | "nes" | "neogeo" | "custom";
+export type Preset = "gameboy" | "nes" | "neogeo" | "dos" | "custom";
 
 export type Resolution = { width: number; height: number };
 

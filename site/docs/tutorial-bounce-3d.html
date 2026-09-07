@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build a first-person game — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html">Getting started</a>
+        <a href="./first-game.html">Your first game</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html" aria-current="page">Build a first-person game</a>
+        <a href="./tutorial-cards.html">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./architecture.html">Architecture</a>
+        <a href="./contributing.html">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Tutorial: Bounce, From Inside the Ball</h1>
+<p>This tutorial builds <strong>Bounce 3D</strong> — the same game as
+<a href="./tutorial-bounce.html">tutorial-bounce.md</a>, played from inside the bouncing
+ball. The finished source is <code>examples/bounce-raycaster</code>.</p>
+<p>Build the 2D version first. The rules are identical, and this tutorial is
+about the one thing that changes: with no side-on view, the player cannot
+<em>see</em> the arc, so the arc has to be felt.</p>
+<p><strong>What you will learn</strong></p>
+<ul>
+<li>how to drive the raycaster&#39;s vertical axis: <code>setEyeHeight</code> and <code>setPitch</code></li>
+<li>how billboard elevation turns a sprite into a puzzle</li>
+<li>why a first-person body needs <code>slide</code> and not <code>setPos</code></li>
+<li>how to tune a jump against a ceiling instead of against gravity</li>
+</ul>
+<p><strong>Before you start:</strong></p>
+<pre><code class="language-bash">bun run build:wasm &amp;&amp; bun run build:sdk
+cd examples/bounce-raycaster &amp;&amp; bun dev
+</code></pre>
+<hr>
+<h2>1. What a raycaster can and cannot do</h2>
+<p>The engine&#39;s raycaster is a Wolfenstein-class renderer: it walks one ray per
+screen column through a grid of cells and draws the wall it hits. There is no
+floor geometry and no notion of standing on anything — the world is flat, and
+every wall runs from floor to ceiling.</p>
+<p>So a bouncing ball cannot be simulated by the physics step here, the way it
+is in the 2D version. There is exactly one floor, at zero, and you integrate
+the height yourself:</p>
+<pre><code class="language-typescript">const GRAVITY = 3.4;        // cells/s²
+const BOUNCE_SPEED = 1.3;   // cells/s, every landing
+const CHARGE_SPEED = 2.0;   // cells/s, fully wound up
+const CEILING = 0.66;
+
+let height = 0;             // cells above the floor
+let rise = 0;               // cells per second
+</code></pre>
+<p>Everything is in <strong>cells</strong>, not pixels: the raycaster&#39;s world unit is one map
+cell, and heights run 0 (floor) to 1 (ceiling).</p>
+<h2>2. The arena</h2>
+<p>Same idea as the 2D level — one string per row — but the characters mean
+cells rather than tiles:</p>
+<pre><code class="language-typescript">const MAP = [
+  &#39;####################&#39;,
+  &#39;#P.......|.........#&#39;,
+  &#39;#..O..#..|....Q....#&#39;,
+  //  ...
+];
+</code></pre>
+<p><code>#</code> and <code>|</code> are solid, <code>~</code> is water, <code>^</code> a spike, <code>O</code> and <code>Q</code> rings at two
+different heights, <code>P</code> the start. Only the solid characters go into the
+raycast map:</p>
+<pre><code class="language-typescript">function wallAt(col: number, row: number): number {
+  switch (charAt(col, row)) {
+    case &#39;#&#39;: return W_WALL;
+    case &#39;|&#39;: return W_GLASS;
+    case &#39;X&#39;: return W_EXIT;
+    default:  return 0;      // everything else is walkable
+  }
+}
+
+const rc = new Raycaster(engine, { cols: COLS, rows: ROWS, cells });
+</code></pre>
+<p>Wall types are 1-based here too: type <em>N</em> draws texture <em>N−1</em>.</p>
+<h2>3. Moving a body, not a camera</h2>
+<p>The obvious way to move is to compute a new position and call <code>setPos</code>. It
+works and it feels wrong: the raycaster&#39;s camera is a <em>point</em>, so it slips
+diagonally through the corner where two walls meet — a gap no ball could fit
+through.</p>
+<p>Move a body with width instead:</p>
+<pre><code class="language-typescript">const BODY_RADIUS = 0.22;
+
+const moved = rc.slide(pose.x, pose.y, dx, dy, BODY_RADIUS);
+rc.setPos(moved.x, moved.y, angle);
+</code></pre>
+<p><code>slide</code> resolves each axis separately against the map, so pressing into a
+wall at an angle slides you along it rather than stopping you dead. Bots in
+the shooter example use the same call, which is why they cannot take
+shortcuts the player cannot.</p>
+<h2>4. The vertical axis</h2>
+<p>This is the part the 2D version does not have. Two calls carry the whole
+feeling of bouncing:</p>
+<pre><code class="language-typescript">const EYE_REST = 0.28;      // eye height of a ball sitting on the floor
+const PITCH_GAIN = 26;      // px of horizon lean per cell/s of rise
+
+  rc.setEyeHeight(EYE_REST + height);
+  rc.setPitch(-rise * PITCH_GAIN);
+</code></pre>
+<p><strong><code>setEyeHeight</code></strong> puts the eye between the floor (0) and the ceiling (1).
+It shifts the projection, not the screen: walls grow and shrink around you
+correctly, so rising genuinely reads as rising rather than as the image
+sliding down.</p>
+<p><strong><code>setPitch</code></strong> shears the horizon, in framebuffer pixels, positive looking
+down. A raycaster cannot truly tilt without becoming a different renderer,
+but shearing the horizon is what the shooters of the era did and it reads the
+same.</p>
+<p>Leaning the horizon <em>with the velocity</em> rather than with the height is the
+detail that sells it. At the top of a bounce you are high but not moving, so
+the view is level; on the way up and down it tips. Without the lean, a bounce
+reads as the floor moving away from you instead of you leaving it.</p>
+<h2>5. The rule, again</h2>
+<p>Identical to the 2D game, only in the vertical axis you now own:</p>
+<pre><code class="language-typescript">    const grounded = height &lt;= 0.0001;
+
+    if (wet) {
+      rise += (FLOAT_SPEED - rise) * Math.min(1, FLOAT_ACCEL * dt);
+      charge = 0;
+    } else if (grounded) {
+      if (engine.input.held(0, &#39;a&#39;)) {
+        charge = Math.min(CHARGE_TIME, charge + dt);
+        rise = 0;
+      } else if (charge &gt; 0) {
+        const power = charge / CHARGE_TIME;
+        rise = BOUNCE_SPEED + (CHARGE_SPEED - BOUNCE_SPEED) * power;
+        charge = 0;
+      } else {
+        rise = BOUNCE_SPEED;
+      }
+    } else {
+      rise -= GRAVITY * dt;
+    }
+
+    height = Math.max(0, height + rise * dt);
+</code></pre>
+<p>Buoyancy uses the same ease-toward-a-speed shape as the 2D version, and for
+the same reason: a force plus drag has to be tuned against the frame length.</p>
+<h2>6. Tuning a jump against a ceiling</h2>
+<p>In 2D, the sky is the limit and you tune the charge against the width of your
+pits. In a raycaster there is a hard ceiling one cell up, and clipping the
+eye through it puts the camera outside the world:</p>
+<pre><code class="language-typescript">    if (height &gt;= CEILING &amp;&amp; rise &gt; 0) {
+      height = CEILING;
+      rise = 0;
+    }
+</code></pre>
+<p>That clamp creates a trap. Pick a charge that <em>would</em> peak above the ceiling
+and the clamp eats the surplus: your fully-charged bounce ends early, comes
+down sooner, and covers less ground than you designed for. A charge that
+peaks exactly under the ceiling is strictly better than a bigger one.</p>
+<p>Peak height is <code>v² / 2g</code>, so with <code>g = 3.4</code> and a ceiling at <code>0.66</code>:</p>
+<pre><code>v_max = sqrt(2 × 3.4 × 0.66) = 2.12 cells/s
+</code></pre>
+<p><code>CHARGE_SPEED = 2.0</code> sits just under it. That is not a magic number — it is
+the ceiling divided back through gravity.</p>
+<p>Do the same for the free bounce: at <code>BOUNCE_SPEED = 1.3</code> it peaks at
+<code>1.3² / 6.8 = 0.25</code> cells, which is the number the next two sections are
+built on.</p>
+<h2>7. Rings at two heights</h2>
+<p>In 2D, a ring is a position. Here it can also be an <em>altitude</em>, which is what
+billboard elevation is for:</p>
+<pre><code class="language-typescript">const RING_LOW = 0.30;    // where a rolling ball already is
+const RING_HIGH = 0.78;   // above the peak of a free bounce
+const RING_GATE = 0.15;   // how close you must be to pass through
+
+  rc.addBillboard(ring.id, ring.at.x, ring.at.y, TEX_RING, 0.6);
+  rc.setBillboardElevation(ring.id, ring.height);
+</code></pre>
+<p><code>setBillboardElevation</code> puts a sprite&#39;s centre between the floor (0) and the
+ceiling (1); 0.5, eye level, is the default and is where every billboard sat
+before the engine had this. Drop it to stand something on the floor — the
+spikes in this game are at 0.18 — or raise it to hang something overhead.</p>
+<p>Collecting is then a two-part test, horizontal <em>and</em> vertical:</p>
+<pre><code class="language-typescript">      const flat = Math.hypot(moved.x - ring.at.x, moved.y - ring.at.y);
+      if (flat &lt; RING_REACH &amp;&amp; Math.abs(height + EYE_REST - ring.height) &lt; RING_GATE) {
+</code></pre>
+<p>Where you put <code>RING_HIGH</code> decides whether the game has a mechanic or not. The
+first attempt used 0.58, and it did nothing: with the eye resting at 0.28 and
+a free bounce peaking at 0.25, the eye already reaches 0.53 on every hop — a
+&quot;high&quot; ring you collect by walking under it and waiting.</p>
+<p>The threshold is:</p>
+<pre><code>RING_HIGH &gt; EYE_REST + free-bounce peak + RING_GATE
+          = 0.28   + 0.25              + 0.15  = 0.68
+</code></pre>
+<p>and it must stay inside a charged bounce&#39;s reach (<code>0.28 + 0.59 + 0.15 = 1.02</code>).
+<code>0.78</code> sits comfortably between. Any high ring is now unreachable without
+charging, and reachable with it.</p>
+<h2>8. Spikes you bounce over</h2>
+<p>Same idea in reverse. A spike hurts only if you are low:</p>
+<pre><code class="language-typescript">const SPIKE_CLEARANCE = 0.34;
+
+    for (const spike of spikeSpots) {
+      if (Math.hypot(moved.x - spike.x, moved.y - spike.y) &lt; SPIKE_REACH
+        &amp;&amp; height &lt; SPIKE_CLEARANCE) {
+        pop();
+      }
+    }
+</code></pre>
+<p><code>0.34</code> sits just above the free bounce&#39;s 0.25 peak and well under the charged
+bounce&#39;s 0.59. So a spike cannot be crossed by drifting over it — you have to
+mean it.</p>
+<p>Three constants, one arithmetic relationship, and the game has a skill.</p>
+<h2>9. A minimap with fog of war</h2>
+<p>The player has no overview, which is the point. A minimap that shows the
+whole arena hands it back, so reveal only cells you have stood in:</p>
+<pre><code class="language-typescript">    seen.add(`${Math.floor(pose.x)},${Math.floor(pose.y)}`);
+    // ... and when drawing:
+    if (!seen.has(`${col},${row}`)) continue;
+</code></pre>
+<h2>10. What differs from the 2D version</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Classic</th>
+<th>First person</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Height</td>
+<td>engine physics, via <code>usePhysics</code></td>
+<td>integrated in the game loop</td>
+</tr>
+<tr>
+<td>Collision</td>
+<td>tilemap solids, resolved in Rust</td>
+<td><code>rc.slide</code> per frame</td>
+</tr>
+<tr>
+<td>Reading the arc</td>
+<td>you see it</td>
+<td>eye height and horizon lean</td>
+</tr>
+<tr>
+<td>Rings</td>
+<td>a position</td>
+<td>a position <em>and</em> an altitude</td>
+</tr>
+<tr>
+<td>Jump limit</td>
+<td>pit width</td>
+<td>the ceiling</td>
+</tr>
+</tbody></table>
+<p>The rules are the same game. Everything in this table is a consequence of
+where the camera sits.</p>
+<h2>11. Where to go next</h2>
+<ul>
+<li><strong>Move a ring while the game runs.</strong> <code>setBillboardElevation</code> can be called
+every frame; a ring that rises and falls needs no new engine feature.</li>
+<li><strong>Add pitch to the look controls.</strong> <code>setPitch</code> is already exposed; wire it
+to two keys and clamp it, and you have free look.</li>
+<li><strong>Read <code>examples/dust-protocol</code></strong>, which uses the same vertical axis for
+recoil, and adds <code>hitscan</code>, <code>lineOfSight</code> and <code>findPath</code> to make a shooter
+out of it.</li>
+</ul>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/retor-engine/blob/main/docs/tutorial-bounce-3d.md">docs/tutorial-bounce-3d.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>

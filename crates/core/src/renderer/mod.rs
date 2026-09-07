@@ -151,6 +151,7 @@ impl Renderer {
     ) -> Self {
         let palette = match profile {
             HardwareProfile::GameBoy => Some(Palette::gameboy()),
+            HardwareProfile::Dos => Some(Palette::vga()),
             _ => None,
         };
         let bg_color = palette
@@ -208,6 +209,7 @@ impl Renderer {
     pub fn set_profile(&mut self, profile: HardwareProfile) {
         self.palette = match profile {
             HardwareProfile::GameBoy => Some(Palette::gameboy()),
+            HardwareProfile::Dos => Some(Palette::vga()),
             _ => None,
         };
         self.bg_color = self

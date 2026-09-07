@@ -67,6 +67,19 @@ export class Cathode {
     return eng;
   }
 
+  /**
+   * VGA mode 13h: 320x200 in 256 colours, at its real 70 Hz refresh.
+   *
+   * This is the *look* of a DOS game, not the machine — the engine still runs
+   * where it always ran. See docs/architecture.md for why an actual MS-DOS
+   * executable is a different project.
+   */
+  static async dos(canvas: HTMLCanvasElement, scale = 3): Promise<Cathode> {
+    const eng = new Cathode(canvas);
+    await eng._init('dos', scale);
+    return eng;
+  }
+
   static async custom(canvas: HTMLCanvasElement, config: EngineConfig, scale = 3): Promise<Cathode> {
     const eng = new Cathode(canvas);
     await eng._init('custom', scale, config);
@@ -88,6 +101,8 @@ export class Cathode {
       this.raw = this.wasmModule.WebEngine.nes();
     } else if (preset === 'neogeo') {
       this.raw = this.wasmModule.WebEngine.neogeo();
+    } else if (preset === 'dos') {
+      this.raw = this.wasmModule.WebEngine.dos();
     } else {
       this.raw = new this.wasmModule.WebEngine(JSON.stringify(config || {}));
     }

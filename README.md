@@ -4,7 +4,7 @@
 
 **A retro game engine with a Rust core, a WebAssembly runtime, a TypeScript SDK, a block-based visual editor, and a first-person raycaster.**
 
-[Docs Hub](./docs/README.md) · [Getting Started](./docs/getting-started.md) · [First Game](./docs/first-game.md) · [Bounce Tutorial](./docs/tutorial-bounce.md) · [First-Person Tutorial](./docs/tutorial-bounce-3d.md) · [Card Games](./docs/tutorial-cards.md) · [Architecture](./docs/architecture.md) · [Assets](./ASSETS.md) · [Contributing](./docs/contributing.md)
+[Site](./site/index.html) · [Docs Hub](./docs/README.md) · [Getting Started](./docs/getting-started.md) · [First Game](./docs/first-game.md) · [Bounce Tutorial](./docs/tutorial-bounce.md) · [First-Person Tutorial](./docs/tutorial-bounce-3d.md) · [Card Games](./docs/tutorial-cards.md) · [Architecture](./docs/architecture.md) · [Assets](./ASSETS.md) · [Contributing](./docs/contributing.md)
 
 Cathode is for people who want the feel of old-school consoles without giving up modern tooling. Build with blocks if you have never written code, graduate to the TypeScript SDK when you outgrow them, and drop into the Rust core when you need to. Twelve complete games live in this repository, and none of them is a stub.
 
@@ -110,8 +110,8 @@ engine, which is why a poker hand evaluator and a gin rummy meld search can be
 tested without a canvas — see [docs/tutorial-cards.md](./docs/tutorial-cards.md)
 to build a fifth.
 
-All sixteen demos are listed in [`examples/landing.html`](./examples/landing.html),
-which is the gallery page.
+All sixteen are on the [demo gallery](./site/games.html), part of the
+[project site](./site/index.html) in `site/`.
 
 Every example runs standalone:
 
@@ -169,7 +169,14 @@ const report = engine.checkTarget('gameboy');
 | `gameboy` | 160×144 | 40 | 4 |
 | `nes` | 256×240 | 64 | 5 |
 | `neogeo` | 320×224 | 380 | 8 |
+| `dos` | 320×200 | none | 9 |
 | `custom` | anything | none | none |
+
+`dos` is VGA mode 13h: 320×200 in 256 colours at its real 70 Hz refresh, with
+no sprite budget because VGA had no sprite hardware — everything was blitted
+by the CPU, so the limit was frame time rather than a count. It models the
+*look* of a DOS game. Producing an actual MS-DOS executable is a different
+project: Rust has no 16-bit target and the core needs `std`.
 
 To deliberately reproduce hardware dropout, set `sprite_limit` yourself; it
 then keeps the sprites nearest the front.

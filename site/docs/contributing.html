@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contributing — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html">Getting started</a>
+        <a href="./first-game.html">Your first game</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
+        <a href="./tutorial-cards.html">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./architecture.html">Architecture</a>
+        <a href="./contributing.html" aria-current="page">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Contributing</h1>
+<p>This repository is intended to be approachable for both engine contributors and developers building on top of the engine. This guide explains how to work in the repo without guesswork.</p>
+<h2>Good First Contributions</h2>
+<p>These are high-value contribution types:</p>
+<ul>
+<li>bug fixes with a reproducible example,</li>
+<li>documentation improvements,</li>
+<li>example game polish that teaches an engine feature,</li>
+<li>SDK ergonomics improvements,</li>
+<li>tests for engine behavior that currently relies on manual verification.</li>
+</ul>
+<h2>Prerequisites</h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rust</td>
+<td>stable</td>
+<td>engine core, WASM crate, native runtime</td>
+</tr>
+<tr>
+<td>wasm-pack</td>
+<td>latest</td>
+<td>WebAssembly bindings</td>
+</tr>
+<tr>
+<td>Bun</td>
+<td>1.x</td>
+<td>workspace dependencies and web package commands</td>
+</tr>
+</tbody></table>
+<h2>Local Setup</h2>
+<pre><code class="language-bash">git clone https://github.com/acathon/retor-engine.git
+cd retor-engine
+bun install
+bun run build:wasm
+bun run build:sdk
+</code></pre>
+<p>If you are working on the CLI as well:</p>
+<pre><code class="language-bash">bun run build:cli
+</code></pre>
+<h2>Repository Layout</h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>crates/core</code></td>
+<td>portable Rust engine core</td>
+</tr>
+<tr>
+<td><code>crates/platform-web</code></td>
+<td>WASM bindings exported to the browser</td>
+</tr>
+<tr>
+<td><code>crates/platform-native</code></td>
+<td>native desktop runtime</td>
+</tr>
+<tr>
+<td><code>packages/sdk</code></td>
+<td>TypeScript developer-facing SDK</td>
+</tr>
+<tr>
+<td><code>packages/cli</code></td>
+<td>project scaffolding and export tooling</td>
+</tr>
+<tr>
+<td><code>packages/editor</code></td>
+<td>browser-based editor</td>
+</tr>
+<tr>
+<td><code>packages/editor-desktop</code></td>
+<td>Tauri desktop editor</td>
+</tr>
+<tr>
+<td><code>examples</code></td>
+<td>reference games and demos</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td>onboarding, tutorials, architecture, contribution docs</td>
+</tr>
+</tbody></table>
+<h2>Engineering Expectations</h2>
+<h3>Rust</h3>
+<ul>
+<li>Run <code>cargo fmt</code> and <code>cargo clippy</code> before opening a PR.</li>
+<li>Prefer fixing root causes instead of adding defensive patches around symptoms.</li>
+<li>Avoid panics in developer-facing paths when a structured error or fallback is possible.</li>
+<li>Add tests where behavior is subtle, stateful, or easy to regress.</li>
+</ul>
+<h3>TypeScript</h3>
+<ul>
+<li>Keep public APIs clear and small.</li>
+<li>Avoid introducing loose types where a real interface is possible.</li>
+<li>Prefer examples and docs that use the public SDK surface instead of hidden internals unless the internal API is the point of the contribution.</li>
+<li>When changing SDK behavior, update the docs or examples that teach that behavior.</li>
+</ul>
+<h3>Documentation</h3>
+<ul>
+<li>Keep commands accurate and reproducible.</li>
+<li>Prefer a short working example over abstract explanation.</li>
+<li>Update docs whenever you change onboarding, build flows, or public APIs.</li>
+</ul>
+<h2>Validation Commands</h2>
+<p>Run the smallest meaningful validation set for the area you changed.</p>
+<h3>Core engine and native runtime</h3>
+<pre><code class="language-bash">cargo test -p cathode-core -p cathode-platform-native
+</code></pre>
+<h3>Web platform bindings</h3>
+<pre><code class="language-bash">cargo check -p cathode-platform-web --target wasm32-unknown-unknown
+</code></pre>
+<h3>Desktop editor</h3>
+<p>The Tauri editor is a <strong>separate Cargo workspace</strong>, so <code>cargo test --workspace</code>
+at the repo root deliberately skips it — the engine itself never needs a
+desktop GUI toolchain. Build it from its own directory:</p>
+<pre><code class="language-bash">cd packages/editor-desktop
+bun run tauri build
+</code></pre>
+<p>On Linux that needs the GTK/WebKit development packages
+(<code>libwebkit2gtk-4.0-dev</code>, <code>libgtk-3-dev</code>). The engine crates need only
+<code>libasound2-dev</code> and <code>libudev-dev</code> for the native runtime.</p>
+<h3>Example build smoke test</h3>
+<pre><code class="language-bash">cd examples/doom-game
+bun run build
+</code></pre>
+<h3>Root scripts</h3>
+<pre><code class="language-bash">bun run build:wasm
+bun run build:sdk
+bun run build:cli
+</code></pre>
+<h2>Reporting Bugs Well</h2>
+<p>Include these details when possible:</p>
+<ol>
+<li>what you expected,</li>
+<li>what actually happened,</li>
+<li>exact commands you ran,</li>
+<li>the example or package involved,</li>
+<li>screenshots or logs for rendering/editor issues,</li>
+<li>a minimal reproduction if the bug is not obvious.</li>
+</ol>
+<h2>Pull Request Guidance</h2>
+<p>Before opening a PR, make sure you have:</p>
+<ol>
+<li>scoped the change clearly,</li>
+<li>avoided unrelated cleanup,</li>
+<li>updated the docs if onboarding or APIs changed,</li>
+<li>run validation commands relevant to your change,</li>
+<li>explained any known gaps or follow-up work.</li>
+</ol>
+<h2>Community Principle</h2>
+<p>Treat examples and docs as part of the product, not as optional extras. A change that is technically correct but hard for a new developer to discover or understand is incomplete.</p>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/retor-engine/blob/main/docs/contributing.md">docs/contributing.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>

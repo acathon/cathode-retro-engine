@@ -52,6 +52,15 @@ impl WebEngine {
         }
     }
 
+    /// VGA mode 13h: 320x200 in 256 colours, at 70 Hz.
+    #[wasm_bindgen]
+    pub fn dos() -> Self {
+        Self {
+            engine: Engine::new(EngineConfig::dos()),
+            last_ts: 0.0,
+        }
+    }
+
     #[wasm_bindgen]
     pub fn tick(&mut self, timestamp: f64) -> f32 {
         let delta = if self.last_ts == 0.0 {
@@ -169,7 +178,8 @@ impl WebEngine {
     }
 
     /// Switch the hardware *look* — palette, background and scanlines —
-    /// without rebuilding the engine. Accepts "nes", "gameboy", "neogeo" or
+    /// without rebuilding the engine. Accepts "nes", "gameboy", "neogeo",
+    /// "dos" or
     /// "custom".
     ///
     /// The profile is a view setting, not a contract: build once, preview on

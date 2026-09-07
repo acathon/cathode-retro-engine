@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html">Getting started</a>
+        <a href="./first-game.html">Your first game</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
+        <a href="./tutorial-cards.html">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./architecture.html" aria-current="page">Architecture</a>
+        <a href="./contributing.html">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Architecture</h1>
+<h2>Overview</h2>
+<p>Cathode is a retro game engine with a Rust core, WASM bindings for web,
+a native desktop runner, a TypeScript SDK, a CLI, and a Tauri-based desktop editor.</p>
+<h2>Data-Flow Diagram</h2>
+<pre><code class="language-mermaid">graph TD;
+    Game_Code(Game Code TS/JS) --&gt; SDK(TypeScript SDK)
+    SDK --&gt; WASM_API(WASM Bindings)
+    WASM_API --&gt; Core_Update(Rust core update)
+    Core_Update --&gt; ECS(ECS hecs)
+    Core_Update --&gt; Physics(AABB Physics)
+    Core_Update --&gt; Collision(Collision Events)
+    Core_Update --&gt; Camera(Camera System)
+    Core_Update --&gt; Particles(Particle Emitters)
+    Core_Update --&gt; Tweens(Tween Pool)
+    Core_Update --&gt; Timers(Timer Pool)
+    Core_Update --&gt; Sequencer(Music Sequencer)
+    Core_Update --&gt; Input(Input State)
+    Core_Update --&gt; Audio(Audio Mixer + ADSR)
+
+    WASM_API --&gt; Core_Render(Rust core render)
+    Core_Render --&gt; Raycaster(Raycaster 2.5D)
+    Core_Render --&gt; SpriteBatch(Sprite Batcher &amp; Sorting)
+    Core_Render --&gt; ParticleRender(Particle Rendering)
+    Core_Render --&gt; TextRender(Bitmap Text)
+    SpriteBatch --&gt; FB[FrameBuffer RGBA]
+    Raycaster --&gt; FB
+    ParticleRender --&gt; FB
+    TextRender --&gt; FB
+    FB --&gt; WebCanvas(Web Canvas 2D)
+    FB --&gt; NativePixels(Native pixels crate)
+
+    SDK --&gt; StateMachine(State Machine)
+    SDK --&gt; Transitions(Scene Transitions)
+    SDK --&gt; DebugOverlay(Debug Overlay)
+    SDK --&gt; SaveManager(Save/Load + localStorage)
+</code></pre>
+<h2>Module Map</h2>
+<h3>Rust Core (<code>crates/core</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ECS</td>
+<td><code>ecs/mod.rs</code></td>
+<td>hecs-based entity-component system</td>
+</tr>
+<tr>
+<td>Renderer</td>
+<td><code>renderer/mod.rs</code></td>
+<td>RGBA software renderer, sprite batching, scanlines</td>
+</tr>
+<tr>
+<td>Physics</td>
+<td><code>physics/mod.rs</code></td>
+<td>AABB collision resolution, velocity, opt-in gravity</td>
+</tr>
+<tr>
+<td>Audio</td>
+<td><code>audio/mod.rs</code></td>
+<td>6-waveform chiptune mixer (44.1kHz)</td>
+</tr>
+<tr>
+<td>Audio Envelope</td>
+<td><code>audio/envelope.rs</code></td>
+<td>ADSR envelope with presets (pluck, pad, snare, bass)</td>
+</tr>
+<tr>
+<td>Sequencer</td>
+<td><code>audio/sequencer.rs</code></td>
+<td>MML pattern sequencer for background music</td>
+</tr>
+<tr>
+<td>Collision</td>
+<td><code>collision/mod.rs</code></td>
+<td>Event-driven collision queue (CollisionEvent, CollisionSide)</td>
+</tr>
+<tr>
+<td>Camera</td>
+<td><code>camera/mod.rs</code></td>
+<td>Lerp follow, dead zone, bounds clamping, zoom</td>
+</tr>
+<tr>
+<td>Particles</td>
+<td><code>particles/mod.rs</code></td>
+<td>Emitters, bursts, continuous emission, rendering</td>
+</tr>
+<tr>
+<td>Tween</td>
+<td><code>tween/mod.rs</code></td>
+<td>Easing pool (7 functions), yoyo, repeat</td>
+</tr>
+<tr>
+<td>Text</td>
+<td><code>text/mod.rs</code></td>
+<td>BitmapFont rendering from sprite sheet</td>
+</tr>
+<tr>
+<td>Timer</td>
+<td><code>timer/mod.rs</code></td>
+<td>Managed timer pool with fire events</td>
+</tr>
+<tr>
+<td>Raycaster</td>
+<td><code>raycaster/mod.rs</code></td>
+<td>DDA raycaster: textured walls, billboards, fog, pitch, eye height, hitscan</td>
+</tr>
+<tr>
+<td>Pathfinding</td>
+<td><code>pathfinding/mod.rs</code></td>
+<td>A* over a grid of passable cells, four- or eight-way</td>
+</tr>
+<tr>
+<td>Netcode</td>
+<td><code>netcode/mod.rs</code></td>
+<td>Fixed-step clock, deterministic lockstep, snapshot interpolation</td>
+</tr>
+<tr>
+<td>Save</td>
+<td><code>save/mod.rs</code></td>
+<td>4-slot save manager with serde JSON</td>
+</tr>
+<tr>
+<td>Input</td>
+<td><code>input/mod.rs</code></td>
+<td>Keyboard + gamepad abstraction</td>
+</tr>
+<tr>
+<td>Assets</td>
+<td><code>assets/mod.rs</code></td>
+<td>Sprite sheet storage</td>
+</tr>
+<tr>
+<td>Scene</td>
+<td><code>scene/mod.rs</code></td>
+<td>Scene management</td>
+</tr>
+<tr>
+<td>Config</td>
+<td><code>config.rs</code></td>
+<td>Engine presets (Game Boy, NES, Neo Geo)</td>
+</tr>
+</tbody></table>
+<h3>Raycaster Pipeline</h3>
+<pre><code class="language-mermaid">graph LR;
+    A[For each screen column] --&gt; B[Compute ray direction]
+    B --&gt; C[DDA grid traversal]
+    C --&gt; D[Hit non-zero cell]
+    D --&gt; E[Perpendicular distance]
+    E --&gt; F[Wall column height]
+    F --&gt; G{Texture exists?}
+    G --&gt;|Yes| H[Texture-mapped strip]
+    G --&gt;|No| I[Solid colored strip]
+    H --&gt; J[Apply fog lerp]
+    I --&gt; J
+    J --&gt; K[Write to FrameBuffer]
+    K --&gt; L[Floor/Ceiling fill]
+    L --&gt; M[Sort &amp; render billboards]
+    M --&gt; N[Z-buffer depth test]
+</code></pre>
+<h3>The Vertical Axis</h3>
+<p>A raycaster measures everything from the horizon, not from the middle of the
+framebuffer. Three values place it:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Range</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>camera.pitch</code></td>
+<td>pixels</td>
+<td>Shears the horizon; positive looks down</td>
+</tr>
+<tr>
+<td><code>camera.eye_height</code></td>
+<td>0.0 – 1.0</td>
+<td>Where the eye sits between floor and ceiling</td>
+</tr>
+<tr>
+<td><code>billboard.elevation</code></td>
+<td>0.0 – 1.0</td>
+<td>Height of a sprite&#39;s centre, default 0.5</td>
+</tr>
+</tbody></table>
+<p>A wall at distance <em>d</em> spans <code>horizon - (1 - eye)·H/d</code> to <code>horizon + eye·H/d</code>,
+where <em>H</em> is the framebuffer height. A billboard&#39;s centre lands at
+<code>horizon + (eye - elevation)·H/d</code>. With <code>eye = 0.5</code> and <code>elevation = 0.5</code>
+these reduce to the screen-centred forms, so scenes written before the axis
+existed render identically.</p>
+<h3>Ray Queries</h3>
+<p>Shooting and bot vision share the traversal the renderer uses for a screen
+column, which is what stops a shot from disagreeing with the picture.</p>
+<table>
+<thead>
+<tr>
+<th>Query</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>cast_ray(origin, angle, max)</code></td>
+<td>The first solid cell: distance, tile value, grid position, which face</td>
+</tr>
+<tr>
+<td><code>line_of_sight(from, to)</code></td>
+<td>Whether anything solid stands between two points</td>
+</tr>
+<tr>
+<td><code>hitscan(origin, angle, max, radius, ignore)</code></td>
+<td>The nearest billboard in front of the bounding wall, plus where the shot stops</td>
+</tr>
+<tr>
+<td><code>slide_circle(pos, delta, radius)</code></td>
+<td>A body with width moved through the map, sliding along whatever blocks it</td>
+</tr>
+</tbody></table>
+<p><code>slide_circle</code> exists because the camera moves as a point and can graze the
+corner where two walls meet — a gap no bot or ball could fit through.</p>
+<h3>Netcode</h3>
+<p>The engine ships the portable half of netplay and opens no sockets: the
+browser wants WebRTC or a WebSocket, native wants UDP, and neither belongs in
+a portable core.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Clock</code></td>
+<td>Turns real frame times into whole fixed ticks, capping a long stall rather than replaying it</td>
+</tr>
+<tr>
+<td><code>Lockstep&lt;T&gt;</code></td>
+<td>Holds a tick until every player has reported an input; <code>delay</code> schedules inputs ahead to absorb latency</td>
+</tr>
+<tr>
+<td><code>Interpolate</code> / <code>Interpolator&lt;T&gt;</code></td>
+<td>Blends sparse snapshots into per-frame values, holding rather than extrapolating past the newest</td>
+</tr>
+</tbody></table>
+<p><code>Lockstep</code> suits games where one shared deterministic world matters more than
+latency — puzzle, turn-based, fighting. For a shooter, per-player authority
+plus interpolation is the better trade, since lockstep stalls everyone when
+one player is slow. <code>examples/dust-protocol/src/net.ts</code> shows the second
+shape, over <code>BroadcastChannel</code>.</p>
+<h3>WASM Bindings (<code>crates/platform-web</code>)</h3>
+<p>Exposes ~60+ <code>#[wasm_bindgen]</code> functions wrapping the Engine struct:</p>
+<ul>
+<li>Core: <code>init</code>, <code>update</code>, <code>render</code>, <code>upload_sheet</code>, <code>shake</code></li>
+<li>Collision: <code>poll_collisions</code>, <code>add_collider</code>, <code>set_solid</code></li>
+<li>Camera: <code>set_camera_target/lerp/bounds/dead_zone/zoom</code>, <code>get_camera_pos</code></li>
+<li>Particles: <code>create_emitter</code>, <code>emitter_burst</code>, <code>emitter_set_pos</code>, <code>destroy_emitter</code></li>
+<li>Tweens: <code>tween_create/value/is_complete/reset/destroy</code></li>
+<li>Text: <code>register_font</code>, <code>draw_text</code>, <code>measure_text</code></li>
+<li>Timers: <code>timer_create/start/stop/reset/progress</code>, <code>poll_fired_timers</code></li>
+<li>Audio: <code>play/stop</code>, <code>audio_set_envelope/preset</code></li>
+<li>Sequencer: <code>sequencer_load_mml/play/stop/pause/set_bpm</code></li>
+<li>Raycaster: <code>raycaster_init/set_texture/move/set_pos/get_pos/add_billboard/remove_billboard/set_fog/set_floor_color/set_ceiling_color</code></li>
+<li>Save: <code>save_set/get/remove/export/import</code></li>
+<li>Debug: <code>draw_overlay_rect</code>, <code>debug_draw_rect</code></li>
+</ul>
+<h3>Native Platform (<code>crates/platform-native</code>)</h3>
+<ul>
+<li><strong>Window</strong>: winit 0.28 event loop</li>
+<li><strong>Rendering</strong>: pixels 0.13 (RGBA framebuffer → GPU texture)</li>
+<li><strong>Audio</strong>: CPAL 0.15 output stream, <code>Engine::audio.fill_stereo()</code> in callback</li>
+<li><strong>Gamepad</strong>: gilrs 0.10, button mapping to engine GamepadState</li>
+</ul>
+<h3>TypeScript SDK (<code>packages/sdk</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>engine.ts</code></td>
+<td>Cathode class, game loop, preset constructors</td>
+</tr>
+<tr>
+<td><code>sprite.ts</code></td>
+<td>Sprite class wrapping ECS entities; <code>usePhysics</code> hands a body to the engine</td>
+</tr>
+<tr>
+<td><code>scene.ts</code></td>
+<td>Scene lifecycle, <code>follow()</code></td>
+</tr>
+<tr>
+<td><code>tilemap.ts</code></td>
+<td>TileMap with collision helpers (setSolidTiles, isSolid, raycast)</td>
+</tr>
+<tr>
+<td><code>input.ts</code></td>
+<td>InputReader polling WASM input state</td>
+</tr>
+<tr>
+<td><code>audio.ts</code></td>
+<td>SoundChannel wrapping WASM audio</td>
+</tr>
+<tr>
+<td><code>camera.ts</code></td>
+<td>Camera API (follow, lerp, dead zone, bounds, zoom)</td>
+</tr>
+<tr>
+<td><code>particles.ts</code></td>
+<td>ParticleEmitter with presets (explosion, sparkle, dust, coin)</td>
+</tr>
+<tr>
+<td><code>tween.ts</code></td>
+<td>Tween with callbacks, <code>tweenSprite()</code> helper</td>
+</tr>
+<tr>
+<td><code>text.ts</code></td>
+<td>BitmapFont with <code>builtin()</code> procedural font</td>
+</tr>
+<tr>
+<td><code>timer.ts</code></td>
+<td>GameTimer with fire callbacks</td>
+</tr>
+<tr>
+<td><code>state-machine.ts</code></td>
+<td>Pure TS StateMachine (no WASM)</td>
+</tr>
+<tr>
+<td><code>transitions.ts</code></td>
+<td>Scene transitions (fade, slide, pixelate, checkerboard)</td>
+</tr>
+<tr>
+<td><code>music.ts</code></td>
+<td>MusicPlayer wrapping sequencer</td>
+</tr>
+<tr>
+<td><code>raycaster.ts</code></td>
+<td>Raycaster: textures, billboards, pitch/eye height, <code>hitscan</code>, <code>lineOfSight</code>, <code>slide</code>, <code>findPath</code></td>
+</tr>
+<tr>
+<td><code>save.ts</code></td>
+<td>SaveManager with localStorage autosave/autoload</td>
+</tr>
+<tr>
+<td><code>debug.ts</code></td>
+<td>DebugOverlay (F3 toggle, FPS/entity/particle display)</td>
+</tr>
+<tr>
+<td><code>touch.ts</code></td>
+<td>TouchControls overlay for mobile</td>
+</tr>
+</tbody></table>
+<h2>Tauri Desktop Editor (<code>packages/editor-desktop</code>)</h2>
+<pre><code class="language-mermaid">graph TD;
+    TauriMain[main.rs] --&gt; FsCmd[fs.rs commands]
+    TauriMain --&gt; BuildCmd[build.rs commands]
+    TauriMain --&gt; ExportCmd[export.rs commands]
+    TauriMain --&gt; PreviewCmd[preview.rs commands]
+
+    FsCmd --&gt; ProjectJSON[retro.project.json]
+    FsCmd --&gt; SceneJSON[*.scene.json]
+    FsCmd --&gt; Scripts[*.ts scripts]
+    FsCmd --&gt; Assets[PNG/audio assets]
+
+    SvelteUI[Svelte Frontend] --&gt; TopBar
+    SvelteUI --&gt; SceneEditor[SceneEditor panel]
+    SvelteUI --&gt; Inspector[Inspector panel]
+    SvelteUI --&gt; Hierarchy[Hierarchy panel]
+    SvelteUI --&gt; AssetManager[AssetManager panel]
+    SvelteUI --&gt; AnimationEditor[AnimationEditor panel]
+    SvelteUI --&gt; ScriptEditor[ScriptEditor + Monaco]
+    SvelteUI --&gt; ExportManager[ExportManager panel]
+
+    SceneEditor --&gt; ProjectStore[Svelte stores]
+    Inspector --&gt; ProjectStore
+    Hierarchy --&gt; ProjectStore
+</code></pre>
+<p><strong>Panels:</strong></p>
+<ul>
+<li><strong>SceneEditor</strong>: 2D canvas with grid, drag entities, pan/zoom, minimap, undo/redo (80 ops)</li>
+<li><strong>Inspector</strong>: Edit entity properties (position, layer, collider, animations, script, custom props)</li>
+<li><strong>Hierarchy</strong>: Sorted entity tree with visibility toggle, rename, reorder</li>
+<li><strong>AssetManager</strong>: Grid view of sprites/scripts/scenes/maps with import</li>
+<li><strong>AnimationEditor</strong>: Frame timeline, FPS slider, loop toggle, preview</li>
+<li><strong>ScriptEditor</strong>: Monaco Editor with TypeScript, auto-save</li>
+<li><strong>ExportManager</strong>: One-click export to web/desktop/ARM/ROM targets with build log</li>
+</ul>
+<h2>Hardware Profiles</h2>
+<p>A profile sets the screen size, the palette, the audio channel count and the
+sprite budget. It is chosen when the engine boots and can be switched at run
+time with <code>engine.setProfile(name)</code>, which changes the <em>look</em> without
+rebuilding anything.</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Resolution</th>
+<th>Palette</th>
+<th>Sprite budget</th>
+<th>Audio</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>gameboy</code></td>
+<td>160×144</td>
+<td>4 shades</td>
+<td>40</td>
+<td>4 channels</td>
+</tr>
+<tr>
+<td><code>nes</code></td>
+<td>256×240</td>
+<td>54 colours</td>
+<td>64</td>
+<td>5 channels</td>
+</tr>
+<tr>
+<td><code>neogeo</code></td>
+<td>320×224</td>
+<td>full</td>
+<td>380</td>
+<td>8 channels</td>
+</tr>
+<tr>
+<td><code>dos</code></td>
+<td>320×200</td>
+<td>VGA 256</td>
+<td>none</td>
+<td>9 FM (OPL2)</td>
+</tr>
+<tr>
+<td><code>custom</code></td>
+<td>anything</td>
+<td>none imposed</td>
+<td>none</td>
+<td>your choice</td>
+</tr>
+</tbody></table>
+<p>Sprite budgets are <strong>advisory</strong>. The engine does not drop sprites while you
+build, because a cap that silently discards them turns &quot;too many objects&quot; into
+&quot;the player character disappeared&quot;. Compare <code>renderer.peak_sprites</code> against a
+target with <code>engine.checkTarget(name)</code> when you export, where the answer is
+actionable. Set <code>sprite_limit</code> yourself to deliberately reproduce dropout.</p>
+<h3>The DOS profile, and what it is not</h3>
+<p><code>dos</code> is VGA mode 13h: 320×200 in the default 256-colour VGA palette, at that
+mode&#39;s real 70 Hz refresh. VGA had no sprite hardware — everything was blitted
+by the CPU — so there is no sprite count to exceed, and the profile reports
+none.</p>
+<p>It models the <em>look</em>. <strong>It does not produce an MS-DOS executable</strong>, and that
+is not a small gap:</p>
+<ul>
+<li>Rust has no supported 16-bit target, and real-mode DOS is 16-bit. A 32-bit
+DOS binary means a DOS extender (DJGPP, DOS/4GW) and a toolchain Rust does
+not ship.</li>
+<li>The core uses <code>std</code> — heap allocation, <code>Vec</code>, <code>HashMap</code>. A DOS build would
+need <code>no_std</code> and an allocator written against a DOS memory manager.</li>
+<li>The renderer writes into a framebuffer the host presents. Under DOS that
+host is the VGA hardware at segment <code>0xA000</code>, reached by inline assembly
+that has no equivalent in the wasm or native backends.</li>
+</ul>
+<p>None of that is impossible; all of it is a separate project from this one.
+What the profile gives you is a game that looks like it came off a 1993
+CD-ROM, running in a browser or as a native desktop binary.</p>
+<h2>Platform Targets</h2>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Method</th>
+<th>Binary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Web (HTML5)</td>
+<td>WASM + Vite bundle</td>
+<td><code>dist/</code></td>
+</tr>
+<tr>
+<td>Desktop (Windows)</td>
+<td><code>cargo build --target x86_64-pc-windows-gnu</code></td>
+<td><code>.exe</code></td>
+</tr>
+<tr>
+<td>Desktop (macOS)</td>
+<td><code>cargo build --target aarch64-apple-darwin</code></td>
+<td>binary</td>
+</tr>
+<tr>
+<td>Desktop (Linux)</td>
+<td><code>cargo build --target x86_64-unknown-linux-gnu</code></td>
+<td>binary</td>
+</tr>
+<tr>
+<td>ARM Linux (Handhelds)</td>
+<td><code>cargo build --target armv7-unknown-linux-gnueabihf</code></td>
+<td>binary</td>
+</tr>
+<tr>
+<td>PWA</td>
+<td>Vite build + manifest.json + service worker</td>
+<td><code>dist/</code></td>
+</tr>
+<tr>
+<td>ROM-ready (Game Boy)</td>
+<td>GBDK-2020 project scaffold</td>
+<td>C source project</td>
+</tr>
+<tr>
+<td>ROM-ready (NES)</td>
+<td>cc65/NESLib project scaffold</td>
+<td>C source project</td>
+</tr>
+</tbody></table>
+<h2>Export Pipeline</h2>
+<pre><code class="language-mermaid">graph LR;
+    A[Source Project] --&gt; B{Target?}
+    B --&gt;|Web| C[wasm-pack + Vite build → dist/]
+    B --&gt;|Desktop| D[cargo cross-compile → binary]
+    B --&gt;|PWA| E[Vite build + manifest + SW]
+    B --&gt;|ARM| F[cargo --target armv7 → binary + launch.sh]
+    B --&gt;|ROM GB| G[Generate GBDK-2020 project]
+    B --&gt;|ROM NES| H[Generate cc65/NESLib project]
+</code></pre>
+<h2>ECS</h2>
+<p>The <code>hecs</code> crate acts as the backing simulation for all game entities and sprites. The web API translates ID handles so JavaScript can orchestrate components without touching Rust memory directly.</p>
+<h2>Physics</h2>
+<p>The physics step runs once per <code>Engine::update</code>, before scene updates.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Position</code> + <code>Velocity</code></td>
+<td>The body is integrated each frame</td>
+</tr>
+<tr>
+<td><code>Collider</code></td>
+<td>Adds AABB resolution against solids; optional</td>
+</tr>
+<tr>
+<td><code>Gravity(scale)</code></td>
+<td>Opt in to falling; <code>scale</code> multiplies <code>physics::GRAVITY</code></td>
+</tr>
+<tr>
+<td><code>Solid</code></td>
+<td>Never moves and blocks other bodies (floors, walls, platforms)</td>
+</tr>
+</tbody></table>
+<p>Gravity is opt-in because most retro genres — top-down, puzzle, shmup — do
+not want anything pulled downward. A platformer adds <code>Gravity(1.0)</code> to its
+actors; Tetris adds nothing.</p>
+<p>Collision resolution pushes a body out along whichever axis it overlaps least
+and zeroes the velocity on that axis, which is what makes landing on a floor
+stop a fall. Solids are static: they are excluded from both gravity and
+integration.</p>
+<p>From TypeScript, a sprite opts in with <code>usePhysics</code>:</p>
+<pre><code class="language-ts">const player = new Sprite(scene, { sheet, frame: 0, x: 32, y: 0 });
+player.usePhysics({ gravity: 1, width: 16, height: 16 });
+
+const floor = new Sprite(scene, { sheet, frame: 1, x: 0, y: 200 });
+floor.usePhysics({ width: 256, height: 8, solid: true });
+</code></pre>
+<p>A sprite that uses physics has its position and velocity read back from the
+engine each frame; use <code>setPosition</code> to teleport it. Without <code>usePhysics</code> a
+sprite is moved in TypeScript and ignores solids, which is the default and
+suits games that want to own their own movement rules.</p>
+<h2>Renderer Pipeline</h2>
+<ol>
+<li><code>FrameBuffer::clear()</code></li>
+<li><strong>Raycaster pass</strong> (if enabled): DDA wall rendering, billboard sprites, fog</li>
+<li>Tile layers (back to front, with fixed layers ignoring camera offset)</li>
+<li>ECS Sprites, queried via <code>Query&lt;(&amp;Position, &amp;SpriteIndex)&gt;</code> and sorted by <code>layer</code></li>
+<li>Particle rendering (colored squares with fade/shrink)</li>
+<li>Bitmap text overlay</li>
+<li>Debug overlay (collider wireframes, FPS)</li>
+<li>Scanlines post-process step applied over the RGBA buffer</li>
+</ol>
+<h2>Audio Pipeline</h2>
+<p>44.1kHz sample rate output. The mixer iterates over a configurable number of <code>Channel</code>s.
+Each channel has:</p>
+<ul>
+<li>Waveform generator (sine, square, triangle, sawtooth, pulse, noise)</li>
+<li>ADSR envelope multiplier</li>
+<li>Frequency and volume control</li>
+</ul>
+<p>The <code>Sequencer</code> feeds note events into channels based on MML patterns and BPM.
+Supported waveforms use integer/phase math. Noise leverages a 15-bit Galois LFSR for classic authentic static.</p>
+<h2>Platform Targets</h2>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Renderer</th>
+<th>Audio</th>
+<th>Input</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Web (Default)</td>
+<td>`HtmlCanvasElement`</td>
+<td>`AudioContext/ScriptProcessorNode`</td>
+<td>DOM Events</td>
+</tr>
+<tr>
+<td>Desktop (Native)</td>
+<td>`pixels + winit`</td>
+<td>`cpal`</td>
+<td>`winit` keyboard/gamepad events</td>
+</tr>
+</tbody></table>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/retor-engine/blob/main/docs/architecture.md">docs/architecture.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>

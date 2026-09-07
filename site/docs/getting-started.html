@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting started — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html" aria-current="page">Getting started</a>
+        <a href="./first-game.html">Your first game</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
+        <a href="./tutorial-cards.html">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./architecture.html">Architecture</a>
+        <a href="./contributing.html">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Getting Started</h1>
+<p>This guide is the shortest reliable path from a fresh checkout to a running game.</p>
+<h2>Who This Guide Is For</h2>
+<p>Use this page if you want to:</p>
+<ul>
+<li>run the existing examples,</li>
+<li>understand which tools are required,</li>
+<li>create a new project with the CLI,</li>
+<li>avoid reading the whole repository before seeing something work.</li>
+</ul>
+<p>If your goal is to build a tiny game step by step, continue with <a href="./first-game.html">first-game.md</a> after finishing this page.</p>
+<h2>Prerequisites</h2>
+<p>Install these tools first:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Why you need it</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Rust stable</td>
+<td>Builds the engine core and native runtime</td>
+</tr>
+<tr>
+<td>wasm-pack</td>
+<td>Builds the web bindings used by the SDK</td>
+</tr>
+<tr>
+<td>Bun 1.x</td>
+<td>Installs workspace dependencies and runs the web projects</td>
+</tr>
+</tbody></table>
+<p>Optional but useful:</p>
+<ul>
+<li>Git for cloning and updating the repository</li>
+<li>A modern browser for running Vite examples</li>
+<li>VS Code if you want to work on the TypeScript and Rust code together</li>
+</ul>
+<h2>Clone And Install</h2>
+<pre><code class="language-bash">git clone https://github.com/acathon/retor-engine.git
+cd retor-engine
+bun install
+</code></pre>
+<h2>Build The Shared Engine Pieces</h2>
+<p>Examples depend on the web bindings and SDK package being available.</p>
+<pre><code class="language-bash">bun run build:wasm
+bun run build:sdk
+</code></pre>
+<p>If you are modifying the CLI as well:</p>
+<pre><code class="language-bash">bun run build:cli
+</code></pre>
+<h2>Run A Known-Good Example</h2>
+<p>Start with a small example before creating a new project.</p>
+<pre><code class="language-bash">cd examples/trex-game
+bun dev
+</code></pre>
+<p>Other good entry points:</p>
+<table>
+<thead>
+<tr>
+<th>Example</th>
+<th>Command</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Demo platformer</td>
+<td><code>cd examples/demo-game &amp;&amp; bun dev</code></td>
+</tr>
+<tr>
+<td>Space game</td>
+<td><code>cd examples/space-game &amp;&amp; bun dev</code></td>
+</tr>
+<tr>
+<td>Doom-style raycaster</td>
+<td><code>cd examples/doom-game &amp;&amp; bun dev</code></td>
+</tr>
+<tr>
+<td>Tetris</td>
+<td><code>cd examples/tetris &amp;&amp; bun dev</code></td>
+</tr>
+</tbody></table>
+<h2>Create A New Game With The CLI</h2>
+<p>The CLI can scaffold new projects with different templates.</p>
+<p>From the monorepo:</p>
+<pre><code class="language-bash">bun run build:cli
+node packages/cli/dist/index.js new my-first-game --template default
+</code></pre>
+<p>Available templates currently exposed by the CLI:</p>
+<ul>
+<li><code>default</code></li>
+<li><code>platformer</code></li>
+<li><code>shmup</code></li>
+<li><code>puzzle</code></li>
+<li><code>rpg</code></li>
+<li><code>doom</code></li>
+</ul>
+<p>Then move into the generated project and start its dev server:</p>
+<pre><code class="language-bash">cd my-first-game
+bun install
+bun dev
+</code></pre>
+<h2>What To Read Next</h2>
+<p>Once you have a project or example running:</p>
+<ol>
+<li><a href="./first-game.html">first-game.md</a> for a minimal playable project.</li>
+<li><a href="./tutorial-trex.html">tutorial-trex.md</a> for a longer tutorial walkthrough.</li>
+<li><a href="./architecture.html">architecture.md</a> when you need internals or subsystem context.</li>
+</ol>
+<h2>Common Tasks</h2>
+<h3>Build the current example for production</h3>
+<pre><code class="language-bash">cd examples/doom-game
+bun run build
+</code></pre>
+<h3>Run the browser editor</h3>
+<pre><code class="language-bash">bun run dev:editor
+</code></pre>
+<h3>Run Rust validation</h3>
+<pre><code class="language-bash">cargo test -p cathode-core -p cathode-platform-native
+cargo check -p cathode-platform-web --target wasm32-unknown-unknown
+</code></pre>
+<h2>Troubleshooting</h2>
+<h3><code>cathode-platform-web</code> or WASM import errors</h3>
+<p>Rebuild the web bindings and SDK:</p>
+<pre><code class="language-bash">bun run build:wasm
+bun run build:sdk
+</code></pre>
+<h3>An example builds but shows stale behavior</h3>
+<p>You may be using older generated bindings or cached browser assets. Rebuild the shared packages, then restart the example dev server.</p>
+<h3>CLI command not found</h3>
+<p>Build the CLI first:</p>
+<pre><code class="language-bash">bun run build:cli
+</code></pre>
+<p>Then invoke it from <code>packages/cli/dist/index.js</code> inside the monorepo, or install the package in a separate project once published.</p>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/retor-engine/blob/main/docs/getting-started.md">docs/getting-started.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>

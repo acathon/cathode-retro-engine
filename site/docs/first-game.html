@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your first game — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html">Getting started</a>
+        <a href="./first-game.html" aria-current="page">Your first game</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
+        <a href="./tutorial-cards.html">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./architecture.html">Architecture</a>
+        <a href="./contributing.html">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Build Your First Game</h1>
+<p>This tutorial builds a tiny collectible game with:</p>
+<ul>
+<li>one player sprite,</li>
+<li>keyboard movement,</li>
+<li>one collectible,</li>
+<li>a score counter,</li>
+<li>no external art files.</li>
+</ul>
+<p>The goal is not to build a polished game. The goal is to show the smallest useful loop you can extend.</p>
+<h2>Before You Start</h2>
+<p>Complete <a href="./getting-started.html">getting-started.md</a> first so your local toolchain and SDK builds are already working.</p>
+<h2>Project Setup</h2>
+<p>Create a new folder with a standard Vite TypeScript app, then install the SDK package the same way you would in a normal game project.</p>
+<p>At minimum, you need:</p>
+<pre><code class="language-text">my-first-game/
+├── index.html
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+└── src/
+    └── main.ts
+</code></pre>
+<p>Your <code>index.html</code> only needs a canvas:</p>
+<pre><code class="language-html">&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+  &lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot; /&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;
+    &lt;title&gt;My First Retro Game&lt;/title&gt;
+    &lt;style&gt;
+      body {
+        margin: 0;
+        background: #111;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+      }
+
+      canvas {
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+    &lt;/style&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;canvas id=&quot;game&quot;&gt;&lt;/canvas&gt;
+    &lt;script type=&quot;module&quot; src=&quot;/src/main.ts&quot;&gt;&lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+<h2>The Game Code</h2>
+<p>Create <code>src/main.ts</code> with this code:</p>
+<pre><code class="language-ts">import { BitmapFont, Cathode, Scene, Sprite } from &#39;@cathode/sdk&#39;;
+
+const canvas = document.getElementById(&#39;game&#39;) as HTMLCanvasElement;
+
+function createSheet(engine: Cathode): number {
+  const sheetCanvas = document.createElement(&#39;canvas&#39;);
+  sheetCanvas.width = 16;
+  sheetCanvas.height = 8;
+
+  const ctx = sheetCanvas.getContext(&#39;2d&#39;)!;
+
+  // Frame 0: player
+  ctx.fillStyle = &#39;#2dd4bf&#39;;
+  ctx.fillRect(0, 0, 8, 8);
+  ctx.fillStyle = &#39;#0f172a&#39;;
+  ctx.fillRect(2, 2, 1, 1);
+  ctx.fillRect(5, 2, 1, 1);
+
+  // Frame 1: collectible
+  ctx.fillStyle = &#39;#facc15&#39;;
+  ctx.fillRect(10, 1, 4, 6);
+  ctx.fillStyle = &#39;#f59e0b&#39;;
+  ctx.fillRect(11, 2, 2, 4);
+
+  const data = ctx.getImageData(0, 0, sheetCanvas.width, sheetCanvas.height);
+
+  return engine.raw!.upload_sheet(
+    sheetCanvas.width,
+    sheetCanvas.height,
+    8,
+    8,
+    new Uint8Array(data.data.buffer),
+  );
+}
+
+function randomGrid(max: number): number {
+  return Math.floor(Math.random() * max) * 8;
+}
+
+async function bootstrap() {
+  const engine = await Cathode.gameboy(canvas, 4);
+  const scene = new Scene(engine);
+  const font = BitmapFont.builtin(engine);
+  const sheet = createSheet(engine);
+
+  const player = new Sprite(scene, {
+    x: 40,
+    y: 40,
+    sheet,
+    frame: 0,
+    layer: 5,
+  });
+
+  const pickup = new Sprite(scene, {
+    x: 96,
+    y: 72,
+    sheet,
+    frame: 1,
+    layer: 4,
+  });
+
+  let score = 0;
+  const speed = 70;
+
+  engine.loop((dt) =&gt; {
+    if (engine.input.held(0, &#39;left&#39;)) player.x -= speed * dt;
+    if (engine.input.held(0, &#39;right&#39;)) player.x += speed * dt;
+    if (engine.input.held(0, &#39;up&#39;)) player.y -= speed * dt;
+    if (engine.input.held(0, &#39;down&#39;)) player.y += speed * dt;
+
+    player.x = Math.max(0, Math.min(engine.width - 8, player.x));
+    player.y = Math.max(0, Math.min(engine.height - 8, player.y));
+
+    if (player.overlaps(pickup)) {
+      score += 1;
+      pickup.x = randomGrid(Math.floor(engine.width / 8));
+      pickup.y = randomGrid(Math.floor(engine.height / 8));
+    }
+
+    scene.update(dt);
+    font.draw(`SCORE ${score}`, 4, 4, 1);
+    font.draw(&#39;MOVE WITH ARROWS&#39;, 4, engine.height - 12, 1);
+  });
+}
+
+bootstrap();
+</code></pre>
+<h2>Why This Example Is Useful</h2>
+<p>This single file teaches the most important building blocks:</p>
+<ul>
+<li><code>Cathode.gameboy(...)</code> creates a configured engine preset.</li>
+<li><code>Scene</code> owns your sprite updates.</li>
+<li><code>Sprite</code> gives you simple game objects with positions and frames.</li>
+<li><code>BitmapFont.builtin(...)</code> gives you HUD text without shipping a bitmap font file.</li>
+<li><code>engine.loop(...)</code> is your main update/render cycle.</li>
+</ul>
+<h2>Run It</h2>
+<p>Start your local dev server:</p>
+<pre><code class="language-bash">bun dev
+</code></pre>
+<p>If the SDK or WASM bindings are linked from the monorepo, make sure you already ran the shared setup from <a href="./getting-started.html">getting-started.md</a>.</p>
+<h2>Where To Go Next</h2>
+<p>After this works, extend it in one small step at a time:</p>
+<ol>
+<li>Add sound using <code>SoundChannel</code>.</li>
+<li>Add enemies using more <code>Sprite</code> instances.</li>
+<li>Replace the procedural sprite sheet with a real PNG via <code>engine.loadSheet(...)</code>.</li>
+<li>Move to <code>TileMap</code> when you want level structure.</li>
+<li>Study a complete example in <code>examples/</code> once you need more systems.</li>
+</ol>
+<h2>Good Next Examples</h2>
+<ul>
+<li><code>examples/demo-game</code> if you want platforming.</li>
+<li><code>examples/space-game</code> if you want arcade action.</li>
+<li><code>examples/doom-game</code> if you want the raycaster path.</li>
+</ul>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/retor-engine/blob/main/docs/first-game.md">docs/first-game.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>

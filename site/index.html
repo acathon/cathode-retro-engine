@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cathode — a retro game engine in Rust and WebAssembly</title>
+  <meta name="description"
+    content="Cathode is a retro game engine in Rust and WebAssembly. Game Boy, NES, Neo Geo and VGA profiles, a raycaster, a visual editor, and sixteen playable demos." />
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="./index.html">CATHODE <span>ENGINE</span></a>
+      <a href="./index.html" aria-current="page">Overview</a>
+      <a href="./games.html">Games</a>
+      <a href="./docs.html">Docs</a>
+      <a href="https://github.com/acathon/retor-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <div>
+        <h1>CATHODE</h1>
+        <div class="sub">RUST · WEBASSEMBLY · PIXELS</div>
+        <p class="pitch">
+          A retro game engine where the hardware profile is a starting position, not a cage.
+          Build against a Game Boy, an NES, a Neo Geo, VGA mode 13h — or a screen you pick
+          yourself — and choose the target when you export.
+        </p>
+        <div class="btns">
+          <a class="btn primary" href="./docs/getting-started.html">Get started</a>
+          <a class="btn" href="./games.html">Play the demos</a>
+          <a class="btn" href="https://github.com/acathon/retor-engine">Source</a>
+        </div>
+      </div>
+
+      <div class="crt">
+        <canvas id="hero-demo" aria-label="A fire effect running at 320 by 200, the resolution of VGA mode 13h"></canvas>
+        <div class="label">320 × 200 · MODE 13H</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <div class="wrap">
+        <div class="stats">
+          <div><b>16</b><span>playable demos</span></div>
+          <div><b>640</b><span>tests</span></div>
+          <div><b>4</b><span>hardware profiles</span></div>
+          <div><b>0</b><span>third-party runtime deps</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">WHAT IT IS</div>
+          <h2>A framebuffer, an ECS, and a raycaster — in about 20k lines of Rust</h2>
+          <p class="lede">
+            The core is Rust compiled to WebAssembly. The face you write games against is
+            TypeScript. Nothing in between is hidden: sprites are indices into sheets you
+            uploaded, tiles are numbers in a grid, and the palette is a list of colours you
+            can print.
+          </p>
+        </div>
+
+        <div class="grid three">
+          <div class="card">
+            <h3>Hardware profiles</h3>
+            <p>
+              Game Boy, NES, Neo Geo and VGA are presets with real resolutions, palettes and
+              audio channel counts. They set the look. They do not enforce sprite caps while
+              you build — a cap that silently drops sprites turns "too many objects" into
+              "the player vanished", which teaches nobody anything. Check against a target
+              when you export instead.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Raycaster built in</h3>
+            <p>
+              DDA wall casting, billboard sprites, distance fog, eye height and horizon
+              pitch — plus hitscan queries, line of sight and A* pathfinding on the same
+              grid. Four of the demos are first-person and none of them ship a 3D pipeline.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Physics you hand things to</h3>
+            <p>
+              <code>usePhysics</code> gives a body gravity and tilemap collision from the
+              engine rather than from a copy of the same loop in every game. Declare which
+              tiles are solid; the engine resolves the sweep.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Visual editor</h3>
+            <p>
+              Cathode Studio: a scene tree, an inspector, a pixel sprite editor, a sound
+              maker, a tile level designer, and a block language that compiles to the same
+              TypeScript you would have written.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Netcode primitives</h3>
+            <p>
+              A fixed clock, lockstep, and snapshot interpolation, with a
+              <code>BroadcastChannel</code> transport in the FPS demo so you can play it
+              tab against tab without a server.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Runs where you need it</h3>
+            <p>
+              WebAssembly in a browser today, and a native runtime — winit, GPU blit, cpal
+              audio, gamepad support — in <code>crates/platform-native</code> for a desktop
+              build.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">A GAME, ROUGHLY</div>
+          <h2>Boot a screen, put something on it, loop</h2>
+          <p class="lede">
+            There is no scene file to author before the first pixel and no build step
+            between you and a reload.
+          </p>
+        </div>
+
+        <pre><code><span class="tok-key">import</span> { BitmapFont, Cathode, Scene, Sprite } <span class="tok-key">from</span> <span class="tok-str">'@cathode/sdk'</span>;
+
+<span class="tok-key">const</span> engine = <span class="tok-key">await</span> Cathode.<span class="tok-fn">gameboy</span>(canvas, <span class="tok-num">3</span>);
+<span class="tok-key">const</span> scene  = <span class="tok-key">new</span> <span class="tok-fn">Scene</span>(engine);
+<span class="tok-key">const</span> font   = BitmapFont.<span class="tok-fn">builtin</span>(engine);
+
+<span class="tok-com">// Sheets are RGBA bytes you upload — generate them, or load a PNG.</span>
+<span class="tok-key">const</span> sheet = engine.raw.<span class="tok-fn">upload_sheet</span>(<span class="tok-num">16</span>, <span class="tok-num">16</span>, <span class="tok-num">16</span>, <span class="tok-num">16</span>, pixels);
+<span class="tok-key">const</span> hero  = <span class="tok-key">new</span> <span class="tok-fn">Sprite</span>(scene, { sheet, frame: <span class="tok-num">0</span>, x: <span class="tok-num">40</span>, y: <span class="tok-num">60</span> });
+
+engine.<span class="tok-fn">loop</span>((dt) => {
+  <span class="tok-key">if</span> (engine.input.<span class="tok-fn">held</span>(<span class="tok-num">0</span>, <span class="tok-str">'right'</span>)) hero.x += <span class="tok-num">60</span> * dt;
+  scene.<span class="tok-fn">update</span>(dt);
+  font.<span class="tok-fn">draw</span>(<span class="tok-str">'HELLO'</span>, <span class="tok-num">8</span>, <span class="tok-num">8</span>, <span class="tok-num">1</span>);
+});</code></pre>
+
+        <div class="btns" style="margin-top:20px">
+          <a class="btn" href="./docs/first-game.html">Build the first game</a>
+          <a class="btn" href="./docs/tutorial-bounce.html">A physics game, step by step</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">PROFILES</div>
+          <h2>Four machines, and one that is whatever you say</h2>
+          <p class="lede">
+            Sprite budgets are advisory: the number the real hardware could show, reported
+            rather than enforced. Compare it against <code>peak_sprites</code> when you
+            export.
+          </p>
+        </div>
+
+        <div class="profiles">
+          <div class="profile">
+            <h3>GAME BOY</h3>
+            <div class="res">160 × 144</div>
+            <dl>
+              <div><dt>Palette</dt><dd>4 shades</dd></div>
+              <div><dt>Sprites</dt><dd>40</dd></div>
+              <div><dt>Audio</dt><dd>4 channels</dd></div>
+            </dl>
+          </div>
+          <div class="profile">
+            <h3>NES</h3>
+            <div class="res">256 × 240</div>
+            <dl>
+              <div><dt>Palette</dt><dd>54 colours</dd></div>
+              <div><dt>Sprites</dt><dd>64</dd></div>
+              <div><dt>Audio</dt><dd>5 channels</dd></div>
+            </dl>
+          </div>
+          <div class="profile">
+            <h3>NEO GEO</h3>
+            <div class="res">320 × 224</div>
+            <dl>
+              <div><dt>Palette</dt><dd>full</dd></div>
+              <div><dt>Sprites</dt><dd>380</dd></div>
+              <div><dt>Audio</dt><dd>8 channels</dd></div>
+            </dl>
+          </div>
+          <div class="profile">
+            <h3>DOS · VGA</h3>
+            <div class="res">320 × 200</div>
+            <dl>
+              <div><dt>Palette</dt><dd>256 colours</dd></div>
+              <div><dt>Refresh</dt><dd>70 Hz</dd></div>
+              <div><dt>Audio</dt><dd>9 FM (OPL2)</dd></div>
+            </dl>
+          </div>
+          <div class="profile">
+            <h3>CUSTOM</h3>
+            <div class="res">yours</div>
+            <dl>
+              <div><dt>Palette</dt><dd>none imposed</dd></div>
+              <div><dt>Sprites</dt><dd>unlimited</dd></div>
+              <div><dt>Used by</dt><dd>the card games</dd></div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">DEMOS</div>
+          <h2>Sixteen games, and all of them run</h2>
+          <p class="lede">
+            Every one is a reference for something specific. None of them draws outside the
+            engine.
+          </p>
+        </div>
+
+        <div class="grid four">
+          <a class="card" href="../examples/dust-protocol/">
+            <h3>Dust Protocol</h3>
+            <div class="path">examples/dust-protocol</div>
+            <p>Round-based FPS: hitscan, A* bots, line of sight, and tab-to-tab netplay.</p>
+            <div class="tags"><span class="tag hw">256 × 240 · NES</span></div>
+          </a>
+          <a class="card" href="../examples/holdem/">
+            <h3>River Street</h3>
+            <div class="path">examples/holdem</div>
+            <p>No-limit hold'em: a best-five-of-seven evaluator, side pots, three bots.</p>
+            <div class="tags"><span class="tag hw">560 × 400 · custom</span></div>
+          </a>
+          <a class="card" href="../examples/bounce-classic/">
+            <h3>Bounce</h3>
+            <div class="path">examples/bounce-classic</div>
+            <p>Bouncing physics, buoyancy and charge jumps — with a tutorial to match.</p>
+            <div class="tags"><span class="tag hw">256 × 240 · NES</span></div>
+          </a>
+          <a class="card" href="../examples/tetris/">
+            <h3>Tetris</h3>
+            <div class="path">examples/tetris</div>
+            <p>Ghost piece, wall kicks, seven-bag randomiser, Korobeiniki.</p>
+            <div class="tags"><span class="tag hw">160 × 144 · Game Boy</span></div>
+          </a>
+        </div>
+
+        <div class="btns" style="margin-top:22px">
+          <a class="btn" href="./games.html">All sixteen demos</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="eyebrow">GET STARTED</div>
+          <h2>Clone it and run something in under a minute</h2>
+        </div>
+        <pre><code><span class="tok-com">git</span> clone https://github.com/acathon/retor-engine
+<span class="tok-com">cd</span> retor-engine && npm install
+npm run build:wasm
+
+<span class="tok-com">cd</span> examples/tetris && npm run dev</code></pre>
+        <div class="btns" style="margin-top:20px">
+          <a class="btn primary" href="./docs/getting-started.html">Getting started</a>
+          <a class="btn" href="./docs.html">All documentation</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>
+        Cathode · Rust and WebAssembly ·
+        <a href="https://github.com/acathon/retor-engine">github.com/acathon/retor-engine</a>
+      </p>
+      <p>
+        Card art: <a href="https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games">8-bit
+        Playing Cards</a> by sdkfz181tiger. Every other sprite in every demo is generated in
+        code at start-up — see <a href="https://github.com/acathon/retor-engine/blob/main/ASSETS.md">ASSETS.md</a>.
+      </p>
+    </div>
+  </footer>
+
+  <script src="./assets/hero.js"></script>
+</body>
+
+</html>
