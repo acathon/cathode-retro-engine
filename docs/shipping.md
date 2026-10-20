@@ -185,8 +185,8 @@ command. Store your upload key, passwords and Apple key as
 ## What Is and Isn't Proven
 
 On every change, CI builds the Android app and plays it on an Android 15
-emulator. It checks that the game draws, has the whole screen, is held
-landscape, and answers a finger on the d-pad. CI also builds the iOS app with
+emulator. It checks that the game draws, shows no status or navigation bar,
+is held landscape, and answers a finger on the d-pad. CI also builds the iOS app with
 Xcode 26 and plays it in the iOS Simulator, checking that it draws and logs
 no errors. It signs an App Bundle and verifies the signature.
 

@@ -116,6 +116,7 @@ try {
     const pad = document.querySelector('[data-cathode-overlay] .pad:not([hidden])')?.getBoundingClientRect();
     return {
       vw: innerWidth, vh: innerHeight, sw: screen.width, sh: screen.height, dpr: devicePixelRatio,
+      orientation: screen.orientation?.type,
       touch: matchMedia('(pointer: coarse)').matches,
       canvas: { w: Math.round(r.width), h: Math.round(r.height), pixels: `${c.width}x${c.height}` },
       ink: Math.round(((d.length / 4 - Math.max(...counts.values())) / (d.length / 4)) * 100),
@@ -129,10 +130,36 @@ try {
   check('starts and draws', page.ink > 0, `${page.canvas.pixels} game screen, ${page.ink}% of it drawn`);
   check('knows it is a touch screen', page.touch);
   check('on-screen controls are up', page.shown.length > 0, page.shown.join(' '));
-  const [long, short] = [Math.max(page.vw, page.vh), Math.min(page.vw, page.vh)];
-  const [screenLong, screenShort] = [Math.max(page.sw, page.sh), Math.min(page.sw, page.sh)];
-  check('has the whole screen', long >= screenLong * 0.95 && short >= screenShort * 0.95,
-    `page ${page.vw}x${page.vh} of a ${page.sw}x${page.sh} screen`);
+
+  // Where the page sits on the screen. On WebViews before Chromium 140,
+  // Capacitor pads the page clear of the camera cutout, so a CSS pixel is
+  // not where its coordinates say until offset. One tap in the middle of the
+  // screen, and where the page saw it, gives the offset.
+  await evaluate(() => {
+    window.__tap = null;
+    addEventListener('pointerdown', (e) => { window.__tap ??= { x: e.clientX, y: e.clientY }; }, { capture: true });
+    return true;
+  });
+  const tapX = Math.round((page.sw * page.dpr) / 2);
+  const tapY = Math.round((page.sh * page.dpr) / 2);
+  adb('shell', 'input', 'tap', `${tapX}`, `${tapY}`);
+  const tap = await waitFor('the calibration tap to reach the page', 10, () => evaluate(() => window.__tap));
+  const left = tapX / page.dpr - tap.x;
+  const top = tapY / page.dpr - tap.y;
+  const gaps = {
+    top: Math.round(top), left: Math.round(left),
+    right: Math.round(page.sw - page.vw - left), bottom: Math.round(page.sh - page.vh - top),
+  };
+
+  // No system bars: the only screen the page may lack is the cutout, which
+  // is at the phone's top edge -- the left of the screen when it is held
+  // landscape-primary. A gap anywhere else is a status or navigation bar
+  // that did not hide.
+  const CUTOUT_SIDE = { 'portrait-primary': 'top', 'landscape-primary': 'left', 'portrait-secondary': 'bottom', 'landscape-secondary': 'right' };
+  const cutoutSide = CUTOUT_SIDE[page.orientation];
+  const bars = Object.entries(gaps).filter(([side, gap]) => side !== cutoutSide && gap > 2);
+  check('no system bars showing', bars.length === 0 && (gaps[cutoutSide] ?? 0) <= 64,
+    `${page.orientation}; page ${page.vw}x${page.vh} of a ${page.sw}x${page.sh} screen; gaps ${JSON.stringify(gaps)}`);
   if (ORIENTATION !== 'any') {
     check(`held ${ORIENTATION}`, ORIENTATION === 'landscape' ? page.vw > page.vh : page.vh > page.vw, `${page.vw}x${page.vh}`);
   }
@@ -141,17 +168,17 @@ try {
   check('does not scroll', !page.scrolls);
 
   // A finger held on the right arm of the d-pad, through the touchscreen.
-  // Near its tip: a display cutout can shift the page right of where its
-  // CSS pixels say, and this keeps the press on the arm either way.
   if (page.pad) {
-    const x = Math.round((page.pad.x + page.pad.w * 0.92) * page.dpr);
-    const y = Math.round((page.pad.y + page.pad.h / 2) * page.dpr);
+    const x = Math.round((page.pad.x + page.pad.w * 0.85 + left) * page.dpr);
+    const y = Math.round((page.pad.y + page.pad.h / 2 + top) * page.dpr);
     const finger = spawn(ADB, ['shell', 'input', 'touchscreen', 'swipe', `${x}`, `${y}`, `${x}`, `${y}`, '2500']);
+    // Listened for now: the finger may lift before the d-pad is checked.
+    const lifted = new Promise((resolve) => finger.on('exit', resolve));
     const held = await waitFor('the d-pad to light', 8, async () => {
       const lit = await evaluate(() => [...document.querySelectorAll('[data-cathode-overlay] .pad i[data-on]')].map((e) => e.className).join('+'));
       return lit || null;
     }).catch(() => '');
-    await new Promise((resolve) => finger.on('exit', resolve));
+    await lifted;
     await sleep(300);
     const after = await evaluate(() => document.querySelectorAll('[data-cathode-overlay] .pad i[data-on]').length);
     check('d-pad answers a finger', held === 'right' && after === 0, `held "${held}", ${after} still lit after lifting`);

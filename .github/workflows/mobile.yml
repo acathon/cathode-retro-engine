@@ -79,6 +79,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Play it on an Android emulator
+        timeout-minutes: 20
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -159,7 +160,9 @@ jobs:
           test "$(plutil -extract CFBundleDisplayName raw "$PLIST")" = "Ci Game"
           test "$(plutil -extract UIStatusBarHidden raw "$PLIST")" = true
 
+      # The first boot of a simulator on a fresh runner takes about ten minutes.
       - name: Play it in the iOS Simulator
+        timeout-minutes: 25
         run: node scripts/verify/ios-simulator.mjs ${{ env.GAME }}/out/ci-game-0.1.0-simulator.app com.example.cigame --out ${{ env.GAME }}/out
 
       - uses: actions/upload-artifact@v4
