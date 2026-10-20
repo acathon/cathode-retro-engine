@@ -26,6 +26,7 @@
         <a href="./getting-started.html" aria-current="page">Getting started</a>
         <a href="./first-game.html">Your first game</a>
         <a href="./mobile.html">Games on phones</a>
+        <a href="./shipping.html">Shipping to the stores</a>
         <h4>TUTORIALS</h4>
         <a href="./tutorial-bounce.html">Build a physics game</a>
         <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
@@ -119,8 +120,11 @@ npm run dev          # or: bun dev
 <h2>Create A New Game With The CLI</h2>
 <p>From the monorepo:</p>
 <pre><code class="language-bash">npm run build:cli
-node packages/cli/dist/index.js new my-first-game --template platformer
+npm install -g ./packages/cli     # puts `cathode` on your PATH
+cathode new my-first-game --template platformer
 </code></pre>
+<p>Without the global install, <code>node packages/cli/dist/index.js</code> does the same
+from the repository root.</p>
 <table>
 <thead>
 <tr>
@@ -172,6 +176,8 @@ game. The project also gets a <a href="./project-format.html"><code>cathode.json
 it, and <code>npm run typecheck</code>, which is worth running: Vite strips types without
 checking them, so a typo TypeScript would name in a second otherwise only shows
 up when the game runs.</p>
+<p>To put it on a phone, run <code>cathode export android</code> or <code>cathode export ios</code>
+inside the game&#39;s folder — see <a href="./shipping.html">Shipping to Android and iOS</a>.</p>
 <h2>Changing The Engine Itself</h2>
 <p>Everything above works without Rust. This section is for editing the engine
 under <code>crates/</code> — the core, the web bindings, or the native runtime.</p>
@@ -283,7 +289,7 @@ the dev server:</p>
 <p>Build the CLI first:</p>
 <pre><code class="language-bash">bun run build:cli
 </code></pre>
-<p>Then invoke it from <code>packages/cli/dist/index.js</code> inside the monorepo, or install the package in a separate project once published.</p>
+<p>Then put it on your PATH with <code>npm install -g ./packages/cli</code>, or invoke it as <code>node packages/cli/dist/index.js</code> from the repository root.</p>
 
       <p class="doc-foot">
         Edit this page: <a href="https://github.com/acathon/cathode-retro-engine/blob/main/docs/getting-started.md">docs/getting-started.md</a>

@@ -24,7 +24,7 @@ const OUT = 'site/docs';
 const SECTIONS = [
   {
     title: 'START HERE',
-    pages: ['getting-started', 'first-game', 'mobile'],
+    pages: ['getting-started', 'first-game', 'mobile', 'shipping'],
   },
   {
     title: 'TUTORIALS',
@@ -45,6 +45,7 @@ const TITLES = {
   'tutorial-cards': 'Build a card game',
   'tutorial-trex': 'Walkthrough: T-Rex Runner',
   mobile: 'Games on phones',
+  shipping: 'Shipping to the stores',
   'project-format': 'cathode.json',
   architecture: 'Architecture',
   contributing: 'Contributing',

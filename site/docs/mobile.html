@@ -26,6 +26,7 @@
         <a href="./getting-started.html">Getting started</a>
         <a href="./first-game.html">Your first game</a>
         <a href="./mobile.html" aria-current="page">Games on phones</a>
+        <a href="./shipping.html">Shipping to the stores</a>
         <h4>TUTORIALS</h4>
         <a href="./tutorial-bounce.html">Build a physics game</a>
         <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
@@ -55,6 +56,8 @@ pull-to-refresh, no long-press menu in the middle of a jump.</li>
 </ul>
 <p>On a desktop nothing changes: the game keeps the scale it asked for, unless
 the window is too small for it.</p>
+<p>To turn the game into an Android or iOS app, see
+<a href="./shipping.html">Shipping to Android and iOS</a>.</p>
 <h2>The Controls Draw Themselves</h2>
 <p>The controls show a button the first time your game reads it through
 <code>engine.input</code> — <code>held</code>, <code>justPressed</code> or <code>justReleased</code>. So a title screen
@@ -90,8 +93,8 @@ without lifting, and press diagonals. A thumb resting on its centre presses
 nothing, and one that slides off the edge keeps steering. Each finger is
 tracked separately, so the d-pad and A work at the same time.</p>
 <h2>What Your Game Has To Get Right</h2>
-<p>The engine cannot fix these from the outside. Each one was a real bug in a
-demo in this repository.</p>
+<p>The engine cannot fix these from the outside. Most of them were real bugs in
+a demo in this repository.</p>
 <p><strong>Read every action through <code>engine.input</code>.</strong> On a phone, a listener on
 <code>keydown</code> hears nothing. The first-person demo listened for Z and Enter itself,
 so a phone player could walk but never shoot. Read <code>engine.input.justPressed(0, &#39;a&#39;)</code> instead — the keyboard still works, because Z, space and Enter map to A
@@ -106,6 +109,12 @@ vanish too.</p>
 the game&#39;s size in CSS fights the fitting: the ice hockey demo fixed its
 screen at 768 × 720 inside a wrapper, so on a phone held sideways the page was
 807 pixels tall on a 360-pixel screen.</p>
+<p><strong>Let it reach the edges.</strong> Put <code>viewport-fit=cover</code> in the page&#39;s viewport
+tag. Without it, an iPhone keeps the page out of the notch&#39;s side of the
+screen altogether, and the engine cannot tell where the notch is:</p>
+<pre><code class="language-html">&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0, viewport-fit=cover&quot;&gt;
+</code></pre>
+<p><code>cathode new</code> writes it for you.</p>
 <p><strong>Keep the page fluid.</strong> One element with <code>width: 768px</code> makes the whole page
 768 pixels wide on a 412-pixel phone, and the browser shrinks everything to
 fit. Write <code>width: min(768px, 100%)</code>.</p>

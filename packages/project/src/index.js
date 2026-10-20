@@ -129,6 +129,13 @@ export function validateProject(value) {
   if (!isText(value.title, 80)) errors.push('title is required: the name players see, at most 80 characters.');
   if (typeof value.version !== 'string' || !VERSION.test(value.version)) {
     errors.push('version is required as MAJOR.MINOR.PATCH, numbers only — e.g. "1.0.0". The app stores accept nothing else.');
+  } else {
+    // Android also needs the version as one rising whole number, made as
+    // MAJOR * 1,000,000 + MINOR * 1,000 + PATCH, and caps it at 2.1 billion.
+    const [major, minor, patch] = value.version.split('.').map(Number);
+    if (minor > 999 || patch > 999 || major > 2099) {
+      errors.push('version must keep MINOR and PATCH at most 999, and MAJOR at most 2099, so Android can number it.');
+    }
   }
   if (value.description !== undefined && !isText(value.description, 500)) {
     errors.push('description must be text of at most 500 characters.');

@@ -62,6 +62,14 @@ describe('fields that reach the stores', () => {
     expect(errorFor({ version })).toHaveLength(1);
   });
 
+  it.each(['1.1000.0', '1.0.1000', '2100.0.0'])('rejects version %j — too big for Android to number', (version) => {
+    expect(errorFor({ version })).toEqual(['version must keep MINOR and PATCH at most 999, and MAJOR at most 2099, so Android can number it.']);
+  });
+
+  it('accepts the largest version Android can number', () => {
+    expect(errorFor({ version: '2099.999.999' })).toEqual([]);
+  });
+
   it.each([
     ['com.example.my-game', 'Android forbids hyphens'],
     ['com.example.my_game', 'iOS forbids underscores'],

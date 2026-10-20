@@ -17,6 +17,9 @@ screen the engine:
 On a desktop nothing changes: the game keeps the scale it asked for, unless
 the window is too small for it.
 
+To turn the game into an Android or iOS app, see
+[Shipping to Android and iOS](./shipping.md).
+
 ## The Controls Draw Themselves
 
 The controls show a button the first time your game reads it through
@@ -39,8 +42,8 @@ tracked separately, so the d-pad and A work at the same time.
 
 ## What Your Game Has To Get Right
 
-The engine cannot fix these from the outside. Each one was a real bug in a
-demo in this repository.
+The engine cannot fix these from the outside. Most of them were real bugs in
+a demo in this repository.
 
 **Read every action through `engine.input`.** On a phone, a listener on
 `keydown` hears nothing. The first-person demo listened for Z and Enter itself,
@@ -62,6 +65,16 @@ vanish too.
 the game's size in CSS fights the fitting: the ice hockey demo fixed its
 screen at 768 × 720 inside a wrapper, so on a phone held sideways the page was
 807 pixels tall on a 360-pixel screen.
+
+**Let it reach the edges.** Put `viewport-fit=cover` in the page's viewport
+tag. Without it, an iPhone keeps the page out of the notch's side of the
+screen altogether, and the engine cannot tell where the notch is:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+```
+
+`cathode new` writes it for you.
 
 **Keep the page fluid.** One element with `width: 768px` makes the whole page
 768 pixels wide on a 412-pixel phone, and the browser shrinks everything to

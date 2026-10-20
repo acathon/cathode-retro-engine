@@ -43,13 +43,13 @@ The smallest valid file needs only `format`, `name`, `title`, `version`,
 | `format` | yes | Always `1`. A file from a newer Cathode is reported as such, not misread. |
 | `name` | yes | Lowercase letters, digits and hyphens, e.g. `my-game`. In the repository it must match the folder name. |
 | `title` | yes | The name players see, up to 80 characters. |
-| `version` | yes | `MAJOR.MINOR.PATCH`, numbers only — `1.0.0`, not `v1.0` or `1.0.0-beta`. The App Store rejects anything else. |
+| `version` | yes | `MAJOR.MINOR.PATCH`, numbers only — `1.0.0`, not `v1.0` or `1.0.0-beta`. The App Store rejects anything else. MINOR and PATCH go up to 999: Android also needs the version as one number, and `1.2.3` becomes `1002003`. |
 | `description` | no | Up to 500 characters. |
-| `id` | no | The game's identity on a store, e.g. `com.example.mygame`. Needed before it can ship to Google Play or the App Store. |
+| `id` | no | The game's identity on a store, e.g. `io.github.yourname.mygame`. Needed for a store build, and can never change after the first upload. `cathode new` writes a `com.example` stand-in to replace. |
 | `screen` | yes | A hardware preset — `{ "profile": "nes" }` — or a size of your own — `{ "width": 320, "height": 240 }`. Not both. |
 | `orientation` | no | `landscape` (the default), `portrait` or `any`. |
 | `input` | yes | The controls the game really supports: any of `keyboard`, `touch`, `mouse`, `gamepad`. |
-| `icon` | no | A `.png` inside the project, e.g. `assets/icon.png`. |
+| `icon` | no | A square `.png` inside the project, e.g. `assets/icon.png`. Becomes the app icon and launch screen; see [Shipping](./shipping.md#the-icon). |
 | `credits` | no | Art, music or code by other people: `what`, `who`, and optionally `license` and `url`. |
 
 Unknown fields are errors, not ignored, so a misspelt `"titel"` is reported

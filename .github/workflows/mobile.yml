@@ -1,0 +1,172 @@
+name: Mobile
+
+# Makes a game the way a user would -- `cathode new`, then `cathode export` --
+# and proves the result is an app that runs: an Android build played on an
+# emulator, an iOS build played in the iOS Simulator, and a signed store
+# bundle. The apps and screenshots are kept as artifacts.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'packages/cli/**'
+      - 'packages/project/**'
+      - 'packages/sdk/**'
+      - 'scripts/verify/android-device.mjs'
+      - 'scripts/verify/ios-simulator.mjs'
+      - 'scripts/verify/lib.mjs'
+      - '.github/workflows/mobile.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CATHODE: node ${{ github.workspace }}/packages/cli/dist/index.js
+  # Outside the checkout, as a user's game would be: inside it, npm would
+  # take the game for part of this repository's workspace.
+  GAME: /tmp/cathode-ci/ci-game
+
+jobs:
+  android:
+    name: Android app
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Capacitor 8 compiles with Java 21.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the CLI
+        run: npm ci && npm run build -w packages/cli
+
+      - name: Make a game
+        run: |
+          mkdir -p "$(dirname "$GAME")" && cd "$(dirname "$GAME")"
+          $CATHODE new ci-game --template platformer
+          cd ci-game && npm install
+
+      - name: Export a test build
+        working-directory: ${{ env.GAME }}
+        run: $CATHODE export android
+
+      - name: The APK carries what cathode.json says
+        working-directory: ${{ env.GAME }}
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          "$AAPT2" dump badging out/ci-game-0.1.0-debug.apk | tee badging.txt | head -5
+          grep -q "package: name='com.example.cigame' versionCode='1000' versionName='0.1.0'" badging.txt
+          grep -q "application-label:'Ci Game'" badging.txt
+
+      # Lets the emulator use hardware virtualisation; without it, it crawls.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Play it on an Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: node scripts/verify/android-device.mjs ${{ env.GAME }}/out/ci-game-0.1.0-debug.apk com.example.cigame --out ${{ env.GAME }}/out
+
+      # A store build needs the game's own id, an icon and an upload key. The
+      # key here is made on the spot; a real one is kept secret and reused.
+      - name: Export a signed store build
+        working-directory: ${{ env.GAME }}
+        env:
+          CATHODE_KEYSTORE: upload.jks
+          CATHODE_KEYSTORE_PASSWORD: ci-only-password
+          CATHODE_KEY_ALIAS: upload
+        run: |
+          keytool -genkeypair -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$CATHODE_KEYSTORE_PASSWORD" -keypass "$CATHODE_KEYSTORE_PASSWORD" -dname "CN=Cathode CI"
+          cp "$GITHUB_WORKSPACE/examples/trex-game/public/trex.png" assets/icon.png
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('cathode.json'));
+            Object.assign(p, { id: 'io.github.acathon.cigame', icon: 'assets/icon.png', version: '1.0.0' });
+            fs.writeFileSync('cathode.json', JSON.stringify(p, null, 2));
+          "
+          $CATHODE export android --release
+          jarsigner -verify out/ci-game-1.0.0.aab | tee verify.txt
+          grep -q "jar verified" verify.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android
+          path: |
+            ${{ env.GAME }}/out/*.apk
+            ${{ env.GAME }}/out/*.aab
+            ${{ env.GAME }}/out/*.png
+            ${{ env.GAME }}/out/*.txt
+          if-no-files-found: ignore
+
+  ios:
+    name: iOS app
+    # Apple accepts uploads only from Xcode 26 or later; this image defaults to it.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build the CLI
+        run: npm ci && npm run build -w packages/cli
+
+      - name: Make a game
+        run: |
+          mkdir -p "$(dirname "$GAME")" && cd "$(dirname "$GAME")"
+          $CATHODE new ci-game --template platformer
+          cd ci-game && npm install
+
+      - name: Export a simulator build
+        working-directory: ${{ env.GAME }}
+        run: |
+          xcodebuild -version
+          $CATHODE export ios
+
+      - name: The app carries what cathode.json says
+        working-directory: ${{ env.GAME }}
+        run: |
+          PLIST=out/ci-game-0.1.0-simulator.app/Info.plist
+          test "$(plutil -extract CFBundleIdentifier raw "$PLIST")" = com.example.cigame
+          test "$(plutil -extract CFBundleShortVersionString raw "$PLIST")" = 0.1.0
+          test "$(plutil -extract CFBundleVersion raw "$PLIST")" = 1000
+          test "$(plutil -extract CFBundleDisplayName raw "$PLIST")" = "Ci Game"
+          test "$(plutil -extract UIStatusBarHidden raw "$PLIST")" = true
+
+      - name: Play it in the iOS Simulator
+        run: node scripts/verify/ios-simulator.mjs ${{ env.GAME }}/out/ci-game-0.1.0-simulator.app com.example.cigame --out ${{ env.GAME }}/out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios
+          path: |
+            ${{ env.GAME }}/out/*.png
+            ${{ env.GAME }}/out/*.log
+          if-no-files-found: ignore

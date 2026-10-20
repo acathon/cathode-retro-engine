@@ -1,346 +1,446 @@
-import { execSync } from 'child_process';
+/**
+ * `cathode export web|android|ios`: the game, built for where it will run.
+ *
+ * Android and iOS builds wrap the web build in a native app with Capacitor.
+ * The native projects in native/ are generated: everything in them comes from
+ * cathode.json, and they are remade whenever that would differ from what is
+ * there. Nothing in them is meant to be edited by hand.
+ */
+import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
 import fs from 'fs-extra';
-import path from 'path';
 import chalk from 'chalk';
+import { parseProject, type Project } from '@cathode/project';
+import { decodePng, encodePng, type Image } from '../mobile/png.js';
+import { adaptiveForeground, hex, iconBackground, placeholderIcon, splashScreen, squareIcon } from '../mobile/icons.js';
+import {
+  CAPACITOR_VERSION, NATIVE_DIR, type Platform,
+  androidAppGradle, androidIconBackground, androidManifest, androidStrings, androidStyles,
+  capacitorConfig, iosInfoPlist, iosProject, isPlaceholderId, placeholderId,
+} from '../mobile/native.js';
+import { GITIGNORE } from './new.js';
 
-export default async function exportCommand(target: string) {
-  if (target === 'web') {
-    console.log(chalk.cyan('Exporting to web...'));
-    try {
-      execSync('cathode build', { stdio: 'inherit' });
-    } catch (e) {
-      console.error(chalk.red('Web export failed'));
-    }
-  } else if (target === 'desktop') {
-    console.log(chalk.cyan('Exporting to desktop (Tauri required)...'));
-    try {
-      execSync('npx tauri build', { stdio: 'inherit' });
-    } catch (e) {
-      console.error(chalk.red('Desktop export failed. Make sure @tauri-apps/cli is installed.'));
-    }
-  } else if (target === 'mobile') {
-    console.log(chalk.cyan('Exporting to mobile (Capacitor required)...'));
-    try {
-      execSync('npx cap build', { stdio: 'inherit' });
-    } catch (e) {
-      console.error(chalk.red('Mobile export failed. Make sure @capacitor/cli is installed.'));
-    }
-  } else if (target === 'arm-linux') {
-    console.log(chalk.cyan('Cross-compiling for ARM Linux (Anbernic/Miyoo/Pi)...'));
-    const outDir = path.resolve(process.cwd(), 'dist', 'arm-linux');
-    await fs.ensureDir(outDir);
-    try {
-      execSync(
-        'cargo build -p cathode-platform-native --target armv7-unknown-linux-gnueabihf --release',
-        { stdio: 'inherit' },
-      );
-      const binaryName = process.platform === 'win32' ? 'cathode-platform-native' : 'cathode-platform-native';
-      const binarySrc = path.resolve(
-        'target', 'armv7-unknown-linux-gnueabihf', 'release', binaryName,
-      );
-      if (fs.existsSync(binarySrc)) {
-        await fs.copy(binarySrc, path.join(outDir, binaryName));
-      }
-      const launchScript = `#!/bin/sh\ncd "$(dirname "$0")"\n./${binaryName} "$@"\n`;
-      await fs.writeFile(path.join(outDir, 'launch.sh'), launchScript, { mode: 0o755 });
-      console.log(chalk.green(`ARM Linux build output to ${outDir}`));
-    } catch (e) {
-      console.error(chalk.red('ARM Linux export failed. Make sure the cross-compilation toolchain is installed.'));
-    }
-  } else if (target === 'pwa') {
-    console.log(chalk.cyan('Adding PWA support...'));
-    try {
-      execSync('cathode build', { stdio: 'inherit' });
-    } catch (e) {
-      console.error(chalk.red('Build step failed'));
-      return;
-    }
-    const distDir = path.resolve(process.cwd(), 'dist');
-    if (!fs.existsSync(distDir)) {
-      console.error(chalk.red('dist/ directory not found. Run build first.'));
-      return;
-    }
+export const TARGETS = ['web', 'android', 'ios'] as const;
+export type Target = (typeof TARGETS)[number];
 
-    let projectName = 'Retro Game';
-    const configPath = path.resolve(process.cwd(), 'retro.config.json');
-    if (fs.existsSync(configPath)) {
-      try {
-        const config = await fs.readJson(configPath);
-        if (config.title) projectName = config.title;
-      } catch { /* use default */ }
-    }
-
-    const manifest = {
-      name: projectName,
-      short_name: projectName,
-      start_url: '.',
-      display: 'standalone',
-      background_color: '#0a0a0a',
-      theme_color: '#7c3aff',
-      icons: [
-        { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
-      ],
-    };
-    await fs.writeJson(path.join(distDir, 'manifest.json'), manifest, { spaces: 2 });
-
-    const sw = `const CACHE_NAME = 'retro-game-v1';
-const ASSETS = self.__WB_MANIFEST || ['/'];
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
-});
-self.addEventListener('fetch', (e) => {
-  e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
-});
-`;
-    await fs.writeFile(path.join(distDir, 'sw.js'), sw);
-
-    // Inject manifest link + SW registration into index.html
-    const indexPath = path.join(distDir, 'index.html');
-    if (fs.existsSync(indexPath)) {
-      let html = await fs.readFile(indexPath, 'utf-8');
-      if (!html.includes('manifest.json')) {
-        html = html.replace(
-          '</head>',
-          '    <link rel="manifest" href="/manifest.json">\n</head>',
-        );
-      }
-      if (!html.includes('sw.js')) {
-        html = html.replace(
-          '</body>',
-          `    <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}</script>\n</body>`,
-        );
-      }
-      await fs.writeFile(indexPath, html);
-    }
-
-    console.log(chalk.green('PWA manifest and service worker added to dist/'));
-  } else if (target === 'rom-gb') {
-    console.log(chalk.cyan('Generating GBDK-2020 project scaffold...'));
-    const outDir = path.resolve(process.cwd(), 'dist', 'rom-gb');
-    await fs.ensureDir(path.join(outDir, 'assets'));
-    await fs.ensureDir(path.join(outDir, 'maps'));
-
-    const makefile = `# GBDK-2020 Makefile
-# Requires GBDK-2020 installed: https://github.com/gbdk-2020/gbdk-2020/releases
-# Set GBDK_HOME to your GBDK-2020 install directory
-
-GBDK_HOME ?= /opt/gbdk
-CC = $(GBDK_HOME)/bin/lcc
-ROM_NAME = game.gb
-
-SRCS = main.c
-OBJS = $(SRCS:.c=.o)
-
-all: $(ROM_NAME)
-
-$(ROM_NAME): $(SRCS)
-\t$(CC) -o $@ $^
-
-clean:
-\trm -f $(ROM_NAME) $(OBJS)
-
-.PHONY: all clean
-`;
-    await fs.writeFile(path.join(outDir, 'Makefile'), makefile);
-
-    const mainC = `#include <gb/gb.h>
-#include <stdio.h>
-
-/* Game Boy ROM scaffold generated by Cathode CLI */
-/* Requires GBDK-2020: https://github.com/gbdk-2020/gbdk-2020/releases */
-
-/* TODO: Import your sprite and map data from assets/ and maps/ */
-
-void main(void) {
-    DISPLAY_ON;
-
-    /* Palette: lightest to darkest */
-    BGP_REG = 0xE4U;  /* 11 10 01 00 */
-    OBP0_REG = 0xE4U;
-
-    printf("RETRO ENGINE\\n");
-    printf("GB ROM READY\\n");
-
-    /* Main game loop */
-    while(1) {
-        /* Read joypad */
-        UINT8 keys = joypad();
-
-        /* Update game logic here */
-
-        /* Wait for VBlank */
-        wait_vbl_done();
-    }
+export interface ExportOptions {
+  /** A store build: an Android App Bundle, or an iOS archive exported for App Store Connect. */
+  release?: boolean;
+  /** Install and start it on a connected phone or a simulator. */
+  run?: boolean;
+  /** Open the native project in Android Studio or Xcode afterwards. */
+  open?: boolean;
+  /** `--no-build`: prepare the native project, but don't compile it. */
+  build?: boolean;
 }
-`;
-    await fs.writeFile(path.join(outDir, 'main.c'), mainC);
 
-    const readme = `# Game Boy ROM Project
+const WIN = process.platform === 'win32';
 
-Generated by Cathode CLI.
+function fail(message: string): never {
+  console.error(chalk.red(`\n${message}`));
+  process.exit(1);
+}
 
-## Prerequisites
+const step = (message: string) => console.log(chalk.cyan(`\n▸ ${message}`));
+const note = (message: string) => console.log(chalk.yellow(`  ${message}`));
 
-1. Install GBDK-2020: https://github.com/gbdk-2020/gbdk-2020/releases
-2. Set the \`GBDK_HOME\` environment variable to your GBDK-2020 install directory
+/** Run a program, its output shown as it goes. Fails the export if it fails. */
+function run(command: string, args: string[], cwd: string, extra: SpawnSyncOptions = {}): void {
+  // npm, npx and gradlew.bat are scripts on Windows, which Node only starts through a shell.
+  const result = spawnSync(command, args, { cwd, stdio: 'inherit', shell: WIN, ...extra });
+  if (result.error) fail(`Could not start ${command}: ${result.error.message}`);
+  if (result.status !== 0) fail(`${[command, ...args].join(' ')} failed (exit code ${result.status}).`);
+}
 
-## Build
+/** Run a program quietly and return what it printed, or null if it isn't there. */
+function output(command: string, args: string[]): string | null {
+  const result = spawnSync(command, args, { encoding: 'utf8', shell: WIN });
+  if (result.error || result.status !== 0) return null;
+  return `${result.stdout ?? ''}${result.stderr ?? ''}`;
+}
 
-\`\`\`bash
-export GBDK_HOME=/path/to/gbdk
-make
-\`\`\`
+async function loadProject(dir: string): Promise<Project> {
+  const file = path.join(dir, 'cathode.json');
+  if (!fs.existsSync(file)) {
+    fail('There is no cathode.json here. Run this in your game\'s folder — the one `cathode new` made.');
+  }
+  const { project, errors } = parseProject(await fs.readFile(file, 'utf8'));
+  if (!project) fail(`cathode.json needs fixing first:\n${errors.map((e) => `  - ${e}`).join('\n')}`);
+  return project;
+}
 
-This produces \`game.gb\` which you can run in any Game Boy emulator (BGB, mGBA, etc.)
-or flash to a cartridge.
+/** The web build everything else wraps: dist/, with paths that work from any folder. */
+function buildWeb(dir: string): void {
+  step('Building the game');
+  const pkg = fs.readJsonSync(path.join(dir, 'package.json'), { throws: false }) ?? {};
+  if (!fs.existsSync(path.join(dir, 'node_modules'))) run('npm', ['install'], dir);
+  if (pkg.scripts?.build) run('npm', ['run', 'build'], dir);
+  else run('npx', ['vite', 'build', '--base', './'], dir);
+  if (!fs.existsSync(path.join(dir, 'dist', 'index.html'))) fail('The build finished but dist/index.html is missing.');
+}
 
-## Structure
+/** Add what `cathode export` makes to .gitignore, for projects made before it did. */
+async function ignoreGenerated(dir: string): Promise<void> {
+  const file = path.join(dir, '.gitignore');
+  if (!fs.existsSync(file)) return;
+  const lines = (await fs.readFile(file, 'utf8')).split(/\r?\n/);
+  const missing = GITIGNORE.trim().split('\n').filter((entry) => !lines.includes(entry) && !lines.includes(`${entry}/`));
+  if (missing.length) await fs.appendFile(file, `${lines.at(-1) === '' ? '' : '\n'}${missing.join('\n')}\n`);
+}
 
-- \`main.c\` — Game loop skeleton with joypad input
-- \`assets/\` — Place converted sprite data here (2bpp tile format)
-- \`maps/\` — Place tilemap data as C arrays here
+/** The game's icon, or a placeholder with a warning. */
+async function loadIcon(dir: string, project: Project, release: boolean): Promise<Image> {
+  if (!project.icon) {
+    if (release) fail('A store build needs an icon. Add one to cathode.json, e.g. "icon": "assets/icon.png" — a square PNG. Pixel art is fine at any size; it is scaled up in whole steps.');
+    note('No icon in cathode.json — using a placeholder letter. Add "icon": "assets/icon.png" before you publish.');
+    return placeholderIcon(project.title, project.name);
+  }
+  const file = path.join(dir, project.icon);
+  if (!fs.existsSync(file)) fail(`The icon cathode.json names, ${project.icon}, does not exist.`);
+  try {
+    const icon = decodePng(await fs.readFile(file));
+    if (icon.width !== icon.height) note(`${project.icon} is ${icon.width}×${icon.height}; icons are square, so it will be centred with room around it.`);
+    return icon;
+  } catch (err: any) {
+    fail(`${project.icon} can't be read: ${err.message}.`);
+  }
+}
 
-## Converting Assets
+function storeId(project: Project, release: boolean): string {
+  if (project.id && !(release && isPlaceholderId(project.id))) return project.id;
+  if (release) {
+    fail(`A store build needs your own "id" in cathode.json${project.id ? ` instead of ${project.id}` : ''}. ` +
+      'It identifies the game on Google Play and the App Store, and cannot change after the first upload. ' +
+      `Reverse a domain or account you control, e.g. "io.github.yourname.${project.name.replace(/-/g, '')}".`);
+  }
+  return project.id ?? placeholderId(project.name);
+}
 
-Use \`png2asset\` (included with GBDK-2020) to convert PNG sprites:
-\`\`\`bash
-$(GBDK_HOME)/bin/png2asset sprite.png -o assets/sprite.c -sw 8 -sh 8
-\`\`\`
-`;
-    await fs.writeFile(path.join(outDir, 'README.md'), readme);
+// --- Capacitor ---------------------------------------------------------------
 
-    console.log(chalk.green(`GBDK-2020 project scaffold generated in ${outDir}`));
-  } else if (target === 'rom-nes') {
-    console.log(chalk.cyan('Generating cc65/NESLib project scaffold...'));
-    const outDir = path.resolve(process.cwd(), 'dist', 'rom-nes');
-    await fs.ensureDir(path.join(outDir, 'chr'));
-    await fs.ensureDir(path.join(outDir, 'maps'));
+function capacitor(dir: string, args: string[]): void {
+  run(process.execPath, [path.join(dir, 'node_modules', '@capacitor', 'cli', 'bin', 'capacitor'), ...args], dir, { shell: false });
+}
 
-    const makefile = `# cc65 + NESLib Makefile
-# Requires cc65 installed: https://cc65.github.io/
-# Requires NESLib: https://github.com/clbr/neslib
+/** Capacitor's packages, added to the project the first time it goes native. Returns the version in use. */
+function ensureCapacitor(dir: string, platform: Platform): string {
+  const packages = ['@capacitor/cli', '@capacitor/core', `@capacitor/${platform}`];
+  const missing = packages.filter((p) => !fs.existsSync(path.join(dir, 'node_modules', p, 'package.json')));
+  if (missing.length) {
+    step(`Adding Capacitor ${CAPACITOR_VERSION} for ${platform} (first time only)`);
+    run('npm', ['install', '--save-dev', '--save-exact', ...missing.map((p) => `${p}@${CAPACITOR_VERSION}`)], dir);
+  }
+  return fs.readJsonSync(path.join(dir, 'node_modules', '@capacitor', platform, 'package.json')).version;
+}
 
-CC65_HOME ?= /opt/cc65
-CC = $(CC65_HOME)/bin/cc65
-AS = $(CC65_HOME)/bin/ca65
-LD = $(CC65_HOME)/bin/ld65
-ROM_NAME = game.nes
+/** Make native/<platform> match cathode.json, generating it again when it can't simply be updated. */
+async function prepareNative(dir: string, project: Project, id: string, platform: Platform, icon: Image): Promise<string> {
+  const version = ensureCapacitor(dir, platform);
+  await fs.writeJson(path.join(dir, 'capacitor.config.json'), capacitorConfig(project, id), { spaces: 2 });
 
-SRCS = main.c
-ASMS = $(SRCS:.c=.s)
-OBJS = $(SRCS:.c=.o) crt0.o
+  const native = path.join(dir, NATIVE_DIR[platform]);
+  const stampFile = path.join(native, '.cathode.json');
+  const stamp = { capacitor: version, id };
+  const previous = fs.readJsonSync(stampFile, { throws: false });
+  // The store ID is baked into Android's source folders, so a new one means a new project.
+  if (previous?.capacitor === stamp.capacitor && previous?.id === stamp.id) {
+    step(`Updating ${NATIVE_DIR[platform]}`);
+    capacitor(dir, ['sync', platform]);
+  } else {
+    step(`Generating ${NATIVE_DIR[platform]}`);
+    await fs.remove(native);
+    capacitor(dir, ['add', platform]);
+    await fs.writeJson(stampFile, stamp, { spaces: 2 });
+  }
 
-all: $(ROM_NAME)
+  if (platform === 'android') await applyAndroid(native, project, id, icon);
+  else await applyIos(native, project, id, icon);
+  return native;
+}
 
-%.s: %.c
-\t$(CC) -Oi -t nes -o $@ $<
+async function edit(file: string, change: (text: string) => string): Promise<void> {
+  const before = await fs.readFile(file, 'utf8');
+  const after = change(before);
+  if (after !== before) await fs.writeFile(file, after);
+}
 
-%.o: %.s
-\t$(AS) -t nes -o $@ $<
+/** The size of a PNG, from its header. */
+function pngSize(file: string): [number, number] {
+  const head = fs.readFileSync(file).subarray(16, 24);
+  return [head.readUInt32BE(0), head.readUInt32BE(4)];
+}
 
-$(ROM_NAME): $(OBJS) nes.cfg
-\t$(LD) -C nes.cfg -o $@ $(OBJS) nes.lib
+/** Every file called `name` in the folders under `root` whose names pass `folder`. */
+function findImages(root: string, folder: (name: string) => boolean, name: (file: string) => boolean): string[] {
+  if (!fs.existsSync(root)) return [];
+  return fs.readdirSync(root)
+    .filter((d) => folder(d) && fs.statSync(path.join(root, d)).isDirectory())
+    .flatMap((d) => fs.readdirSync(path.join(root, d)).filter(name).map((f) => path.join(root, d, f)));
+}
 
-clean:
-\trm -f $(ROM_NAME) $(OBJS) $(ASMS)
+async function applyAndroid(native: string, project: Project, id: string, icon: Image): Promise<void> {
+  const main = path.join(native, 'app', 'src', 'main');
+  const res = path.join(main, 'res');
+  await edit(path.join(native, 'app', 'build.gradle'), (t) => androidAppGradle(t, project, id));
+  await edit(path.join(res, 'values', 'strings.xml'), (t) => androidStrings(t, project));
+  await edit(path.join(main, 'AndroidManifest.xml'), (t) => androidManifest(t, project));
+  await edit(path.join(res, 'values', 'styles.xml'), androidStyles);
+  await edit(path.join(res, 'values', 'ic_launcher_background.xml'), (t) => androidIconBackground(t, hex(iconBackground(icon))));
 
-.PHONY: all clean
-`;
-    await fs.writeFile(path.join(outDir, 'Makefile'), makefile);
+  for (const file of findImages(res, (d) => d.startsWith('mipmap-'), (f) => f.startsWith('ic_launcher') && f.endsWith('.png'))) {
+    const [size] = pngSize(file);
+    const base = path.basename(file, '.png');
+    const image = base === 'ic_launcher_foreground' ? adaptiveForeground(icon, size)
+      : squareIcon(icon, size, base === 'ic_launcher_round');
+    await fs.writeFile(file, encodePng(image));
+  }
+  for (const file of findImages(res, (d) => d.startsWith('drawable'), (f) => f === 'splash.png')) {
+    const [w, h] = pngSize(file);
+    await fs.writeFile(file, encodePng(splashScreen(icon, w, h), { alpha: false }));
+  }
+}
 
-    const mainC = `/* NES ROM scaffold generated by Cathode CLI */
-/* Requires cc65: https://cc65.github.io/ */
-/* Requires NESLib: https://github.com/clbr/neslib */
+async function applyIos(native: string, project: Project, id: string, icon: Image): Promise<void> {
+  const app = path.join(native, 'App');
+  await edit(path.join(app, 'App', 'Info.plist'), (t) => iosInfoPlist(t, project));
+  await edit(path.join(app, 'App.xcodeproj', 'project.pbxproj'), (t) => iosProject(t, project, id));
 
-#include "neslib.h"
+  const assets = path.join(app, 'App', 'Assets.xcassets');
+  const png = (f: string) => f.endsWith('.png');
+  for (const file of findImages(assets, (d) => d === 'AppIcon.appiconset', png)) {
+    const [size] = pngSize(file);
+    // The App Store refuses an icon with an alpha channel, even an unused one.
+    await fs.writeFile(file, encodePng(squareIcon(icon, size), { alpha: false }));
+  }
+  for (const file of findImages(assets, (d) => d === 'Splash.imageset', png)) {
+    const [w, h] = pngSize(file);
+    await fs.writeFile(file, encodePng(splashScreen(icon, w, h), { alpha: false }));
+  }
+}
 
-/* TODO: Import your CHR data from chr/ and map data from maps/ */
+// --- Android -----------------------------------------------------------------
 
-const unsigned char palette[16] = {
-  0x0F, 0x11, 0x21, 0x30,  /* BG palette 0 */
-  0x0F, 0x06, 0x16, 0x26,  /* BG palette 1 */
-  0x0F, 0x09, 0x19, 0x29,  /* BG palette 2 */
-  0x0F, 0x01, 0x11, 0x21   /* BG palette 3 */
+function androidSdk(): string | null {
+  const home = os.homedir();
+  const candidates = [
+    process.env.ANDROID_HOME,
+    process.env.ANDROID_SDK_ROOT,
+    path.join(home, 'Library', 'Android', 'sdk'), // Android Studio on macOS
+    path.join(home, 'Android', 'Sdk'), // on Linux
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Android', 'Sdk'), // on Windows
+  ];
+  return candidates.find((c): c is string => !!c && fs.existsSync(c)) ?? null;
+}
+
+/** The major version of the Java that Gradle will use, or null if there is none. */
+function javaVersion(): number | null {
+  const java = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, 'bin', 'java') : 'java';
+  const text = output(java, ['-version']);
+  const match = text?.match(/version "(\d+)(?:\.(\d+))?/);
+  if (!match) return null;
+  return match[1] === '1' ? Number(match[2]) : Number(match[1]);
+}
+
+function buildAndroid(dir: string, native: string, project: Project, options: ExportOptions): string {
+  const sdk = androidSdk();
+  if (!sdk) {
+    fail('Building for Android needs the Android SDK. Install Android Studio, which includes it, ' +
+      `or set ANDROID_HOME to where the SDK is. The project is ready in ${NATIVE_DIR.android}.`);
+  }
+  const java = javaVersion();
+  if (java === null || java < 21) {
+    fail(`Building for Android needs Java 21 or later${java ? ` (found Java ${java})` : ''}. ` +
+      'Android Studio includes one: set JAVA_HOME to its jbr folder, or install a JDK 21.');
+  }
+  // Gradle finds the SDK through this file even where ANDROID_HOME isn't set.
+  fs.writeFileSync(path.join(native, 'local.properties'), `sdk.dir=${sdk.replace(/\\/g, '\\\\').replace(/:/g, '\\:')}\n`);
+
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (options.release) {
+    const missing = ['CATHODE_KEYSTORE', 'CATHODE_KEYSTORE_PASSWORD', 'CATHODE_KEY_ALIAS'].filter((v) => !process.env[v]);
+    if (missing.length) {
+      fail(`A store build is signed with your upload key. Set ${missing.join(', ')} — see docs/shipping.md for making a key.`);
+    }
+    const keystore = path.resolve(dir, process.env.CATHODE_KEYSTORE!);
+    if (!fs.existsSync(keystore)) fail(`CATHODE_KEYSTORE names ${keystore}, which does not exist.`);
+    env.CATHODE_KEYSTORE = keystore;
+  } else {
+    // The project only signs release builds when this is set; keep it out of test builds.
+    delete env.CATHODE_KEYSTORE;
+  }
+
+  step(options.release ? 'Building the Android App Bundle for Google Play' : 'Building a test APK');
+  const gradlew = path.join(native, WIN ? 'gradlew.bat' : 'gradlew');
+  if (!WIN) fs.chmodSync(gradlew, 0o755);
+  run(gradlew, [options.release ? 'bundleRelease' : 'assembleDebug', '--console=plain'], native, { env });
+
+  const built = options.release
+    ? path.join(native, 'app', 'build', 'outputs', 'bundle', 'release', 'app-release.aab')
+    : path.join(native, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+  const out = path.join(dir, 'out', `${project.name}-${project.version}${options.release ? '.aab' : '-debug.apk'}`);
+  fs.ensureDirSync(path.dirname(out));
+  fs.copyFileSync(built, out);
+  return out;
+}
+
+function runAndroid(apk: string, id: string): void {
+  const sdk = androidSdk()!;
+  const adb = path.join(sdk, 'platform-tools', WIN ? 'adb.exe' : 'adb');
+  const devices = output(adb, ['devices'])?.split('\n').slice(1).filter((l) => /\sdevice$/.test(l.trim())) ?? [];
+  if (!devices.length) fail('No Android phone or emulator is connected. Plug one in with USB debugging on, or start an emulator in Android Studio.');
+  step('Installing and starting it');
+  run(adb, ['install', '-r', apk], path.dirname(apk), { shell: false });
+  run(adb, ['shell', 'monkey', '-p', id, '-c', 'android.intent.category.LAUNCHER', '1'], path.dirname(apk), { shell: false, stdio: 'ignore' });
+}
+
+// --- iOS ---------------------------------------------------------------------
+
+function requireXcode(): void {
+  if (process.platform !== 'darwin') {
+    fail('Building for iOS needs a Mac with Xcode. The Xcode project is ready in native/ios: ' +
+      'build it on a Mac, or have GitHub build it for you — see docs/shipping.md.');
+  }
+  const version = output('xcodebuild', ['-version'])?.match(/Xcode (\d+)/);
+  if (!version) fail('Building for iOS needs Xcode, from the Mac App Store. If it is installed, run: sudo xcode-select -s /Applications/Xcode.app');
+  if (Number(version[1]) < 26) fail(`Building for iOS needs Xcode 26 or later; this Mac has Xcode ${version[1]}. The App Store accepts nothing older.`);
+}
+
+/** xcodebuild's App Store Connect API key arguments, when they are set. */
+function appStoreKey(): string[] {
+  const { CATHODE_ASC_KEY, CATHODE_ASC_KEY_ID, CATHODE_ASC_ISSUER } = process.env;
+  if (!CATHODE_ASC_KEY || !CATHODE_ASC_KEY_ID || !CATHODE_ASC_ISSUER) return [];
+  return ['-authenticationKeyPath', path.resolve(CATHODE_ASC_KEY), '-authenticationKeyID', CATHODE_ASC_KEY_ID, '-authenticationKeyIssuerID', CATHODE_ASC_ISSUER];
+}
+
+function buildIos(dir: string, native: string, project: Project, options: ExportOptions): string {
+  requireXcode();
+  const xcodeProject = path.join(native, 'App', 'App.xcodeproj');
+  const derived = path.join(native, 'build');
+  const out = path.join(dir, 'out');
+  fs.ensureDirSync(out);
+
+  if (!options.release) {
+    step('Building for the iOS Simulator');
+    run('xcodebuild', [
+      '-project', xcodeProject, '-scheme', 'App', '-configuration', 'Debug',
+      '-destination', 'generic/platform=iOS Simulator', '-derivedDataPath', derived,
+      'CODE_SIGNING_ALLOWED=NO', 'build',
+    ], dir, { shell: false });
+    const app = path.join(out, `${project.name}-${project.version}-simulator.app`);
+    fs.removeSync(app);
+    fs.copySync(path.join(derived, 'Build', 'Products', 'Debug-iphonesimulator', 'App.app'), app);
+    return app;
+  }
+
+  const team = process.env.CATHODE_APPLE_TEAM;
+  if (!team) fail('A store build is signed by your Apple developer team. Set CATHODE_APPLE_TEAM to its 10-character Team ID — see docs/shipping.md.');
+  const archive = path.join(derived, `${project.name}.xcarchive`);
+  step('Archiving for the App Store');
+  run('xcodebuild', [
+    '-project', xcodeProject, '-scheme', 'App', '-configuration', 'Release',
+    '-destination', 'generic/platform=iOS', '-archivePath', archive,
+    `DEVELOPMENT_TEAM=${team}`, 'CODE_SIGN_STYLE=Automatic', '-allowProvisioningUpdates', ...appStoreKey(), 'archive',
+  ], dir, { shell: false });
+
+  const exportOptions = path.join(derived, 'ExportOptions.plist');
+  fs.writeFileSync(exportOptions, `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>teamID</key>
+	<string>${team}</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>destination</key>
+	<string>export</string>
+</dict>
+</plist>
+`);
+  step('Exporting the .ipa');
+  const exported = path.join(derived, 'export');
+  fs.removeSync(exported);
+  run('xcodebuild', [
+    '-exportArchive', '-archivePath', archive, '-exportPath', exported,
+    '-exportOptionsPlist', exportOptions, '-allowProvisioningUpdates', ...appStoreKey(),
+  ], dir, { shell: false });
+  const ipa = fs.readdirSync(exported).find((f) => f.endsWith('.ipa'));
+  if (!ipa) fail(`Xcode exported no .ipa into ${exported}.`);
+  const target = path.join(out, `${project.name}-${project.version}.ipa`);
+  fs.copyFileSync(path.join(exported, ipa), target);
+  return target;
+}
+
+function runIos(app: string, id: string): void {
+  const list = (filter: string) => JSON.parse(output('xcrun', ['simctl', 'list', 'devices', filter, '-j']) ?? '{"devices":{}}')
+    .devices as Record<string, { udid: string; name: string; state: string }[]>;
+  let device = Object.values(list('booted')).flat()[0];
+  if (!device) {
+    // The newest iOS runtime's first iPhone.
+    const runtimes = Object.entries(list('available')).filter(([runtime]) => runtime.includes('iOS')).sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }));
+    device = runtimes.flatMap(([, devices]) => devices).find((d) => d.name.startsWith('iPhone'))!;
+    if (!device) fail('There is no iPhone simulator. Add one in Xcode: Window → Devices and Simulators.');
+    step(`Starting the ${device.name} simulator`);
+    run('xcrun', ['simctl', 'boot', device.udid], path.dirname(app), { shell: false });
+    spawnSync('open', ['-a', 'Simulator']);
+  }
+  step('Installing and starting it');
+  run('xcrun', ['simctl', 'install', device.udid, app], path.dirname(app), { shell: false });
+  run('xcrun', ['simctl', 'launch', device.udid, id], path.dirname(app), { shell: false });
+}
+
+// --- the command -------------------------------------------------------------
+
+const size = (file: string) => {
+  const bytes = fs.statSync(file).isDirectory()
+    ? fs.readdirSync(file, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).reduce((n, e) => n + fs.statSync(path.join(e.parentPath, e.name)).size, 0)
+    : fs.statSync(file).size;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
-void main(void) {
-  pal_bg(palette);
-  ppu_on_all();
-
-  /* Main game loop */
-  while(1) {
-    ppu_wait_nmi();
-
-    /* Read gamepad */
-    unsigned char pad = pad_poll(0);
-
-    /* Update game logic here */
-    /* if (pad & PAD_LEFT)  { ... } */
-    /* if (pad & PAD_RIGHT) { ... } */
-    /* if (pad & PAD_A)     { ... } */
+export default async function exportCommand(target: string, options: ExportOptions = {}): Promise<void> {
+  if (!TARGETS.includes(target as Target)) {
+    fail(`Unknown target "${target}". Cathode exports to: ${TARGETS.join(', ')}.`);
   }
-}
-`;
-    await fs.writeFile(path.join(outDir, 'main.c'), mainC);
+  const dir = process.cwd();
+  const project = await loadProject(dir);
+  const release = !!options.release;
+  if (options.run && release) fail('--run installs a test build. Leave out --release to run it, or upload the store build to TestFlight or Google Play\'s internal testing.');
 
-    const nesCfg = `MEMORY {
-    ZP:     start = $0000, size = $0100, type = rw, define = yes;
-    RAM:    start = $0200, size = $0600, type = rw, define = yes;
-    HDR:    start = $0000, size = $0010, type = ro, file = %O, fill = yes;
-    PRG:    start = $8000, size = $8000, type = ro, file = %O, fill = yes;
-    CHR:    start = $0000, size = $2000, type = ro, file = %O, fill = yes;
-}
+  if (target === 'web') {
+    buildWeb(dir);
+    console.log(chalk.green(`\n✔ dist/ is the game. Upload the folder to any web host — it works from a subfolder too.`));
+    return;
+  }
 
-SEGMENTS {
-    ZEROPAGE: load = ZP,  type = zp;
-    BSS:      load = RAM, type = bss, define = yes;
-    HEADER:   load = HDR, type = ro;
-    CODE:     load = PRG, type = ro, start = $8000;
-    RODATA:   load = PRG, type = ro;
-    VECTORS:  load = PRG, type = ro, start = $FFFA;
-    CHARS:    load = CHR, type = ro;
-}
-`;
-    await fs.writeFile(path.join(outDir, 'nes.cfg'), nesCfg);
+  const platform = target as Platform;
+  const id = storeId(project, release);
+  if (!project.id) note(`No id in cathode.json — using ${id} for this test build.`);
+  else if (isPlaceholderId(id)) note(`${id} is fine for testing. Google Play refuses com.example — set your own id before a store build.`);
+  const icon = await loadIcon(dir, project, release);
 
-    const readme = `# NES ROM Project
+  await ignoreGenerated(dir);
+  buildWeb(dir);
+  const native = await prepareNative(dir, project, id, platform, icon);
 
-Generated by Cathode CLI.
-
-## Prerequisites
-
-1. Install cc65: https://cc65.github.io/
-2. Install NESLib: https://github.com/clbr/neslib
-3. Set \`CC65_HOME\` environment variable to your cc65 install directory
-
-## Build
-
-\`\`\`bash
-export CC65_HOME=/path/to/cc65
-make
-\`\`\`
-
-This produces \`game.nes\` which can be run in any NES emulator (FCEUX, Mesen, etc.)
-or flashed to a cartridge.
-
-## Structure
-
-- \`main.c\` — NESLib game loop with palette and joypad input
-- \`nes.cfg\` — cc65 linker configuration for iNES format
-- \`chr/\` — Place 8x8 NES CHR tile data here
-- \`maps/\` — Place tilemap data as C arrays here
-
-## Converting Assets
-
-Convert PNG to NES CHR format using a tool like YY-CHR or NES Screen Tool,
-then include the binary data in your CHR segment.
-`;
-    await fs.writeFile(path.join(outDir, 'README.md'), readme);
-
-    console.log(chalk.green(`cc65/NESLib project scaffold generated in ${outDir}`));
+  if (options.build === false) {
+    console.log(chalk.green(`\n✔ ${NATIVE_DIR[platform]} is ready.`));
   } else {
-    console.error(chalk.red(`Unknown target: ${target}. Supported: web, desktop, mobile, arm-linux, pwa, rom-gb, rom-nes.`));
-    process.exit(1);
+    const built = platform === 'android'
+      ? buildAndroid(dir, native, project, options)
+      : buildIos(dir, native, project, options);
+    console.log(chalk.green(`\n✔ ${path.relative(dir, built)} (${size(built)})`));
+    if (release) {
+      console.log(platform === 'android'
+        ? '  Upload it in the Google Play Console. Each upload needs a higher version in cathode.json.'
+        : '  Upload it with Transporter, or xcrun altool. Each upload needs a higher version in cathode.json.');
+    }
+    if (options.run) {
+      if (platform === 'android') runAndroid(built, id);
+      else runIos(built, id);
+    }
   }
+  if (options.open) capacitor(dir, ['open', platform]);
 }

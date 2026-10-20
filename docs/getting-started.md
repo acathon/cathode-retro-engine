@@ -76,8 +76,12 @@ From the monorepo:
 
 ```bash
 npm run build:cli
-node packages/cli/dist/index.js new my-first-game --template platformer
+npm install -g ./packages/cli     # puts `cathode` on your PATH
+cathode new my-first-game --template platformer
 ```
+
+Without the global install, `node packages/cli/dist/index.js` does the same
+from the repository root.
 
 | Template | Screen | |
 | --- | --- | --- |
@@ -103,6 +107,9 @@ game. The project also gets a [`cathode.json`](./project-format.md) describing
 it, and `npm run typecheck`, which is worth running: Vite strips types without
 checking them, so a typo TypeScript would name in a second otherwise only shows
 up when the game runs.
+
+To put it on a phone, run `cathode export android` or `cathode export ios`
+inside the game's folder — see [Shipping to Android and iOS](./shipping.md).
 
 ## Changing The Engine Itself
 
@@ -248,4 +255,4 @@ Build the CLI first:
 bun run build:cli
 ```
 
-Then invoke it from `packages/cli/dist/index.js` inside the monorepo, or install the package in a separate project once published.
+Then put it on your PATH with `npm install -g ./packages/cli`, or invoke it as `node packages/cli/dist/index.js` from the repository root.

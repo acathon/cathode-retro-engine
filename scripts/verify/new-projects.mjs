@@ -14,6 +14,10 @@
  * crashed on start. Another booted cleanly with platforms the player fell
  * straight through. A check that stops at "it builds" passes all of those.
  *
+ * Then one is exported for Android and iOS, up to the native projects: that
+ * needs no SDK or Mac, so it runs anywhere. Compiling and playing the apps is
+ * .github/workflows/mobile.yml's job.
+ *
  * The unit tests in packages/cli cover the files a project is made of, and
  * typecheck each template offline; this covers what happens when someone
  * actually uses one.
@@ -95,6 +99,33 @@ for (const template of built) {
   check(`${template}: runs`, ok, canvas
     ? `${canvas.w}x${canvas.h}, declares ${want.width}x${want.height}${errors.length > before ? ` | ${errors[before]}` : ''}`
     : 'no canvas');
+}
+
+// --- Export one for Android and iOS --------------------------------------
+if (built.length) {
+  const name = `game-${built[0]}`;
+  const dir = join(work, name);
+  const id = `com.example.${name.replace(/-/g, '')}`;
+  const read = (file) => readFileSync(join(dir, file), 'utf8');
+  try {
+    for (const target of ['android', 'ios']) run(process.execPath, [CLI, 'export', target, '--no-build'], dir);
+    const gradle = read('native/android/app/build.gradle');
+    const plist = read('native/ios/App/App/Info.plist');
+    const pbx = read('native/ios/App/App.xcodeproj/project.pbxproj');
+    check('export: Android project', gradle.includes(`applicationId "${id}"`) && gradle.includes('versionCode 1000')
+      && read('native/android/app/src/main/AndroidManifest.xml').includes('sensorLandscape'), 'id, version, orientation');
+    check('export: iOS project', pbx.includes(`PRODUCT_BUNDLE_IDENTIFIER = ${id};`) && pbx.includes('MARKETING_VERSION = 0.1.0;')
+      && /<key>UIStatusBarHidden<\/key>\s*<true\/>/.test(plist), 'id, version, no status bar');
+    // Capacitor's own icon is blue and white; the placeholder is a letter on one colour.
+    const { decodePng } = await import('../../packages/cli/dist/mobile/png.js');
+    const icon = decodePng(readFileSync(join(dir, 'native/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png')));
+    check('export: the game\'s icon, not Capacitor\'s', icon.width === 1024 && icon.data[3] === 255, `${icon.width}x${icon.height}`);
+    const again = run(process.execPath, [CLI, 'export', 'android', '--no-build'], dir);
+    check('export: a second export updates', again.includes('Updating native/android'), 'rather than regenerating');
+  } catch (error) {
+    const detail = String(error.stdout || '') + String(error.stderr || '');
+    check('export: native projects', false, detail.trim().split('\n').slice(-3).join(' / '));
+  }
 }
 
 const failed = finish({ errors, failedRequests });

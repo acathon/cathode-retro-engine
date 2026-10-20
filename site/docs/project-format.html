@@ -26,6 +26,7 @@
         <a href="./getting-started.html">Getting started</a>
         <a href="./first-game.html">Your first game</a>
         <a href="./mobile.html">Games on phones</a>
+        <a href="./shipping.html">Shipping to the stores</a>
         <h4>TUTORIALS</h4>
         <a href="./tutorial-bounce.html">Build a physics game</a>
         <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
@@ -96,7 +97,7 @@ game&#39;s code — and a check fails when the file and the game disagree.</p>
 <tr>
 <td><code>version</code></td>
 <td>yes</td>
-<td><code>MAJOR.MINOR.PATCH</code>, numbers only — <code>1.0.0</code>, not <code>v1.0</code> or <code>1.0.0-beta</code>. The App Store rejects anything else.</td>
+<td><code>MAJOR.MINOR.PATCH</code>, numbers only — <code>1.0.0</code>, not <code>v1.0</code> or <code>1.0.0-beta</code>. The App Store rejects anything else. MINOR and PATCH go up to 999: Android also needs the version as one number, and <code>1.2.3</code> becomes <code>1002003</code>.</td>
 </tr>
 <tr>
 <td><code>description</code></td>
@@ -106,7 +107,7 @@ game&#39;s code — and a check fails when the file and the game disagree.</p>
 <tr>
 <td><code>id</code></td>
 <td>no</td>
-<td>The game&#39;s identity on a store, e.g. <code>com.example.mygame</code>. Needed before it can ship to Google Play or the App Store.</td>
+<td>The game&#39;s identity on a store, e.g. <code>io.github.yourname.mygame</code>. Needed for a store build, and can never change after the first upload. <code>cathode new</code> writes a <code>com.example</code> stand-in to replace.</td>
 </tr>
 <tr>
 <td><code>screen</code></td>
@@ -126,7 +127,7 @@ game&#39;s code — and a check fails when the file and the game disagree.</p>
 <tr>
 <td><code>icon</code></td>
 <td>no</td>
-<td>A <code>.png</code> inside the project, e.g. <code>assets/icon.png</code>.</td>
+<td>A square <code>.png</code> inside the project, e.g. <code>assets/icon.png</code>. Becomes the app icon and launch screen; see <a href="./shipping.html#the-icon">Shipping</a>.</td>
 </tr>
 <tr>
 <td><code>credits</code></td>

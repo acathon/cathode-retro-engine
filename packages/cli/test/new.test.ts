@@ -77,6 +77,30 @@ describe.each(TEMPLATE_NAMES)('cathode new --template %s', (template) => {
     expect(ignore).not.toMatch(/cathode-sdk|\*\.wasm/);
   });
 
+  it('leaves what `cathode export` generates out of the repository', async () => {
+    const ignore = (await fs.readFile(path.join(dir(), '.gitignore'), 'utf8')).split('\n');
+    expect(ignore).toEqual(expect.arrayContaining(['native', 'out', 'capacitor.config.json', 'dist', 'node_modules']));
+  });
+
+  it('is ready for a phone: touch controls declared, the notch respected, a store id to replace', async () => {
+    const { project } = parseProject(await fs.readFile(path.join(dir(), 'cathode.json'), 'utf8'));
+    expect(project!.input).toEqual(['keyboard', 'touch']);
+    expect(project!.id).toBe('com.example.mygame');
+    const html = await fs.readFile(path.join(dir(), 'index.html'), 'utf8');
+    expect(html).toContain('viewport-fit=cover');
+    const main = await fs.readFile(path.join(dir(), 'src', 'main.ts'), 'utf8');
+    // A key listener of its own would never hear the on-screen buttons.
+    expect(main).not.toMatch(/addEventListener\(\s*['"]key/);
+  });
+
+  it('brings none of the engine’s own build and test tools into the game', async () => {
+    const pkg = await fs.readJson(path.join(dir(), 'cathode-sdk', 'package.json'));
+    expect(pkg.devDependencies).toBeUndefined();
+    expect(pkg.scripts).toBeUndefined();
+    expect(pkg.dependencies).toEqual({ 'cathode-platform-web': 'file:./wasm' });
+    expect(pkg.main).toBe('./src/index.ts');
+  });
+
   // The templates are strings inside the CLI, so nothing else ever compiles
   // them -- and Vite strips types without checking. This found a template
   // that crashed on start, and colliders sized 0x0 by arguments in the wrong
@@ -111,7 +135,7 @@ describe.each(TEMPLATE_NAMES)('cathode new --template %s', (template) => {
 describe('copyEngine', () => {
   it('drops the wasm-pack .gitignore that would hide the engine from git', async () => {
     const sdk = path.join(work, 'fixture-sdk');
-    await fs.outputFile(path.join(sdk, 'package.json'), '{}');
+    await fs.outputJson(path.join(sdk, 'package.json'), { name: '@cathode/sdk', devDependencies: { vitest: '*' } });
     await fs.outputFile(path.join(sdk, 'README.md'), '');
     await fs.outputFile(path.join(sdk, 'src', 'index.ts'), '');
     await fs.outputFile(path.join(sdk, 'wasm', 'engine.wasm'), '');

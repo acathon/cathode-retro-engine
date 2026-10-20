@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import ora from 'ora';
 import { validateProject, type ProfileName, type Project } from '@cathode/project';
+import { placeholderId } from '../mobile/native.js';
 
 type TemplateName = 'default' | 'platformer' | 'shmup' | 'puzzle' | 'rpg' | 'doom';
 
@@ -650,17 +651,17 @@ async function bootstrap() {
   let score = saves.get<number>('score') ?? 0;
   let health = 100;
 
-  const keys: Record<string, boolean> = {};
-  window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
-  window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+  // Every control goes through engine.input, so the same code reads the
+  // keyboard and the on-screen buttons a phone gets: arrows walk and turn,
+  // L and R (Q and W) step sideways, A (Z or space) fires.
+  const axis = (minus: boolean, plus: boolean) => (plus ? 1 : 0) - (minus ? 1 : 0);
 
   engine.loop((dt) => {
     scene.update(dt);
-    let fwd = 0, str = 0, trn = 0;
-    if (keys['w']) fwd = 1; if (keys['s']) fwd = -1;
-    if (keys['a']) str = -1; if (keys['d']) str = 1;
-    if (engine.input.held(0, 'left')) trn = -1;
-    if (engine.input.held(0, 'right')) trn = 1;
+    const input = engine.input;
+    const fwd = axis(input.held(0, 'down'), input.held(0, 'up'));
+    const str = axis(input.held(0, 'l'), input.held(0, 'r'));
+    const trn = axis(input.held(0, 'left'), input.held(0, 'right'));
     engine.raw!.raycaster_move(fwd, str, trn);
 
     if (engine.input.justPressed(0, 'a')) {
@@ -699,11 +700,20 @@ export const TEMPLATE_NAMES = Object.keys(TEMPLATES) as TemplateName[];
 const SDK_DIR = fileURLToPath(new URL('../../../sdk/', import.meta.url));
 const ENGINE_DIR = 'cathode-sdk';
 
+/** Everything `cathode export` makes, which is rebuilt from cathode.json each time. */
+export const GITIGNORE = 'node_modules\ndist\nnative\nout\ncapacitor.config.json\n';
+
 /** Copy only what a game needs from the SDK, not its build tooling. */
 export async function copyEngine(to: string, from: string = SDK_DIR): Promise<void> {
-  for (const entry of ['package.json', 'README.md', 'src']) {
+  for (const entry of ['README.md', 'src']) {
     await fs.copy(path.join(from, entry), path.join(to, entry));
   }
+  // Only what a game needs to import the engine. npm installs the dev tools
+  // of a package linked with `file:` too, so the SDK's own test and build
+  // tools would otherwise land in every game -- and npm would warn the game's
+  // author about their security advisories.
+  const { name, version, type, main, types, dependencies } = await fs.readJson(path.join(from, 'package.json'));
+  await fs.writeJson(path.join(to, 'package.json'), { name, version, type, main, types, dependencies }, { spaces: 2 });
   // wasm-pack leaves a `.gitignore` of `*` in its output. Copied into a game,
   // it would make that game's own repository drop the engine, and the first
   // fresh clone of it would fail to install.
@@ -735,9 +745,14 @@ export default async function newCommand(name: string, options: { template?: str
     name: projectName,
     title: titleFrom(projectName),
     version: '0.1.0',
+    // A stand-in, visible so it gets changed: Google Play refuses
+    // com.example, and `cathode export --release` does too.
+    id: placeholderId(projectName),
     screen: { profile: template.profile },
     orientation: 'landscape',
-    input: ['keyboard'],
+    // Every template reads its controls through engine.input, so a phone
+    // gets on-screen buttons for them.
+    input: ['keyboard', 'touch'],
   };
   const problems = validateProject(project);
   if (problems.length) {
@@ -794,10 +809,10 @@ export default async function newCommand(name: string, options: { template?: str
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>${project.title}</title>
     <style>
-        body { margin: 0; background-color: #0a0a0a; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        body { margin: 0; background-color: #0a0a0a; display: flex; justify-content: center; align-items: center; height: 100vh; height: 100dvh; overflow: hidden; }
         canvas { box-shadow: 0 0 20px rgba(0,0,0,0.8); }
     </style>
 </head>
@@ -832,12 +847,13 @@ export default defineConfig({
     await fs.writeFile(path.join(targetDir, 'vite.config.ts'), viteConfig);
 
     // Deliberately does not ignore cathode-sdk/: the engine is part of the game.
-    await fs.writeFile(path.join(targetDir, '.gitignore'), 'node_modules\ndist\n');
+    // The rest is made by `cathode export` from cathode.json, every time.
+    await fs.writeFile(path.join(targetDir, '.gitignore'), GITIGNORE);
 
     await fs.writeFile(path.join(targetDir, 'src', 'main.ts'), template.main);
 
     spinner.succeed(chalk.green(`Created ${projectName} with the "${templateName}" template.`));
-    console.log(`\nNext steps:\n  cd ${name}\n  npm install\n  npm run dev`);
+    console.log(`\nNext steps:\n  cd ${name}\n  npm install\n  npm run dev\n\nOn a phone:\n  cathode export android\n  cathode export ios`);
   } catch (err: any) {
     spinner.fail(chalk.red(`Failed to create the project: ${err.message}`));
     process.exit(1);

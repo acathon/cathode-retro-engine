@@ -19,6 +19,7 @@ generated HTML.
 | build a card game | [tutorial-cards.md](./tutorial-cards.md) |
 | know what goes in `cathode.json` | [project-format.md](./project-format.md) |
 | make a game work on phones | [mobile.md](./mobile.md) |
+| put a game on Google Play or the App Store | [shipping.md](./shipping.md) |
 | understand internals | [architecture.md](./architecture.md) |
 | contribute changes | [contributing.md](./contributing.md) |
 
@@ -76,6 +77,12 @@ What the engine does on a touch screen by itself — filling the screen, drawing
 on-screen controls for exactly the buttons a game reads, pausing in the
 background — and the four things a game has to get right that it cannot fix
 from the outside.
+
+### [shipping.md](./shipping.md)
+
+`cathode export android` and `cathode export ios`: test builds for your own
+phone, store builds for Google Play and the App Store, what `cathode.json`
+decides in them, signing, and building iOS apps on GitHub without a Mac.
 
 ### [architecture.md](./architecture.md)
 
