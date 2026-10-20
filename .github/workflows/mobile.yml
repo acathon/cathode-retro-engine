@@ -111,7 +111,11 @@ jobs:
             fs.writeFileSync('cathode.json', JSON.stringify(p, null, 2));
           "
           $CATHODE export android --release
-          jarsigner -verify out/ci-game-1.0.0.aab | tee verify.txt
+          # Only the verdict: jarsigner also warns, for every file in an App
+          # Bundle, that it is "not signed in JarInputStream" -- which reads
+          # the manifest only if it comes first, and in a bundle it doesn't.
+          jarsigner -verify out/ci-game-1.0.0.aab > verify.txt 2>&1 || true
+          grep -E "jar (verified|is unsigned)" verify.txt
           grep -q "jar verified" verify.txt
 
       - uses: actions/upload-artifact@v4
