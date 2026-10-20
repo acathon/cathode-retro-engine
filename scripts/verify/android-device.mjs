@@ -50,7 +50,7 @@ async function waitFor(what, seconds, fn) {
 }
 
 const errors = [];
-let ws;
+let connection = null;
 try {
   adb('wait-for-device');
   console.log(`installing ${path.basename(apk)}`);
@@ -68,40 +68,53 @@ try {
   await waitFor('the WebView to open its DevTools socket', 60, () => adb('shell', 'cat', '/proc/net/unix').includes(socket));
   adb('forward', `tcp:${PORT}`, `localabstract:${socket}`);
 
-  const target = await waitFor('the game page', 60, async () => {
-    const pages = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
-    return pages.find((p) => p.type === 'page' && /^https?:\/\/localhost\b/.test(p.url));
-  });
-  console.log(`connected to ${target.url}`);
-
   // The DevTools protocol, by hand: one request at a time is all this needs.
-  // Built from the id: through a forwarded socket, the URL the page reports may have no host.
-  ws = new WebSocket(`ws://127.0.0.1:${PORT}/devtools/page/${target.id}`);
-  await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
-  let nextId = 1;
-  const pending = new Map();
-  ws.onmessage = (event) => {
-    const message = JSON.parse(event.data);
-    if (message.id && pending.has(message.id)) {
-      pending.get(message.id)(message);
-      pending.delete(message.id);
-    } else if (message.method === 'Runtime.exceptionThrown') {
-      errors.push(message.params.exceptionDetails.exception?.description?.slice(0, 160) ?? 'exception');
-    } else if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
-      errors.push(message.params.args.map((a) => a.value ?? a.description).join(' ').slice(0, 160));
-    }
+  // The page's socket can close under it while the app is still starting --
+  // its first target replaced by the next -- so a closed socket fails what
+  // was waiting on it, and the next request connects to the page as it is
+  // now. The waits below retry, which carries them across.
+  const connect = async () => {
+    const target = await waitFor('the game page', 60, async () => {
+      const pages = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
+      return pages.find((p) => p.type === 'page' && /^https?:\/\/localhost\b/.test(p.url));
+    });
+    // Built from the id: through a forwarded socket, the URL the page reports may have no host.
+    const socket = new WebSocket(`ws://127.0.0.1:${PORT}/devtools/page/${target.id}`);
+    await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
+    let nextId = 1;
+    const pending = new Map();
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.id && pending.has(message.id)) {
+        pending.get(message.id).resolve(message);
+        pending.delete(message.id);
+      } else if (message.method === 'Runtime.exceptionThrown') {
+        errors.push(message.params.exceptionDetails.exception?.description?.slice(0, 160) ?? 'exception');
+      } else if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
+        errors.push(message.params.args.map((a) => a.value ?? a.description).join(' ').slice(0, 160));
+      }
+    };
+    socket.onclose = () => {
+      for (const waiting of pending.values()) waiting.reject(new Error('the page closed its DevTools socket'));
+      pending.clear();
+      if (connection?.socket === socket) connection = null;
+    };
+    const request = (method, params = {}) => new Promise((resolve, reject) => {
+      const n = nextId++;
+      pending.set(n, { resolve, reject });
+      socket.send(JSON.stringify({ id: n, method, params }));
+    });
+    console.log(`connected to ${target.url}`);
+    connection = { socket, request };
+    await request('Runtime.enable');
+    return connection;
   };
-  const send = (method, params = {}) => new Promise((resolve) => {
-    const n = nextId++;
-    pending.set(n, resolve);
-    ws.send(JSON.stringify({ id: n, method, params }));
-  });
+  const send = async (method, params) => (connection ?? await connect()).request(method, params);
   const evaluate = async (fn) => {
     const reply = await send('Runtime.evaluate', { expression: `(${fn})()`, returnByValue: true, awaitPromise: true });
     if (reply.result?.exceptionDetails) throw new Error(reply.result.exceptionDetails.text);
     return reply.result?.result?.value;
   };
-  await send('Runtime.enable');
 
   await waitFor('the game to draw', 60, () => evaluate(() => {
     const c = document.querySelector('canvas');
@@ -114,12 +127,14 @@ try {
   // that is a failure in its own right.
   const sizes = [];
   for (const end = Date.now() + 30_000; ; await sleep(500)) {
-    sizes.push(await evaluate(() => [innerWidth, innerHeight]));
+    if (Date.now() > end) throw new Error(`the page never settled at a size: last ${sizes.slice(-4).map((s) => s.join('x')).join(', ') || 'none'}`);
+    const size = await evaluate(() => [innerWidth, innerHeight]).catch(() => null);
+    if (!size) continue;
+    sizes.push(size);
     const recent = sizes.slice(-4).map(String);
     const [w, h] = sizes.at(-1);
     const turned = ORIENTATION === 'landscape' ? w > h : ORIENTATION === 'portrait' ? h > w : true;
     if (recent.length === 4 && new Set(recent).size === 1 && w > 0 && h > 0 && turned) break;
-    if (Date.now() > end) throw new Error(`the page never settled at a size: last ${sizes.slice(-4).map((s) => s.join('x')).join(', ')}`);
   }
   // Let the engine fit the game to that size.
   await sleep(1000);
@@ -215,7 +230,7 @@ try {
 } catch (error) {
   check('runs on Android', false, String(error.message ?? error).slice(0, 300));
 } finally {
-  ws?.close();
+  connection?.socket.close();
   try {
     fs.writeFileSync(path.join(OUT, 'android.png'), spawnSync(ADB, ['exec-out', 'screencap', '-p'], { maxBuffer: 64 * 1024 * 1024 }).stdout);
     const shot = decodePng(fs.readFileSync(path.join(OUT, 'android.png')));
