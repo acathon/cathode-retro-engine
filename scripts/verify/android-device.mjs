@@ -65,7 +65,7 @@ try {
 
   const target = await waitFor('the game page', 60, async () => {
     const pages = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
-    return pages.find((p) => p.type === 'page' && p.url.startsWith('https://localhost'));
+    return pages.find((p) => p.type === 'page' && /^https?:\/\/localhost\b/.test(p.url));
   });
   console.log(`connected to ${target.url}`);
 
@@ -102,7 +102,22 @@ try {
     const c = document.querySelector('canvas');
     return !!(c && c.width > 0 && document.querySelector('[data-cathode-overlay] .ct:not([hidden])'));
   }));
-  await sleep(2000);
+
+  // The app opens upright and turns to landscape as it starts, and the page
+  // is briefly 0x0 while it does. Measure once it has a size the right way
+  // round and has kept it for a second and a half -- and if it never does,
+  // that is a failure in its own right.
+  const sizes = [];
+  for (const end = Date.now() + 30_000; ; await sleep(500)) {
+    sizes.push(await evaluate(() => [innerWidth, innerHeight]));
+    const recent = sizes.slice(-4).map(String);
+    const [w, h] = sizes.at(-1);
+    const turned = ORIENTATION === 'landscape' ? w > h : ORIENTATION === 'portrait' ? h > w : true;
+    if (recent.length === 4 && new Set(recent).size === 1 && w > 0 && h > 0 && turned) break;
+    if (Date.now() > end) throw new Error(`the page never settled at a size: last ${sizes.slice(-4).map((s) => s.join('x')).join(', ')}`);
+  }
+  // Let the engine fit the game to that size.
+  await sleep(1000);
 
   const page = await evaluate(() => {
     const c = document.querySelector('canvas');
@@ -143,7 +158,11 @@ try {
   const tapX = Math.round((page.sw * page.dpr) / 2);
   const tapY = Math.round((page.sh * page.dpr) / 2);
   adb('shell', 'input', 'tap', `${tapX}`, `${tapY}`);
-  const tap = await waitFor('the calibration tap to reach the page', 10, () => evaluate(() => window.__tap));
+  const tap = await waitFor('the calibration tap to reach the page', 10, () => evaluate(() => window.__tap))
+    .catch(async (error) => {
+      const now = await evaluate(() => `${innerWidth}x${innerHeight}`);
+      throw new Error(`${error.message} (tapped ${tapX},${tapY}; page now ${now})`);
+    });
   const left = tapX / page.dpr - tap.x;
   const top = tapY / page.dpr - tap.y;
   const gaps = {
