@@ -56,6 +56,11 @@ try {
   console.log(`installing ${path.basename(apk)}`);
   adb('install', '-r', apk);
   adb('logcat', '-c');
+  // The first app to hide the system bars on a phone gets Android's "Viewing
+  // full screen" notice, which takes the next touch. A player sees it once
+  // per phone; a fresh emulator would show it on every run, and swallow the
+  // taps this check makes. Mark it as seen, as UI test setups do.
+  adb('shell', 'settings', 'put', 'secure', 'immersive_mode_confirmations', 'confirmed');
   adb('shell', 'monkey', '-p', id, '-c', 'android.intent.category.LAUNCHER', '1');
 
   const pid = await waitFor('the app to start', 30, () => adb('shell', 'pidof', id).trim().split(/\s+/)[0]);
@@ -161,7 +166,10 @@ try {
   const tap = await waitFor('the calibration tap to reach the page', 10, () => evaluate(() => window.__tap))
     .catch(async (error) => {
       const now = await evaluate(() => `${innerWidth}x${innerHeight}`);
-      throw new Error(`${error.message} (tapped ${tapX},${tapY}; page now ${now})`);
+      // Which window had the tap: a system dialog over the app would say why it never arrived.
+      const focus = adb('shell', 'dumpsys', 'window').split('\n')
+        .filter((l) => /mCurrentFocus|mFocusedApp/.test(l)).map((l) => l.trim()).join('; ');
+      throw new Error(`${error.message} (tapped ${tapX},${tapY}; page now ${now}; ${focus})`);
     });
   const left = tapX / page.dpr - tap.x;
   const top = tapY / page.dpr - tap.y;

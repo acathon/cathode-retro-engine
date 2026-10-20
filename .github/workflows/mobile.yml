@@ -19,9 +19,12 @@ on:
       - '.github/workflows/mobile.yml'
   workflow_dispatch:
 
+# A push waits for the run before it rather than cancelling it: a run takes
+# about fifteen minutes, mostly booting a simulator, and one cancelled half
+# way says nothing about either app.
 concurrency:
   group: mobile-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   CATHODE: node ${{ github.workspace }}/packages/cli/dist/index.js
