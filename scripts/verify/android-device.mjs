@@ -74,9 +74,21 @@ try {
   // was waiting on it, and the next request connects to the page as it is
   // now. The waits below retry, which carries them across.
   const connect = async () => {
-    const target = await waitFor('the game page', 60, async () => {
-      const pages = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
-      return pages.find((p) => p.type === 'page' && /^https?:\/\/localhost\b/.test(p.url));
+    // A WebView describes each page: attached, visible, its size. A page
+    // left behind by a WebView the app replaced as it started is neither,
+    // and stays 0x0 -- so take a live one, and say so when there are others.
+    const target = await waitFor('a live game page', 60, async () => {
+      const pages = (await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json())
+        .filter((p) => p.type === 'page' && /^https?:\/\/localhost\b/.test(p.url));
+      const about = (p) => { try { return JSON.parse(p.description || '{}'); } catch { return {}; } };
+      const live = pages.filter((p) => {
+        const d = about(p);
+        return d.attached !== false && d.visible !== false && !(d.width === 0 || d.height === 0);
+      });
+      if (pages.length > 1 || live.length < pages.length) {
+        console.log(`pages: ${pages.map((p) => `${p.id.slice(0, 8)} ${p.description || '(no description)'}`).join(' | ')}`);
+      }
+      return live[0];
     });
     // Built from the id: through a forwarded socket, the URL the page reports may have no host.
     const socket = new WebSocket(`ws://127.0.0.1:${PORT}/devtools/page/${target.id}`);
@@ -126,11 +138,20 @@ try {
   // round and has kept it for a second and a half -- and if it never does,
   // that is a failure in its own right.
   const sizes = [];
+  let emptySince = null;
   for (const end = Date.now() + 30_000; ; await sleep(500)) {
     if (Date.now() > end) throw new Error(`the page never settled at a size: last ${sizes.slice(-4).map((s) => s.join('x')).join(', ') || 'none'}`);
     const size = await evaluate(() => [innerWidth, innerHeight]).catch(() => null);
     if (!size) continue;
     sizes.push(size);
+    // 0x0 for long is not a page turning but one no longer on screen: look again.
+    emptySince = size[0] === 0 || size[1] === 0 ? emptySince ?? Date.now() : null;
+    if (emptySince && Date.now() - emptySince > 5000) {
+      console.log('the page has been 0x0 for 5 s; looking for the page again');
+      connection?.socket.close();
+      connection = null;
+      emptySince = null;
+    }
     const recent = sizes.slice(-4).map(String);
     const [w, h] = sizes.at(-1);
     const turned = ORIENTATION === 'landscape' ? w > h : ORIENTATION === 'portrait' ? h > w : true;
@@ -240,6 +261,12 @@ try {
   }
   const log = spawnSync(ADB, ['logcat', '-d', '-v', 'brief'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).stdout ?? '';
   fs.writeFileSync(path.join(OUT, 'android-logcat.txt'), log);
+  // The app's life as Android saw it: process starts, activity launches and
+  // relaunches, and what Capacitor said -- the first place to look when the
+  // page is not where it should be.
+  const life = log.split('\n').filter((l) =>
+    (/ActivityTaskManager|ActivityManager|WindowManager/.test(l) && l.includes(id)) || /^[VDIWE]\/Capacitor(?!\/Console)/.test(l));
+  if (life.length) console.log(`app lifecycle (logcat):\n  ${life.slice(0, 25).map((l) => l.trim().slice(0, 200)).join('\n  ')}`);
   // Capacitor copies the page's console to the log; console.error arrives as an E line.
   for (const line of log.split('\n')) {
     if (/^E\/Capacitor\/Console/.test(line)) errors.push(line.slice(0, 200));
