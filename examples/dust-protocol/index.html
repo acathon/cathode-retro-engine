@@ -64,7 +64,7 @@
 
     #bottom {
       display: flex; justify-content: space-between; align-items: center;
-      width: 768px; font-size: 16px; letter-spacing: 1px;
+      width: min(768px, 100%); font-size: 16px; letter-spacing: 1px;
     }
 
     #health b { color: #7ad47a; }
@@ -119,7 +119,7 @@
       </label>
       <button id="restart">NEW MATCH</button>
     </div>
-    <div id="keys">
+    <div id="keys" data-keyboard-hint>
       &uarr;&darr; MOVE &nbsp;·&nbsp; &larr;&rarr; TURN &nbsp;·&nbsp; Q E STRAFE &nbsp;·&nbsp;
       Z / SPACE FIRE &nbsp;·&nbsp; X RELOAD &nbsp;·&nbsp; ENTER NEXT ROUND
     </div>

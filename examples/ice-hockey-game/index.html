@@ -67,9 +67,7 @@
 
     #screen-wrap {
       position: relative;
-      width: 768px;
-      height: 720px;
-      max-width: 100%;
+      width: fit-content;
       margin: 0 auto;
       border: 4px solid rgba(255, 255, 255, 0.18);
       border-radius: 8px;
@@ -78,10 +76,7 @@
     }
 
     canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
+      display: block;
       image-rendering: pixelated;
     }
 
@@ -108,11 +103,6 @@
     }
 
     @media (max-width: 840px) {
-      #screen-wrap {
-        width: calc(100vw - 64px);
-        height: calc((100vw - 64px) * 0.9375);
-      }
-
       .footer {
         font-size: 11px;
       }
@@ -129,7 +119,7 @@
     <div id="screen-wrap">
       <canvas id="game"></canvas>
     </div>
-    <div class="footer">
+    <div class="footer" data-keyboard-hint>
       <div><strong>Move:</strong> Arrow Keys</div>
       <div><strong>Shoot / Check:</strong> Z</div>
       <div><strong>Pass / Switch:</strong> X</div>

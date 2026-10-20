@@ -355,6 +355,13 @@ async function bootstrap() {
 
   // ─── Game Loop ────────────────────────────────────────────────────
   engine.loop((dt) => {
+    // Shooting and restarting through the engine's input as well, so the
+    // on-screen controls on a phone can do both -- the key listeners above
+    // only ever heard a keyboard. Z, space and Enter already map to A and
+    // START, so a keyboard player sees no difference.
+    if (engine.input.justPressed(0, 'a')) wantShoot = true;
+    if (engine.input.justPressed(0, 'start') && dead) restartGame();
+
     scene.update(dt);
 
     if (dead) {

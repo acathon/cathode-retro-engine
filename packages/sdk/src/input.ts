@@ -14,6 +14,23 @@ export class InputReader {
     1: { up: false, down: false, left: false, right: false, a: false, b: false, x: false, y: false, start: false, select: false, l: false, r: false },
   };
 
+  /**
+   * The buttons each player's game has read, in the order it first asked.
+   *
+   * This is how on-screen controls know what to draw without any setup: a
+   * title screen that only reads `start` shows only START, and the d-pad
+   * appears the first time the game checks a direction.
+   */
+  private asked: Record<PlayerIndex, Set<ButtonName>> = { 0: new Set(), 1: new Set() };
+  private askListeners = new Set<(player: PlayerIndex, btn: ButtonName) => void>();
+
+  /**
+   * The on-screen controls drawing into this reader, if any. A second set
+   * replaces the first, so a game that builds its own overlay quietly takes
+   * over from the one the engine adds on touch devices.
+   */
+  touch: { destroy(): void } | null = null;
+
   private keymap: Record<string, [PlayerIndex, ButtonName]> = {
     'ArrowUp': [0, 'up'],
     'ArrowDown': [0, 'down'],
@@ -79,15 +96,39 @@ export class InputReader {
     }
   }
 
+  /**
+   * Call `fn` for every button a player's game reads, starting with the ones
+   * it already has. Returns a function that stops the calls.
+   */
+  onAsk(fn: (player: PlayerIndex, btn: ButtonName) => void): () => void {
+    for (const p of [0, 1] as PlayerIndex[]) for (const btn of this.asked[p]) fn(p, btn);
+    this.askListeners.add(fn);
+    return () => this.askListeners.delete(fn);
+  }
+
+  /** The buttons a player's game has read so far. */
+  askedFor(player: PlayerIndex): ReadonlySet<ButtonName> {
+    return this.asked[player];
+  }
+
+  private note(player: PlayerIndex, btn: ButtonName) {
+    if (this.asked[player].has(btn)) return;
+    this.asked[player].add(btn);
+    for (const fn of this.askListeners) fn(player, btn);
+  }
+
   held(player: PlayerIndex, btn: ButtonName): boolean {
+    this.note(player, btn);
     return this.states[player][btn];
   }
 
   justPressed(player: PlayerIndex, btn: ButtonName): boolean {
+    this.note(player, btn);
     return this.states[player][btn] && !this.prevStates[player][btn];
   }
 
   justReleased(player: PlayerIndex, btn: ButtonName): boolean {
+    this.note(player, btn);
     return !this.states[player][btn] && this.prevStates[player][btn];
   }
 }

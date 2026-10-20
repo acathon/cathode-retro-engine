@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Games on phones — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../../packages/studio/">Studio</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/cathode-retro-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html">Getting started</a>
+        <a href="./first-game.html">Your first game</a>
+        <a href="./mobile.html" aria-current="page">Games on phones</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
+        <a href="./tutorial-cards.html">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./project-format.html">cathode.json</a>
+        <a href="./architecture.html">Architecture</a>
+        <a href="./contributing.html">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Games on Phones</h1>
+<p>A Cathode game runs on a phone without changing a line of it. On a touch
+screen the engine:</p>
+<ul>
+<li><strong>fills the screen</strong> around whatever else your page shows — a score bar, a
+status line — and stays clear of the notch and the home bar;</li>
+<li><strong>adds on-screen controls that match your game</strong>, showing only the buttons
+it actually reads;</li>
+<li><strong>pauses when the app goes to the background</strong>, and resumes when it comes
+back — unless the player had paused it themselves;</li>
+<li><strong>starts the sound on the first tap</strong>, and restarts it if the phone stopped
+it, as iOS does for a phone call;</li>
+<li><strong>stops stray gestures</strong>: no pinch zoom, no double-tap zoom, no
+pull-to-refresh, no long-press menu in the middle of a jump.</li>
+</ul>
+<p>On a desktop nothing changes: the game keeps the scale it asked for, unless
+the window is too small for it.</p>
+<h2>The Controls Draw Themselves</h2>
+<p>The controls show a button the first time your game reads it through
+<code>engine.input</code> — <code>held</code>, <code>justPressed</code> or <code>justReleased</code>. So a title screen
+that only checks <code>start</code> shows only <strong>START</strong>, and the d-pad appears the
+moment the game first checks a direction. Nothing to configure, and no
+buttons the game ignores.</p>
+<table>
+<thead>
+<tr>
+<th>Your game reads</th>
+<th>The player sees</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>up</code> <code>down</code> <code>left</code> <code>right</code></td>
+<td>a d-pad, bottom left</td>
+</tr>
+<tr>
+<td><code>a</code> <code>b</code> <code>x</code> <code>y</code></td>
+<td>face buttons, bottom right — B low and left, A high and right</td>
+</tr>
+<tr>
+<td><code>l</code> <code>r</code></td>
+<td>shoulder buttons in the top corners</td>
+</tr>
+<tr>
+<td><code>start</code> <code>select</code></td>
+<td>small buttons along the bottom edge</td>
+</tr>
+</tbody></table>
+<p>The d-pad is one target, not four buttons, so a thumb can roll from ◀ to ▲
+without lifting, and press diagonals. A thumb resting on its centre presses
+nothing, and one that slides off the edge keeps steering. Each finger is
+tracked separately, so the d-pad and A work at the same time.</p>
+<h2>What Your Game Has To Get Right</h2>
+<p>The engine cannot fix these from the outside. Each one was a real bug in a
+demo in this repository.</p>
+<p><strong>Read every action through <code>engine.input</code>.</strong> On a phone, a listener on
+<code>keydown</code> hears nothing. The first-person demo listened for Z and Enter itself,
+so a phone player could walk but never shoot. Read <code>engine.input.justPressed(0, &#39;a&#39;)</code> instead — the keyboard still works, because Z, space and Enter map to A
+and START.</p>
+<p><strong>Mark keyboard instructions.</strong> &quot;Press Z to jump&quot; is wrong on a phone. Add
+<code>data-keyboard-hint</code> and touch screens hide it:</p>
+<pre><code class="language-html">&lt;div id=&quot;keys&quot; data-keyboard-hint&gt;← → MOVE · Z JUMP&lt;/div&gt;
+</code></pre>
+<p>Don&#39;t put it on an element your game writes messages into — the message would
+vanish too.</p>
+<p><strong>Don&#39;t size the canvas yourself.</strong> Leave it to the engine. A page that sets
+the game&#39;s size in CSS fights the fitting: the ice hockey demo fixed its
+screen at 768 × 720 inside a wrapper, so on a phone held sideways the page was
+807 pixels tall on a 360-pixel screen.</p>
+<p><strong>Keep the page fluid.</strong> One element with <code>width: 768px</code> makes the whole page
+768 pixels wide on a 412-pixel phone, and the browser shrinks everything to
+fit. Write <code>width: min(768px, 100%)</code>.</p>
+<p><strong>Declare it.</strong> Add <code>&quot;touch&quot;</code> to <code>input</code> in your
+<a href="./project-format.html"><code>cathode.json</code></a>, once all of the above holds.</p>
+<h2>Your Own Controls</h2>
+<p>Create a <code>TouchControls</code> and it replaces the engine&#39;s:</p>
+<pre><code class="language-ts">import { TouchControls } from &#39;@cathode/sdk&#39;;
+
+new TouchControls(engine.input, document.body, {
+  buttons: [&#39;left&#39;, &#39;right&#39;, &#39;a&#39;], // a fixed set instead of drawing as asked
+  size: 120,                       // d-pad width in CSS pixels
+  opacity: 0.5,
+});
+</code></pre>
+<p><code>engine.touch</code> is whichever set is on screen, or <code>null</code>.</p>
+<h2>Showing the Engine Inside Something Else</h2>
+<p>The fitting and the controls assume the game owns its page. An editor that
+shows the engine in one panel of a larger tool turns both off:</p>
+<pre><code class="language-ts">const engine = await Cathode.nes(canvas, 2, { fit: false, touchControls: false });
+</code></pre>
+<p>Cathode Studio does exactly this.</p>
+<h2>Checking It</h2>
+<pre><code class="language-bash">npm run build:dist
+node scripts/verify/mobile.mjs
+</code></pre>
+<p>Every published game is played on an emulated Pixel 7, held both ways, with
+real touch events. It fails if a game scrolls, leaves part of the screen
+unused that it could have had, shows no controls or two sets of them, ignores
+a thumb on the d-pad, keeps its keyboard hints, or never stops resizing.</p>
+<p>This is Chromium emulating Android. It says nothing certain about Safari on
+iOS — that needs the iOS simulator or a device.</p>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/cathode-retro-engine/blob/main/docs/mobile.md">docs/mobile.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/cathode-retro-engine">github.com/acathon/cathode-retro-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>

@@ -18,6 +18,7 @@ generated HTML.
 | build a first-person game | [tutorial-bounce-3d.md](./tutorial-bounce-3d.md) |
 | build a card game | [tutorial-cards.md](./tutorial-cards.md) |
 | know what goes in `cathode.json` | [project-format.md](./project-format.md) |
+| make a game work on phones | [mobile.md](./mobile.md) |
 | understand internals | [architecture.md](./architecture.md) |
 | contribute changes | [contributing.md](./contributing.md) |
 
@@ -68,6 +69,13 @@ Also covers picking your own screen size instead of a console preset.
 `cathode.json`, the file at the root of every game that says what it is: name,
 screen, controls, store identity and credits. Why each rule is as strict as it
 is, and where it is enforced.
+
+### [mobile.md](./mobile.md)
+
+What the engine does on a touch screen by itself — filling the screen, drawing
+on-screen controls for exactly the buttons a game reads, pausing in the
+background — and the four things a game has to get right that it cannot fix
+from the outside.
 
 ### [architecture.md](./architecture.md)
 

@@ -38,7 +38,7 @@ Choose the shortest path for what you want to do:
 | SDK | TypeScript APIs for scenes, sprites, tilemaps, input, audio, text, save data, raycasting |
 | Visual editing | Cathode Studio: scene tree, inspector, block editor, pixel sprite editor, sound maker, map editor |
 | Learning material | Setup guide, five tutorials, architecture reference, sixteen example games |
-| Tests | 337 Rust and 417 TypeScript, run by CI on every push |
+| Tests | 337 Rust and 442 TypeScript, run by CI on every push |
 
 ## Quick Start
 

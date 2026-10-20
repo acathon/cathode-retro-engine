@@ -11,7 +11,8 @@
   },
   "orientation": "landscape",
   "input": [
-    "keyboard"
+    "keyboard",
+    "touch"
   ],
   "credits": [
     {
