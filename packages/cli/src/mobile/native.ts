@@ -46,7 +46,13 @@ export function capacitorConfig(project: Project, id: string): object {
     plugins: {
       // A game wants the whole screen: no status bar, no navigation bar. They
       // come back for a moment with a swipe from the edge.
-      SystemBars: { hidden: true, style: 'DARK', insetsHandling: 'css' },
+      //
+      // "native" keeps the page clear of the camera cutout and leaves the
+      // rest to env(safe-area-inset-*), which is what the engine reads.
+      // Capacitor's default, "css", also injects --safe-area-inset-*
+      // variables the engine doesn't use -- and on Android it can run that
+      // script before the page exists, logging a TypeError at every start.
+      SystemBars: { hidden: true, style: 'DARK', insetsHandling: 'native' },
     },
   };
 }

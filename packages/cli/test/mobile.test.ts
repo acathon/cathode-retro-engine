@@ -300,5 +300,7 @@ describe('capacitor.config.json', () => {
     expect(config.android.path).toBe('native/android');
     expect(config.ios.path).toBe('native/ios');
     expect(config.plugins.SystemBars.hidden).toBe(true);
+    // Not "css": it injects a script that can run before the page exists.
+    expect(config.plugins.SystemBars.insetsHandling).toBe('native');
   });
 });
