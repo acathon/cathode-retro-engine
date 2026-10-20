@@ -27,13 +27,45 @@ rmSync(OUT, { recursive: true, force: true });
 mkdirSync(GAMES, { recursive: true });
 
 // --- The pages -------------------------------------------------------------
+// In a checkout, pages link into the repository: `../examples/tetris/` and
+// `../packages/studio/`, one level deeper from `docs/`. Here those become the
+// built copies under `games/` and `studio/`.
+function relink(html, up) {
+  const here = up.slice(3) || './';
+  const pattern = new RegExp(`${up.replace(/\./g, '\\.')}examples/([\\w-]+)/`, 'g');
+  return html
+    .replace(pattern, `${here}games/$1/`)
+    .replaceAll(`${up}packages/studio/`, `${here}studio/`);
+}
+
 cpSync('site/assets', join(OUT, 'assets'), { recursive: true });
-cpSync('site/docs', join(OUT, 'docs'), { recursive: true });
 for (const page of ['index.html', 'games.html', 'docs.html']) {
-  const html = readFileSync(join('site', page), 'utf8')
-    // `../examples/tetris/` becomes `./games/tetris/`, which exists here.
-    .replace(/\.\.\/examples\/([\w-]+)\//g, './games/$1/');
-  writeFileSync(join(OUT, page), html);
+  writeFileSync(join(OUT, page), relink(readFileSync(join('site', page), 'utf8'), '../'));
+}
+mkdirSync(join(OUT, 'docs'), { recursive: true });
+for (const page of readdirSync('site/docs').filter((f) => f.endsWith('.html'))) {
+  const html = readFileSync(join('site/docs', page), 'utf8');
+  writeFileSync(join(OUT, 'docs', page), relink(html, '../../'));
+}
+
+/** Build one Vite project with relative URLs and move its output to `to`. */
+function build(dir, to) {
+  execFileSync('npx', ['vite', 'build', '--base', './'], { cwd: dir, stdio: 'pipe' });
+  cpSync(join(dir, 'dist'), to, { recursive: true });
+  rmSync(join(dir, 'dist'), { recursive: true, force: true });
+}
+
+// --- The Studio --------------------------------------------------------------
+// The builder ships with the site so that making a game needs a browser and
+// nothing else -- no clone, no Node, no toolchain.
+process.stdout.write(`  ${'studio'.padEnd(20)}`);
+try {
+  build('packages/studio', join(OUT, 'studio'));
+  console.log('ok');
+} catch (error) {
+  console.log('FAILED');
+  console.error(String(error.stderr ?? error).slice(0, 400));
+  process.exitCode = 1;
 }
 
 // --- The games -------------------------------------------------------------
@@ -42,9 +74,7 @@ for (const name of examples) {
   const dir = join('examples', name);
   process.stdout.write(`  ${name.padEnd(20)}`);
   try {
-    execFileSync('npx', ['vite', 'build', '--base', './'], { cwd: dir, stdio: 'pipe' });
-    cpSync(join(dir, 'dist'), join(GAMES, name), { recursive: true });
-    rmSync(join(dir, 'dist'), { recursive: true, force: true });
+    build(dir, join(GAMES, name));
     built++;
     console.log('ok');
   } catch (error) {

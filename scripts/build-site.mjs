@@ -129,6 +129,7 @@ function page(slug, body) {
       <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
       <a href="../index.html">Overview</a>
       <a href="../games.html">Games</a>
+      <a href="../../packages/studio/">Studio</a>
       <a href="../docs.html" aria-current="page">Docs</a>
       <a href="https://github.com/acathon/cathode-retro-engine">GitHub</a>
     </div>

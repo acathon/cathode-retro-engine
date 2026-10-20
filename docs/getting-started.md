@@ -13,6 +13,15 @@ Use this page if you want to:
 
 If your goal is to build a tiny game step by step, continue with [first-game.md](./first-game.md) after finishing this page.
 
+## No Install At All
+
+If you want to make a game rather than work on the engine, you don't need any
+of this page. [Open the Studio](https://acathon.github.io/cathode-retro-engine/studio/) — sprites, levels, sounds and blocks
+in the browser, with a Play button that runs your game on the real engine.
+
+Everything below is for running the examples locally, writing TypeScript
+against the SDK, or changing the engine itself.
+
 ## Prerequisites
 
 To build games, one tool:

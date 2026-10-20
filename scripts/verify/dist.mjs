@@ -129,6 +129,44 @@ for (const game of games) {
 check('games boot as published', broken === 0, `${games.length} games, ${broken} broken`);
 check('every example is published', games.length >= 16, `${games.length} in ${ROOT}/games/`);
 
+// --- The Studio runs a game ------------------------------------------------
+// Loading the page proves little. The Studio has three parts that each break
+// on their own under a subpath: Blockly, which fetches its icons at run time
+// from `./blockly-media/`; the starter program, which has to deserialize into
+// blocks; and the engine, whose WebAssembly is only fetched when you press
+// play. So press play.
+{
+  const misses = [];
+  const onResponse = (r) => { if (r.status() >= 400) misses.push(`${r.status()} ${new URL(r.url()).pathname}`); };
+  page.on('response', onResponse);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin}${BASE}/studio/`, { waitUntil: 'networkidle' });
+
+  const editor = await page.evaluate(() => ({
+    title: document.title,
+    blocks: document.querySelector('.blocklyBlockCanvas')?.children.length ?? 0,
+    toolbox: !!document.querySelector('.blocklyToolboxDiv, .blocklyToolbox, .blocklyFlyout'),
+  }));
+  const opened = editor.title.includes('Studio') && editor.toolbox && editor.blocks > 0;
+  check('studio opens', opened, `${editor.blocks} blocks in the starter program`);
+
+  if (opened) {
+    await page.click('#btn-play');
+    await page.waitForTimeout(2000);
+    const game = await page.evaluate(() => {
+      const c = document.getElementById('game');
+      return { shown: !c.hidden, w: c.width, h: c.height, status: document.getElementById('vp-status')?.textContent };
+    });
+    check('studio runs its game', game.shown && !(game.w === 300 && game.h === 150),
+      `${game.w}x${game.h} · ${game.status}`);
+  } else {
+    check('studio runs its game', false, 'never opened, so there was nothing to play');
+  }
+
+  page.off('response', onResponse);
+  check('studio assets resolve', misses.length === 0, misses.slice(0, 3).join(', '));
+}
+
 const failed = finish(session);
 await browser.close();
 server.close();
