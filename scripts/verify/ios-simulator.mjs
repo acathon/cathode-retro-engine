@@ -15,6 +15,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { arg, check, finish } from './lib.mjs';
 import { decodePng } from '../../packages/cli/dist/mobile/png.js';
@@ -33,6 +34,14 @@ const simctl = (...args) => {
   return r.stdout;
 };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Poll `ready` every half second for up to `seconds`; true if it became true. */
+async function waitFor(seconds, ready) {
+  for (const end = Date.now() + seconds * 1000; Date.now() < end; await sleep(500)) {
+    if (ready()) return true;
+  }
+  return false;
+}
 
 /** The share of a region of the screenshot that isn't its most common colour. */
 function ink(image, region) {
@@ -73,8 +82,25 @@ try {
   appOutput = spawn('xcrun', ['simctl', 'launch', '--console-pty', '--terminate-running-process', device.udid, id]);
   appOutput.stdout.on('data', (chunk) => { log += chunk; });
   appOutput.stderr.on('data', (chunk) => { log += chunk; });
-  // WebKit, the engine's WebAssembly and the first frames.
-  await sleep(15000);
+  let launchExit = null;
+  appOutput.on('exit', (code) => { launchExit = code; });
+
+  // Wait for Capacitor to say the page loaded rather than for a fixed time:
+  // the first launch on a simulator that has only just booted can be slow.
+  const loaded = await waitFor(90, () => /WebView loaded/.test(log) || launchExit !== null);
+  check('the app loaded the game', /WebView loaded/.test(log), 'Capacitor reports the page loaded');
+  if (!/WebView loaded/.test(log)) {
+    // Why not: did the launch fail, is the app running, did it crash?
+    console.log(`launch ${launchExit === null ? 'still attached' : `exited with ${launchExit}`}${loaded ? '' : ' after 90 s'}`);
+    console.log(`app output:\n${log.trim().split('\n').slice(0, 20).join('\n') || '(nothing)'}`);
+    const running = spawnSync('xcrun', ['simctl', 'spawn', device.udid, 'launchctl', 'list'], { encoding: 'utf8' }).stdout ?? '';
+    console.log(`launchctl: ${running.split('\n').filter((l) => l.includes(id)).join(' | ') || `no entry for ${id}`}`);
+    const reports = path.join(os.homedir(), 'Library', 'Logs', 'DiagnosticReports');
+    const crash = fs.existsSync(reports) && fs.readdirSync(reports).filter((f) => f.startsWith('App')).sort().at(-1);
+    if (crash) console.log(`crash report ${crash}:\n${fs.readFileSync(path.join(reports, crash), 'utf8').slice(0, 1500)}`);
+  }
+  // The engine's WebAssembly and the first frames.
+  await sleep(5000);
 
   const shotFile = path.join(OUT, 'ios.png');
   simctl('io', device.udid, 'screenshot', shotFile);
@@ -86,7 +112,6 @@ try {
   check('starts and draws', drawn.ink >= 3 && drawn.colours >= 4, `${drawn.ink}% of the middle of the screen drawn, ${drawn.colours} colours`);
 
   console.log(log.split('\n').filter((l) => l.includes('⚡️')).slice(0, 12).join('\n'));
-  check('the app loaded the game', /WebView loaded/.test(log), 'Capacitor reports the page loaded');
   for (const line of log.split('\n')) {
     // Capacitor's formats: a page's console.error is "⚡️  [error] - ...",
     // a script that failed at start is a "STARTUP JS ERROR" block.
