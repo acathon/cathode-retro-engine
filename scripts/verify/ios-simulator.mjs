@@ -13,7 +13,7 @@
  *
  * Needs the CLI built (npm run build -w packages/cli) and Xcode.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { arg, check, finish } from './lib.mjs';
@@ -50,8 +50,9 @@ function ink(image, region) {
 }
 
 const errors = [];
-const stdout = path.join(OUT, 'ios-stdout.log');
-const stderr = path.join(OUT, 'ios-stderr.log');
+const logFile = path.join(OUT, 'ios-app.log');
+let appOutput = null;
+let log = '';
 try {
   // The newest iOS the Simulator has, and its first iPhone.
   const runtimes = JSON.parse(simctl('list', 'devices', 'available', '-j')).devices;
@@ -66,7 +67,12 @@ try {
   simctl('bootstatus', device.udid, '-b');
 
   simctl('install', device.udid, app);
-  simctl('launch', '--terminate-running-process', `--stdout=${stdout}`, `--stderr=${stderr}`, device.udid, id);
+  // Capacitor prints with Swift's print(), which only flushes a file or a
+  // pipe when its buffer fills -- so the app's output is read through a
+  // terminal (--console-pty), where every line arrives as it is printed.
+  appOutput = spawn('xcrun', ['simctl', 'launch', '--console-pty', '--terminate-running-process', device.udid, id]);
+  appOutput.stdout.on('data', (chunk) => { log += chunk; });
+  appOutput.stderr.on('data', (chunk) => { log += chunk; });
   // WebKit, the engine's WebAssembly and the first frames.
   await sleep(15000);
 
@@ -79,15 +85,18 @@ try {
   console.log(`screenshot ${shot.width}x${shot.height} -> ${shotFile}: ${drawn.ink}% ink, ${drawn.colours} colours in the middle`);
   check('starts and draws', drawn.ink >= 3 && drawn.colours >= 4, `${drawn.ink}% of the middle of the screen drawn, ${drawn.colours} colours`);
 
-  const log = [stdout, stderr].filter((f) => fs.existsSync(f)).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
   console.log(log.split('\n').filter((l) => l.includes('⚡️')).slice(0, 12).join('\n'));
-  check('the app loaded the game', /WebView loaded|Loading app at/.test(log), 'Capacitor reports loading the page');
+  check('the app loaded the game', /WebView loaded/.test(log), 'Capacitor reports the page loaded');
   for (const line of log.split('\n')) {
-    // Capacitor prints the page's console.error as "[error]", and failed scripts as JS errors.
-    if (/⚡️\s+\[error\]|JS Eval error|Error loading/.test(line)) errors.push(line.trim().slice(0, 200));
+    // Capacitor's formats: a page's console.error is "⚡️  [error] - ...",
+    // a script that failed at start is a "STARTUP JS ERROR" block.
+    if (/⚡️\s+\[error\]|STARTUP JS ERROR|JS Eval error/.test(line)) errors.push(line.trim().slice(0, 200));
   }
 } catch (error) {
   check('runs on iOS', false, String(error.message ?? error).slice(0, 300));
+} finally {
+  appOutput?.kill();
+  fs.writeFileSync(logFile, log);
 }
 
 const failed = finish({ errors: [...new Set(errors)], failedRequests: [] });
