@@ -15,6 +15,7 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parseProject } from '../packages/project/src/index.js';
 
 const OUT = 'site/dist';
 const GAMES = join(OUT, 'games');
@@ -73,8 +74,26 @@ let built = 0;
 for (const name of examples) {
   const dir = join('examples', name);
   process.stdout.write(`  ${name.padEnd(20)}`);
+
+  // A game without a valid project file is not built: the file is what the
+  // gallery and the checks know the game by.
+  const manifest = join(dir, 'cathode.json');
+  const { project, errors } = existsSync(manifest)
+    ? parseProject(readFileSync(manifest, 'utf8'))
+    : { project: null, errors: ['no cathode.json — see docs/project-format.md'] };
+  if (project && project.name !== name) errors.push(`name is "${project.name}" but the folder is "${name}"`);
+  if (errors.length) {
+    console.log('INVALID');
+    for (const error of errors) console.error(`      ${error}`);
+    process.exitCode = 1;
+    continue;
+  }
+
   try {
     build(dir, join(GAMES, name));
+    // Published beside the game, so anything reading the site can tell what
+    // each game is without reaching back into the repository.
+    cpSync(manifest, join(GAMES, name, 'cathode.json'));
     built++;
     console.log('ok');
   } catch (error) {

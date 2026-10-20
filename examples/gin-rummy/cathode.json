@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "name": "gin-rummy",
+  "title": "Ten Card",
+  "version": "0.1.0",
+  "description": "Gin rummy to a hundred. What a hand is worth is a search, not a lookup — and the table draws the answer, outlining melded cards and leaving loose ones plain.",
+  "id": "io.github.acathon.ginrummy",
+  "screen": {
+    "width": 520,
+    "height": 400
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ],
+  "credits": [
+    {
+      "what": "Card art (8-bit Playing Cards)",
+      "who": "sdkfz181tiger",
+      "license": "Free for personal and commercial use",
+      "url": "https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games"
+    }
+  ]
+}

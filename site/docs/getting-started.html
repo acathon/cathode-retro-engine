@@ -33,6 +33,8 @@
         <h4>REFERENCE</h4>
         <a href="./architecture.html">Architecture</a>
         <a href="./contributing.html">Contributing</a>
+        <h4>MORE</h4>
+        <a href="./project-format.html">project format</a>
     </aside>
 
     <article class="prose">
@@ -115,25 +117,61 @@ npm run dev          # or: bun dev
 </tr>
 </tbody></table>
 <h2>Create A New Game With The CLI</h2>
-<p>The CLI can scaffold new projects with different templates.</p>
 <p>From the monorepo:</p>
-<pre><code class="language-bash">bun run build:cli
-node packages/cli/dist/index.js new my-first-game --template default
+<pre><code class="language-bash">npm run build:cli
+node packages/cli/dist/index.js new my-first-game --template platformer
 </code></pre>
-<p>Available templates currently exposed by the CLI:</p>
-<ul>
-<li><code>default</code></li>
-<li><code>platformer</code></li>
-<li><code>shmup</code></li>
-<li><code>puzzle</code></li>
-<li><code>rpg</code></li>
-<li><code>doom</code></li>
-</ul>
-<p>Then move into the generated project and start its dev server:</p>
+<table>
+<thead>
+<tr>
+<th>Template</th>
+<th>Screen</th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>default</code></td>
+<td>Game Boy</td>
+<td>an empty starting point: the engine, a scene and a loop</td>
+</tr>
+<tr>
+<td><code>platformer</code></td>
+<td>NES</td>
+<td>running, jumping, platforms and coins</td>
+</tr>
+<tr>
+<td><code>shmup</code></td>
+<td>NES</td>
+<td>a vertical shooter: your ship, bullets and enemies</td>
+</tr>
+<tr>
+<td><code>puzzle</code></td>
+<td>Game Boy</td>
+<td>a 6×6 match-three, swapping gems</td>
+</tr>
+<tr>
+<td><code>rpg</code></td>
+<td>NES</td>
+<td>a walkable map with walls, an NPC and a chest</td>
+</tr>
+<tr>
+<td><code>doom</code></td>
+<td>NES</td>
+<td>a first-person raycaster with health and score</td>
+</tr>
+</tbody></table>
+<p>Then:</p>
 <pre><code class="language-bash">cd my-first-game
-bun install
-bun dev
+npm install          # or: bun install
+npm run dev          # or: bun dev
 </code></pre>
+<p>The new project carries its own copy of the engine in <code>cathode-sdk/</code>, so it
+installs with nothing fetched from a package registry and keeps building the
+same way after Cathode moves on. Keep that folder in git — it is part of the
+game. The project also gets a <a href="./project-format.html"><code>cathode.json</code></a> describing
+it, and <code>npm run typecheck</code>, which is worth running: Vite strips types without
+checking them, so a typo TypeScript would name in a second otherwise only shows
+up when the game runs.</p>
 <h2>Changing The Engine Itself</h2>
 <p>Everything above works without Rust. This section is for editing the engine
 under <code>crates/</code> — the core, the web bindings, or the native runtime.</p>

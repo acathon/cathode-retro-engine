@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "name": "holdem",
+  "title": "River Street",
+  "version": "0.1.0",
+  "description": "No-limit hold'em against three bots you can tell apart. A best-five-of-seven evaluator, real side pots, and opponents whose every decision is readable.",
+  "id": "io.github.acathon.holdem",
+  "screen": {
+    "width": 560,
+    "height": 400
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ],
+  "credits": [
+    {
+      "what": "Card art (8-bit Playing Cards)",
+      "who": "sdkfz181tiger",
+      "license": "Free for personal and commercial use",
+      "url": "https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games"
+    }
+  ]
+}

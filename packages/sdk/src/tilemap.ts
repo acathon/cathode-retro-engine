@@ -37,6 +37,11 @@ export class TileMap {
     return this.layers.length - 1;
   }
 
+  /**
+   * Place a tile. Tile IDs count from 1: `0` is empty, and tile `N` draws
+   * frame `N - 1` of the layer's sheet — unlike a Sprite's `frame`, which
+   * counts from 0. To draw sheet frame `f`, pass `f + 1`.
+   */
   setTile(layerIdx: number, col: number, row: number, tileId: number) {
     if (layerIdx >= 0 && layerIdx < this.layers.length && col >= 0 && col < this.cols && row >= 0 && row < this.rows) {
       this.layers[layerIdx].tiles[row * this.cols + col] = tileId;

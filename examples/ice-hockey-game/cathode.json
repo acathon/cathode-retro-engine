@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "ice-hockey-game",
+  "title": "Ice Hockey",
+  "version": "0.1.0",
+  "description": "Five-a-side with team AI: state machines for possession and defence, period and score management, and a rink drawn in code.",
+  "id": "io.github.acathon.icehockeygame",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ]
+}

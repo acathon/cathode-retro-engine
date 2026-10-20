@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "tetris",
+  "title": "Tetris",
+  "version": "0.1.0",
+  "description": "Ghost piece, wall kicks, a seven-bag randomiser and the Korobeiniki melody — drawn with pooled engine sprites rather than a second renderer.",
+  "id": "io.github.acathon.tetris",
+  "screen": {
+    "profile": "gameboy"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ]
+}

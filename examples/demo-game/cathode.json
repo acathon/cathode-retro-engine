@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "demo-game",
+  "title": "Demo platformer",
+  "version": "0.1.0",
+  "description": "The smallest complete game here: side-scrolling movement, a tilemap, and simple collisions. Start here if you are reading one example.",
+  "id": "io.github.acathon.demogame",
+  "screen": {
+    "profile": "gameboy"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ]
+}

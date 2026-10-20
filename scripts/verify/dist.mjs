@@ -19,9 +19,10 @@
  * anywhere, and does the game draw a frame.
  */
 import { createServer } from 'node:http';
-import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { arg, check, finish } from './lib.mjs';
+import { parseProject, screenSize } from '../../packages/project/src/index.js';
 import { chromium } from 'playwright';
 
 const ROOT = 'site/dist';
@@ -106,6 +107,7 @@ const games = readdirSync(join(ROOT, 'games'), { withFileTypes: true })
   .filter((e) => e.isDirectory()).map((e) => e.name);
 
 let broken = 0;
+const mismatched = [];
 for (const game of games) {
   const misses = [];
   const onResponse = (r) => { if (r.status() >= 400) misses.push(`${r.status()} ${new URL(r.url()).pathname}`); };
@@ -125,8 +127,20 @@ for (const game of games) {
     console.log(`      ${game}: canvas ${canvas ? `${canvas.w}x${canvas.h}` : 'missing'}`
       + (misses.length ? ` | ${misses.slice(0, 2).join(', ')}` : ''));
   }
+
+  // What the project says its screen is, against what the game actually set
+  // up. A store listing, a window size and a phone's aspect ratio are all
+  // worked out from the declaration, so it has to be true.
+  const manifest = join(ROOT, 'games', game, 'cathode.json');
+  const { project } = existsSync(manifest) ? parseProject(readFileSync(manifest, 'utf8')) : { project: null };
+  const declared = project && screenSize(project);
+  if (!declared || !canvas || declared.width !== canvas.w || declared.height !== canvas.h) {
+    mismatched.push(`${game}: declares ${declared ? `${declared.width}x${declared.height}` : 'nothing'}, runs at ${canvas ? `${canvas.w}x${canvas.h}` : '?'}`);
+  }
 }
 check('games boot as published', broken === 0, `${games.length} games, ${broken} broken`);
+for (const line of mismatched) console.log(`      ${line}`);
+check('screens match their cathode.json', mismatched.length === 0, `${games.length - mismatched.length}/${games.length} agree`);
 check('every example is published', games.length >= 16, `${games.length} in ${ROOT}/games/`);
 
 // --- The Studio runs a game ------------------------------------------------

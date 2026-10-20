@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "name": "pixel-patience",
+  "title": "Pixel Patience",
+  "version": "0.1.0",
+  "description": "Klondike solitaire with all 52 cards on screen as individual sprites. The rules are a pure state machine, so every legal move is unit-tested without a canvas.",
+  "id": "io.github.acathon.pixelpatience",
+  "screen": {
+    "width": 464,
+    "height": 416
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ],
+  "credits": [
+    {
+      "what": "Card art (8-bit Playing Cards)",
+      "who": "sdkfz181tiger",
+      "license": "Free for personal and commercial use",
+      "url": "https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "metal-slug",
+  "title": "Metal Slug-inspired demo",
+  "version": "0.1.0",
+  "description": "Multi-layer parallax scenes and the pacing of a run-and-gun, with art generated onto a canvas and uploaded as a sheet.",
+  "id": "io.github.acathon.metalslug",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}

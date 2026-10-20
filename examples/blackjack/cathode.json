@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "name": "blackjack",
+  "title": "Twenty-One",
+  "version": "0.1.0",
+  "description": "Blackjack against a six-deck shoe. Soft and hard aces, the S17/H17 split, splits, doubles, insurance, and a payout table tested case by case.",
+  "id": "io.github.acathon.blackjack",
+  "screen": {
+    "width": 464,
+    "height": 360
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ],
+  "credits": [
+    {
+      "what": "Card art (8-bit Playing Cards)",
+      "who": "sdkfz181tiger",
+      "license": "Free for personal and commercial use",
+      "url": "https://sdkfz181tiger.itch.io/assets-for-8bit-playing-card-games"
+    }
+  ]
+}

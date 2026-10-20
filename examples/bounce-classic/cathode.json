@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "name": "bounce-classic",
+  "title": "Bounce",
+  "version": "0.1.0",
+  "description": "A ball with weight: bouncing physics, buoyancy in water, and charge jumps. The subject of a step-by-step tutorial that explains why each number is what it is.",
+  "id": "io.github.acathon.bounceclassic",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard"
+  ]
+}
