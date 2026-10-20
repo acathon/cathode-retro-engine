@@ -40,7 +40,7 @@ jobs:
       - name: Build the site
         run: npm run build:dist
 
-      - name: Check the site is not missing its games
+      - name: Check the site is not missing its games or the Studio
         run: |
           count=$(find site/dist/games -mindepth 1 -maxdepth 1 -type d | wc -l)
           echo "$count games built"
@@ -48,6 +48,9 @@ jobs:
           test -f site/dist/index.html
           test -f site/dist/games.html
           test -f site/dist/docs.html
+          # The front page's main button opens the Studio.
+          test -f site/dist/studio/index.html
+          test -d site/dist/studio/blockly-media
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

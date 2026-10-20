@@ -27,10 +27,13 @@ npx vite --port 3021          # from the repository root
 npm run build:dist            # -> site/dist/
 ```
 
-That renders the docs, builds all sixteen examples with relative asset paths,
-copies them under `site/dist/games/<name>/`, and rewrites the gallery links to
-match. The result is a directory you can drop on any static host — no server
-build step, no configuration. `site/dist/` is gitignored.
+That renders the docs, builds all sixteen examples and the Studio with
+relative asset paths, copies them under `site/dist/games/<name>/` and
+`site/dist/studio/`, and rewrites the links to match. The Studio is the site's
+main call to action, so making a game needs a browser and nothing else.
+
+The result is a directory you can drop on any static host — no server build
+step, no configuration. `site/dist/` is gitignored.
 
 ## Publishing
 
@@ -74,6 +77,9 @@ the way GitHub Pages does:
 npm run build:dist
 node scripts/verify/dist.mjs
 ```
+
+It also opens the Studio and presses Play, because the Studio's WebAssembly
+is only fetched then — a page that loads is not a builder that works.
 
 It catches the two failures a dev server hides: a path that only resolves at
 the repository root, and a link that escapes the site root. The published
