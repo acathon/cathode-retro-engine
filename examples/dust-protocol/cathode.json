@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "dust-protocol",
+  "title": "Dust Protocol",
+  "version": "0.1.0",
+  "description": "Round-based tactical FPS. Hitscan weapons, bots that path with A* and check line of sight, and tab-to-tab multiplayer over a BroadcastChannel transport.",
+  "id": "io.github.acathon.dustprotocol",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}

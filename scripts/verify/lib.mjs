@@ -14,8 +14,6 @@
  * Chromium comes from PLAYWRIGHT_BROWSERS_PATH; `playwright install` is not
  * needed and will not work behind a proxy.
  */
-import { chromium } from 'playwright';
-
 const CHROMIUM = process.env.CATHODE_CHROMIUM
   ?? '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell';
 
@@ -32,6 +30,9 @@ export function arg(name, fallback) {
  * sprite sheets are loaded by the time it appears.
  */
 export async function open(hook, { port, width = 1200, height = 1000 } = {}) {
+  // Imported here, not at the top: the phone checks use check() and finish()
+  // on machines with no browser installed.
+  const { chromium } = await import('playwright');
   const browser = await chromium.launch({ executablePath: CHROMIUM });
   const page = await browser.newPage();
   await page.setViewportSize({ width, height });

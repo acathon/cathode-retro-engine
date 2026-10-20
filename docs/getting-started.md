@@ -72,31 +72,44 @@ Other good entry points:
 
 ## Create A New Game With The CLI
 
-The CLI can scaffold new projects with different templates.
-
 From the monorepo:
 
 ```bash
-bun run build:cli
-node packages/cli/dist/index.js new my-first-game --template default
+npm run build:cli
+npm install -g ./packages/cli     # puts `cathode` on your PATH
+cathode new my-first-game --template platformer
 ```
 
-Available templates currently exposed by the CLI:
+Without the global install, `node packages/cli/dist/index.js` does the same
+from the repository root.
 
-- `default`
-- `platformer`
-- `shmup`
-- `puzzle`
-- `rpg`
-- `doom`
+| Template | Screen | |
+| --- | --- | --- |
+| `default` | Game Boy | an empty starting point: the engine, a scene and a loop |
+| `platformer` | NES | running, jumping, platforms and coins |
+| `shmup` | NES | a vertical shooter: your ship, bullets and enemies |
+| `puzzle` | Game Boy | a 6×6 match-three, swapping gems |
+| `rpg` | NES | a walkable map with walls, an NPC and a chest |
+| `doom` | NES | a first-person raycaster with health and score |
 
-Then move into the generated project and start its dev server:
+Then:
 
 ```bash
 cd my-first-game
-bun install
-bun dev
+npm install          # or: bun install
+npm run dev          # or: bun dev
 ```
+
+The new project carries its own copy of the engine in `cathode-sdk/`, so it
+installs with nothing fetched from a package registry and keeps building the
+same way after Cathode moves on. Keep that folder in git — it is part of the
+game. The project also gets a [`cathode.json`](./project-format.md) describing
+it, and `npm run typecheck`, which is worth running: Vite strips types without
+checking them, so a typo TypeScript would name in a second otherwise only shows
+up when the game runs.
+
+To put it on a phone, run `cathode export android` or `cathode export ios`
+inside the game's folder — see [Shipping to Android and iOS](./shipping.md).
 
 ## Changing The Engine Itself
 
@@ -242,4 +255,4 @@ Build the CLI first:
 bun run build:cli
 ```
 
-Then invoke it from `packages/cli/dist/index.js` inside the monorepo, or install the package in a separate project once published.
+Then put it on your PATH with `npm install -g ./packages/cli`, or invoke it as `node packages/cli/dist/index.js` from the repository root.

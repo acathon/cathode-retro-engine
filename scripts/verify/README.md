@@ -21,6 +21,11 @@ node scripts/verify/rummy.mjs --port 3018
 | `holdem.mjs` | `examples/holdem` | 3017 |
 | `rummy.mjs` | `examples/gin-rummy` | 3018 |
 | `site.mjs` | the whole site, plus all sixteen games | 3021 |
+| `dist.mjs` | the published bundle, as a host serves it (builds nothing; run `npm run build:dist` first) | 3030 |
+| `mobile.mjs` | every published game on an emulated phone, held both ways, with real touch (needs `npm run build:dist`) | 3036 |
+| `new-projects.mjs` | every `cathode new` template, made outside the repo, installed, built and run; then one exported to native projects | 3035 |
+| `android-device.mjs` | an Android test build on an emulator or phone, through adb and the WebView's DevTools socket (`<apk> <id>`) | — |
+| `ios-simulator.mjs` | an iOS simulator build in the iOS Simulator, on a Mac (`<app> <id>`) | — |
 
 Each exits non-zero if any check fails, so they can be chained.
 

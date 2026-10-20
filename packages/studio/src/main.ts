@@ -300,7 +300,9 @@ async function run(): Promise<void> {
     captureScripts();
     setStatus('Starting…');
 
-    if (!engine) engine = await Cathode.nes(el.canvas, 2);
+    // The engine lives in one panel of the editor, so the window is not its
+    // to fill and a gamepad overlay would cover the tools.
+    if (!engine) engine = await Cathode.nes(el.canvas, 2, { fit: false, touchControls: false });
     const eng = engine;
 
     const scene = new Scene(eng);

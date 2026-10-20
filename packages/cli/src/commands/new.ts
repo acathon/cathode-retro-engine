@@ -1,13 +1,16 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import ora from 'ora';
+import { validateProject, type ProfileName, type Project } from '@cathode/project';
+import { placeholderId } from '../mobile/native.js';
 
 type TemplateName = 'default' | 'platformer' | 'shmup' | 'puzzle' | 'rpg' | 'doom';
 
-const TEMPLATES: Record<TemplateName, { resolution: { width: number; height: number }; main: string }> = {
+const TEMPLATES: Record<TemplateName, { profile: ProfileName; main: string }> = {
   default: {
-    resolution: { width: 160, height: 144 },
+    profile: 'gameboy',
     main: `import { Cathode, Scene, Sprite, SoundChannel } from '@cathode/sdk';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -25,7 +28,7 @@ bootstrap();
 `,
   },
   platformer: {
-    resolution: { width: 256, height: 240 },
+    profile: 'nes',
     main: `import {
   Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, StateMachine, GameTimer, ParticleEmitter,
@@ -56,20 +59,21 @@ async function bootstrap() {
   const sheet = await engine.loadSheetFromCanvas(sheetCanvas, 8, 8);
 
   const player = new Sprite(scene, { sheet, frame: 0, x: 40, y: 200, layer: 1 });
-  player.setCollider(0, 0, 8, 8, true);
+  player.setCollider(8, 8);
 
   // Ground tiles
   for (let i = 0; i < 32; i++) {
     const ground = new Sprite(scene, { sheet, frame: 1, x: i * 8, y: 232, layer: 0 });
-    ground.setCollider(0, 0, 8, 8, true);
+    ground.setCollider(8, 8).setSolid();
   }
 
-  // Platforms
+  // Platforms, four tiles wide. Their tops are what the player lands on.
   const platformPositions = [[48, 200], [80, 180], [120, 160], [160, 180], [200, 200]];
+  const platformTops = platformPositions.map(([px, py]) => ({ left: px, right: px + 32, top: py }));
   for (const [px, py] of platformPositions) {
     for (let i = 0; i < 4; i++) {
       const plat = new Sprite(scene, { sheet, frame: 1, x: px + i * 8, y: py, layer: 0 });
-      plat.setCollider(0, 0, 8, 8, true);
+      plat.setCollider(8, 8).setSolid();
     }
   }
 
@@ -79,7 +83,7 @@ async function bootstrap() {
   const coinPositions = [[60, 190], [96, 170], [136, 150], [176, 170]];
   for (const [cx, cy] of coinPositions) {
     const coin = new Sprite(scene, { sheet, frame: 2, x: cx, y: cy, layer: 1 });
-    coin.setCollider(0, 0, 8, 8, false);
+    coin.setCollider(8, 8);
     coins.push(coin);
   }
 
@@ -109,7 +113,7 @@ async function bootstrap() {
     },
     {
       name: 'jump',
-      onEnter: () => { velY = JUMP_VEL; grounded = false; sfx.play(440, 'square', 0.3); },
+      onEnter: () => { velY = JUMP_VEL; grounded = false; sfx.play(440, 'pulse50', 0.3); },
       onUpdate: (dt) => {
         if (engine.input.held(0, 'left')) player.x -= MOVE_SPEED * dt;
         if (engine.input.held(0, 'right')) player.x += MOVE_SPEED * dt;
@@ -125,9 +129,19 @@ async function bootstrap() {
 
     // Gravity
     velY += GRAVITY * dt;
+    const feetBefore = player.y + 8;
     player.y += velY * dt;
 
-    // Simple ground collision on bottom of screen
+    // Land on whatever is underneath: a platform top crossed while falling,
+    // or the ground. Walking off an edge leaves you in the air.
+    grounded = false;
+    const feet = player.y + 8;
+    for (const top of platformTops) {
+      const over = player.x + 8 > top.left && player.x < top.right;
+      if (velY > 0 && over && feetBefore <= top.top && feet >= top.top) {
+        player.y = top.top - 8; velY = 0; grounded = true;
+      }
+    }
     if (player.y >= 224) { player.y = 224; velY = 0; grounded = true; }
 
     // Coin collection
@@ -138,7 +152,7 @@ async function bootstrap() {
         c.destroy();
         coins.splice(i, 1);
         score += 100;
-        sfx.play(880, 'square', 0.4);
+        sfx.play(880, 'pulse50', 0.4);
       }
     }
 
@@ -151,7 +165,7 @@ bootstrap();
 `,
   },
   shmup: {
-    resolution: { width: 256, height: 240 },
+    profile: 'nes',
     main: `import {
   Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, GameTimer, ParticleEmitter,
@@ -251,7 +265,7 @@ bootstrap();
 `,
   },
   puzzle: {
-    resolution: { width: 160, height: 144 },
+    profile: 'gameboy',
     main: `import {
   Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, GameTimer,
@@ -381,7 +395,7 @@ async function bootstrap() {
     if (engine.input.justPressed(0, 'a')) {
       if (!selected) {
         selected = true; selR2 = selR; selC2 = selC;
-        sfx.play(440, 'square', 0.2);
+        sfx.play(440, 'pulse50', 0.2);
       } else {
         const dr = Math.abs(selR - selR2), dc = Math.abs(selC - selC2);
         if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
@@ -390,7 +404,7 @@ async function bootstrap() {
             swap(selR2, selC2, selR, selC); // swap back
           } else {
             while (true) { dropAndFill(); if (!checkMatches()) break; }
-            sfx.play(880, 'square', 0.3);
+            sfx.play(880, 'pulse50', 0.3);
           }
         }
         selected = false;
@@ -416,7 +430,7 @@ bootstrap();
 `,
   },
   rpg: {
-    resolution: { width: 256, height: 240 },
+    profile: 'nes',
     main: `import {
   Cathode, Scene, Sprite, SoundChannel,
   BitmapFont, TileMap, StateMachine, SaveManager,
@@ -456,7 +470,7 @@ async function bootstrap() {
 
   const sheet = await engine.loadSheetFromCanvas(sheetCanvas, 16, 16);
 
-  // 16x15 map (grass=1, wall=2)
+  // 16x15 map, as sheet frames (grass=1, wall=2)
   const mapData = [
     2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
     2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,
@@ -475,11 +489,14 @@ async function bootstrap() {
     2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
   ];
 
-  const tilemap = new TileMap(engine, {
-    layers: [{ data: mapData, cols: 16, rows: 15, tileWidth: 16, tileHeight: 16 }],
-    sheet,
-  });
-  tilemap.setSolidTiles(0, [2]);
+  // Map tiles count from 1, because 0 means empty: tile N draws sheet frame
+  // N - 1. mapData holds sheet frames, so each one moves up by one.
+  const tile = (frame: number) => frame + 1;
+  const tilemap = new TileMap(scene, { name: 'world', cols: 16, rows: 15, tileWidth: 16, tileHeight: 16 });
+  const ground = tilemap.addLayer('ground', sheet);
+  mapData.forEach((frame, i) => tilemap.setTile(ground, i % 16, Math.floor(i / 16), tile(frame)));
+  tilemap.setSolidTiles(ground, [tile(2)]); // walls
+  tilemap.commit();
 
   const player = new Sprite(scene, { sheet, frame: 0, x: 32, y: 32, layer: 1 });
   const npc = new Sprite(scene, { sheet, frame: 3, x: 128, y: 80, layer: 1 });
@@ -506,12 +523,12 @@ async function bootstrap() {
       if (engine.input.held(0, 'right')) nx += SPEED * dt;
 
       // Tile collision
-      if (!tilemap.isSolid(0, nx, player.y) && !tilemap.isSolid(0, nx + 15, player.y) &&
-          !tilemap.isSolid(0, nx, player.y + 15) && !tilemap.isSolid(0, nx + 15, player.y + 15)) {
+      if (!tilemap.isSolid(ground, nx, player.y) && !tilemap.isSolid(ground, nx + 15, player.y) &&
+          !tilemap.isSolid(ground, nx, player.y + 15) && !tilemap.isSolid(ground, nx + 15, player.y + 15)) {
         player.x = nx;
       }
-      if (!tilemap.isSolid(0, player.x, ny) && !tilemap.isSolid(0, player.x + 15, ny) &&
-          !tilemap.isSolid(0, player.x, ny + 15) && !tilemap.isSolid(0, player.x + 15, ny + 15)) {
+      if (!tilemap.isSolid(ground, player.x, ny) && !tilemap.isSolid(ground, player.x + 15, ny) &&
+          !tilemap.isSolid(ground, player.x, ny + 15) && !tilemap.isSolid(ground, player.x + 15, ny + 15)) {
         player.y = ny;
       }
 
@@ -528,7 +545,7 @@ async function bootstrap() {
           inventory.push('Gold Key');
           showDialog = true;
           dialogText = 'You found 100 gold and a Gold Key!';
-          sfx.play(880, 'square', 0.4);
+          sfx.play(880, 'pulse50', 0.4);
         }
       }
     }
@@ -555,7 +572,7 @@ bootstrap();
 `,
   },
   doom: {
-    resolution: { width: 256, height: 240 },
+    profile: 'nes',
     main: `import {
   Cathode, Scene, Raycaster, BitmapFont, SaveManager, SoundChannel,
 } from '@cathode/sdk';
@@ -634,17 +651,17 @@ async function bootstrap() {
   let score = saves.get<number>('score') ?? 0;
   let health = 100;
 
-  const keys: Record<string, boolean> = {};
-  window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
-  window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+  // Every control goes through engine.input, so the same code reads the
+  // keyboard and the on-screen buttons a phone gets: arrows walk and turn,
+  // L and R (Q and W) step sideways, A (Z or space) fires.
+  const axis = (minus: boolean, plus: boolean) => (plus ? 1 : 0) - (minus ? 1 : 0);
 
   engine.loop((dt) => {
     scene.update(dt);
-    let fwd = 0, str = 0, trn = 0;
-    if (keys['w']) fwd = 1; if (keys['s']) fwd = -1;
-    if (keys['a']) str = -1; if (keys['d']) str = 1;
-    if (engine.input.held(0, 'left')) trn = -1;
-    if (engine.input.held(0, 'right')) trn = 1;
+    const input = engine.input;
+    const fwd = axis(input.held(0, 'down'), input.held(0, 'up'));
+    const str = axis(input.held(0, 'l'), input.held(0, 'r'));
+    const trn = axis(input.held(0, 'left'), input.held(0, 'right'));
     engine.raw!.raycaster_move(fwd, str, trn);
 
     if (engine.input.justPressed(0, 'a')) {
@@ -666,12 +683,81 @@ bootstrap();
   },
 };
 
-export default async function newCommand(name: string, options: { template?: string }) {
-  const targetDir = path.resolve(process.cwd(), name);
-  const templateName = (options.template ?? 'default') as TemplateName;
+/** Every template `cathode new --template` accepts. */
+export const TEMPLATE_NAMES = Object.keys(TEMPLATES) as TemplateName[];
 
+/**
+ * The engine a new game carries with it, copied from beside this CLI.
+ *
+ * New games used to depend on `@cathode/sdk@latest` from npm. That package was
+ * never published, so `npm install` failed on every project this command made.
+ * Worse, the `@cathode` scope belongs to an unrelated project, which could
+ * publish a package under that name at any moment and have every new Cathode
+ * game install it. So a game brings its own copy of the engine: nothing to
+ * fetch, nothing anyone else can swap out, and it builds the same way years
+ * from now.
+ */
+const SDK_DIR = fileURLToPath(new URL('../../../sdk/', import.meta.url));
+const ENGINE_DIR = 'cathode-sdk';
+
+/** Everything `cathode export` makes, which is rebuilt from cathode.json each time. */
+export const GITIGNORE = 'node_modules\ndist\nnative\nout\ncapacitor.config.json\n';
+
+/** Copy only what a game needs from the SDK, not its build tooling. */
+export async function copyEngine(to: string, from: string = SDK_DIR): Promise<void> {
+  for (const entry of ['README.md', 'src']) {
+    await fs.copy(path.join(from, entry), path.join(to, entry));
+  }
+  // Only what a game needs to import the engine. npm installs the dev tools
+  // of a package linked with `file:` too, so the SDK's own test and build
+  // tools would otherwise land in every game -- and npm would warn the game's
+  // author about their security advisories.
+  const { name, version, type, main, types, dependencies } = await fs.readJson(path.join(from, 'package.json'));
+  await fs.writeJson(path.join(to, 'package.json'), { name, version, type, main, types, dependencies }, { spaces: 2 });
+  // wasm-pack leaves a `.gitignore` of `*` in its output. Copied into a game,
+  // it would make that game's own repository drop the engine, and the first
+  // fresh clone of it would fail to install.
+  await fs.copy(path.join(from, 'wasm'), path.join(to, 'wasm'), {
+    filter: (src) => path.basename(src) !== '.gitignore',
+  });
+}
+
+/** "my-cool-game" -> "My Cool Game". */
+function titleFrom(name: string): string {
+  return name.split('-').filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
+
+export default async function newCommand(name: string, options: { template?: string }) {
+  const templateName = (options.template ?? 'default') as TemplateName;
   if (!TEMPLATES[templateName]) {
     console.error(chalk.red(`Unknown template: ${templateName}. Available: ${Object.keys(TEMPLATES).join(', ')}`));
+    process.exit(1);
+  }
+
+  const targetDir = path.resolve(process.cwd(), name);
+  const projectName = path.basename(targetDir);
+  const template = TEMPLATES[templateName];
+
+  // Checked with the same rules the site build uses, so a project this
+  // command makes is valid by construction.
+  const project: Project = {
+    format: 1,
+    name: projectName,
+    title: titleFrom(projectName),
+    version: '0.1.0',
+    // A stand-in, visible so it gets changed: Google Play refuses
+    // com.example, and `cathode export --release` does too.
+    id: placeholderId(projectName),
+    screen: { profile: template.profile },
+    orientation: 'landscape',
+    // Every template reads its controls through engine.input, so a phone
+    // gets on-screen buttons for them.
+    input: ['keyboard', 'touch'],
+  };
+  const problems = validateProject(project);
+  if (problems.length) {
+    console.error(chalk.red(`"${projectName}" can't be used as a project name:`));
+    for (const problem of problems) console.error(`  ${problem}`);
     process.exit(1);
   }
 
@@ -679,88 +765,97 @@ export default async function newCommand(name: string, options: { template?: str
     console.error(chalk.red(`Directory ${name} already exists.`));
     process.exit(1);
   }
+  if (!fs.existsSync(path.join(SDK_DIR, 'wasm', 'cathode_platform_web_bg.wasm'))) {
+    console.error(chalk.red(`Can't find the Cathode engine beside this CLI (looked in ${SDK_DIR}).`));
+    process.exit(1);
+  }
 
-  const spinner = ora(`Scaffolding new retro engine project: ${name} (template: ${templateName})`).start();
-  const template = TEMPLATES[templateName];
+  const spinner = ora(`Creating ${projectName} from the "${templateName}" template`).start();
 
   try {
-    await fs.ensureDir(targetDir);
     await fs.ensureDir(path.join(targetDir, 'src'));
-    await fs.ensureDir(path.join(targetDir, 'assets', 'sprites'));
-    await fs.ensureDir(path.join(targetDir, 'assets', 'maps'));
-    await fs.ensureDir(path.join(targetDir, 'assets', 'audio'));
+    await fs.ensureDir(path.join(targetDir, 'assets'));
+    await copyEngine(path.join(targetDir, ENGINE_DIR));
 
+    await fs.writeJson(path.join(targetDir, 'cathode.json'), project, { spaces: 2 });
+
+    // Plain Vite scripts: the project needs Node and nothing else, not this
+    // CLI installed globally. `--base ./` keeps the build working wherever it
+    // is uploaded, a subfolder included.
     const pkgJson = {
-      name,
-      version: "0.1.0",
+      name: projectName,
+      version: project.version,
       private: true,
-      type: "module",
+      type: 'module',
       scripts: {
-        "dev": "retro run",
-        "build": "cathode build"
+        dev: 'vite',
+        build: 'vite build --base ./',
+        preview: 'vite preview',
+        // Vite strips types without checking them, so a mistake that
+        // TypeScript would name in a second only shows up when the game runs.
+        typecheck: 'tsc --noEmit',
       },
       dependencies: {
-        "@cathode/sdk": "latest"
+        '@cathode/sdk': `file:./${ENGINE_DIR}`,
       },
       devDependencies: {
-        "typescript": "^5.5.0",
-        "vite": "^5.3.0"
-      }
+        typescript: '^5.5.0',
+        vite: '^5.3.0',
+      },
     };
     await fs.writeJson(path.join(targetDir, 'package.json'), pkgJson, { spaces: 2 });
-
-    const retroConfig = {
-      resolution: template.resolution,
-      audioChannels: 4,
-      spriteLimit: 40,
-      scanlines: false,
-      targetFps: 60,
-      title: name
-    };
-    await fs.writeJson(path.join(targetDir, 'retro.config.json'), retroConfig, { spaces: 2 });
 
     const indexHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${name}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>${project.title}</title>
     <style>
-        body { margin: 0; background-color: #0a0a0a; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        body { margin: 0; background-color: #0a0a0a; display: flex; justify-content: center; align-items: center; height: 100vh; height: 100dvh; overflow: hidden; }
         canvas { box-shadow: 0 0 20px rgba(0,0,0,0.8); }
     </style>
 </head>
 <body>
     <canvas id="game"></canvas>
-    <script type="module" src="/src/main.ts"></script>
+    <script type="module" src="./src/main.ts"></script>
 </body>
-</html>`;
+</html>
+`;
     await fs.writeFile(path.join(targetDir, 'index.html'), indexHtml);
 
     const tsconfig = {
       compilerOptions: {
-        target: "ES2022",
-        module: "ESNext",
-        moduleResolution: "bundler",
+        target: 'ES2022',
+        module: 'ESNext',
+        moduleResolution: 'bundler',
         strict: true,
-        skipLibCheck: true
+        skipLibCheck: true,
       },
-      include: ["src/**/*"]
+      include: ['src/**/*'],
     };
     await fs.writeJson(path.join(targetDir, 'tsconfig.json'), tsconfig, { spaces: 2 });
 
     const viteConfig = `import { defineConfig } from 'vite';
+
 export default defineConfig({
-  server: { port: 3000 }
-});`;
+  server: { port: 3000 },
+  // The engine is WebAssembly loaded at run time; pre-bundling it breaks that.
+  optimizeDeps: { exclude: ['@cathode/sdk', 'cathode-platform-web'] },
+});
+`;
     await fs.writeFile(path.join(targetDir, 'vite.config.ts'), viteConfig);
+
+    // Deliberately does not ignore cathode-sdk/: the engine is part of the game.
+    // The rest is made by `cathode export` from cathode.json, every time.
+    await fs.writeFile(path.join(targetDir, '.gitignore'), GITIGNORE);
 
     await fs.writeFile(path.join(targetDir, 'src', 'main.ts'), template.main);
 
-    spinner.succeed(chalk.green(`Successfully created ${name} with "${templateName}" template!`));
-    console.log(`\nNext steps:\n  cd ${name}\n  npm install\n  npm run dev`);
+    spinner.succeed(chalk.green(`Created ${projectName} with the "${templateName}" template.`));
+    console.log(`\nNext steps:\n  cd ${name}\n  npm install\n  npm run dev\n\nOn a phone:\n  cathode export android\n  cathode export ios`);
   } catch (err: any) {
-    spinner.fail(chalk.red(`Failed to scaffold config: ${err.message}`));
+    spinner.fail(chalk.red(`Failed to create the project: ${err.message}`));
     process.exit(1);
   }
 }

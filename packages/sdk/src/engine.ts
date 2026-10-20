@@ -2,6 +2,8 @@ import { InputReader } from './input';
 import { WaveformType, Preset, EngineConfig } from './types';
 import type { Tween } from './tween';
 import type { GameTimer } from './timer';
+import { ScreenFit, applyMobileStyles, isTouchFirst, pauseWhenHidden } from './mobile';
+import { TouchControls } from './touch';
 
 // WebEngine type to avoid importing from unbuilt WASM in TS
 // It matches the methods exposed by wasm_bindgen
@@ -23,6 +25,18 @@ export interface TargetReport {
   audio: TargetBudget<number> & { channels: number };
 }
 
+/**
+ * How the engine treats the page it is on. Both default to on, which is right
+ * for a game that owns its page. An editor that shows the engine in one panel
+ * of a larger tool turns them off.
+ */
+export interface ScreenOptions {
+  /** Size the canvas to the window, filling it on a phone. */
+  fit?: boolean;
+  /** Add on-screen controls on touch screens. */
+  touchControls?: boolean;
+}
+
 export class Cathode {
   public raw: WebEngine | null = null;
   public input: InputReader;
@@ -37,6 +51,9 @@ export class Cathode {
   private audioCtx: AudioContext | null = null;
   private audioNode: ScriptProcessorNode | null = null;
 
+  /** Keeps the canvas as large as the page allows. Null until the engine starts. */
+  screen: ScreenFit | null = null;
+
   // Managed tweens and timers
   private _tweens: Set<Tween> = new Set();
   private _timers: Set<GameTimer> = new Set();
@@ -49,21 +66,21 @@ export class Cathode {
     this.canvas.style.touchAction = 'none';
   }
 
-  static async gameboy(canvas: HTMLCanvasElement, scale = 3): Promise<Cathode> {
+  static async gameboy(canvas: HTMLCanvasElement, scale = 3, options: ScreenOptions = {}): Promise<Cathode> {
     const eng = new Cathode(canvas);
-    await eng._init('gameboy', scale);
+    await eng._init('gameboy', scale, undefined, options);
     return eng;
   }
 
-  static async nes(canvas: HTMLCanvasElement, scale = 3): Promise<Cathode> {
+  static async nes(canvas: HTMLCanvasElement, scale = 3, options: ScreenOptions = {}): Promise<Cathode> {
     const eng = new Cathode(canvas);
-    await eng._init('nes', scale);
+    await eng._init('nes', scale, undefined, options);
     return eng;
   }
 
-  static async neogeo(canvas: HTMLCanvasElement, scale = 2): Promise<Cathode> {
+  static async neogeo(canvas: HTMLCanvasElement, scale = 2, options: ScreenOptions = {}): Promise<Cathode> {
     const eng = new Cathode(canvas);
-    await eng._init('neogeo', scale);
+    await eng._init('neogeo', scale, undefined, options);
     return eng;
   }
 
@@ -74,19 +91,19 @@ export class Cathode {
    * where it always ran. See docs/architecture.md for why an actual MS-DOS
    * executable is a different project.
    */
-  static async dos(canvas: HTMLCanvasElement, scale = 3): Promise<Cathode> {
+  static async dos(canvas: HTMLCanvasElement, scale = 3, options: ScreenOptions = {}): Promise<Cathode> {
     const eng = new Cathode(canvas);
-    await eng._init('dos', scale);
+    await eng._init('dos', scale, undefined, options);
     return eng;
   }
 
-  static async custom(canvas: HTMLCanvasElement, config: EngineConfig, scale = 3): Promise<Cathode> {
+  static async custom(canvas: HTMLCanvasElement, config: EngineConfig, scale = 3, options: ScreenOptions = {}): Promise<Cathode> {
     const eng = new Cathode(canvas);
-    await eng._init('custom', scale, config);
+    await eng._init('custom', scale, config, options);
     return eng;
   }
 
-  protected async _init(preset: Preset, scale: number, config?: EngineConfig) {
+  protected async _init(preset: Preset, scale: number, config?: EngineConfig, options: ScreenOptions = {}) {
     try {
       this.wasmModule = await import('cathode-platform-web');
       await this.wasmModule.default(); // init wasm
@@ -109,14 +126,41 @@ export class Cathode {
 
     this.input.attach(this.raw!);
 
-    this.canvas.style.width = `${this.width * scale}px`;
-    this.canvas.style.height = `${this.height * scale}px`;
+    // On a phone the game fills the screen around the rest of its page; on a
+    // desktop it keeps the scale it asked for unless the window is too small.
+    const touchFirst = isTouchFirst();
+    applyMobileStyles();
+    if (options.fit === false) {
+      this.canvas.style.width = `${this.width * scale}px`;
+      this.canvas.style.height = `${this.height * scale}px`;
+    } else {
+      this.screen = new ScreenFit(this.canvas, this.width, this.height, scale, touchFirst);
+    }
+    pauseWhenHidden(this);
+    // On-screen controls that draw whatever the game reads. A game that makes
+    // its own replaces these.
+    if (touchFirst && options.touchControls !== false && !this.input.touch) new TouchControls(this.input);
 
     this.initAudio();
   }
 
+  /** The on-screen controls, when there are any. */
+  get touch(): TouchControls | null {
+    return this.input.touch instanceof TouchControls ? this.input.touch : null;
+  }
+
+  /**
+   * Browsers keep audio silent until the player does something. The first
+   * gesture creates the audio context; every later one resumes it if it has
+   * stopped, which also covers iOS suspending it for a phone call.
+   *
+   * `touchstart` is deliberately not in the list: it does not count as a
+   * gesture that may start audio, so a context resumed from it stays silent.
+   * The listeners stay attached for the same reason a phone call matters --
+   * audio that was running can stop again.
+   */
   private initAudio() {
-    const interactInit = () => {
+    const unlock = () => {
       if (!this.audioCtx) {
         this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         this.audioNode = this.audioCtx.createScriptProcessor(2048, 0, 2);
@@ -136,18 +180,14 @@ export class Cathode {
         };
 
         this.audioNode.connect(this.audioCtx.destination);
-      } else if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
       }
-
-      window.removeEventListener('click', interactInit);
-      window.removeEventListener('keydown', interactInit);
-      window.removeEventListener('touchstart', interactInit);
+      // Never undo a pause the game asked for.
+      if (this.audioCtx.state !== 'running' && !this.paused) void this.audioCtx.resume();
     };
 
-    window.addEventListener('click', interactInit);
-    window.addEventListener('keydown', interactInit);
-    window.addEventListener('touchstart', interactInit);
+    for (const type of ['pointerup', 'touchend', 'click', 'keydown']) {
+      window.addEventListener(type, unlock, { capture: true });
+    }
   }
 
   get width(): number { return this.raw?.resolution_w() ?? 0; }
@@ -158,6 +198,9 @@ export class Cathode {
 
   loop(cb: (dt: number) => void) {
     this.loopCb = cb;
+    // The game has built its page by now -- score bars and all -- so fit the
+    // canvas around what is actually there.
+    this.screen?.apply();
     const step = (ts: number) => {
       if (!this.paused && this.raw) {
         const dt = this.raw.tick(ts);

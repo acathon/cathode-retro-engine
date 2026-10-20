@@ -5,6 +5,7 @@ export * from './sprite';
 export * from './tilemap';
 export * from './audio';
 export * from './touch';
+export * from './mobile';
 export * from './engine';
 export * from './camera';
 export * from './particles';

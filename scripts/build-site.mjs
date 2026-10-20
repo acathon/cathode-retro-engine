@@ -24,7 +24,7 @@ const OUT = 'site/docs';
 const SECTIONS = [
   {
     title: 'START HERE',
-    pages: ['getting-started', 'first-game'],
+    pages: ['getting-started', 'first-game', 'mobile', 'shipping'],
   },
   {
     title: 'TUTORIALS',
@@ -32,7 +32,7 @@ const SECTIONS = [
   },
   {
     title: 'REFERENCE',
-    pages: ['architecture', 'contributing'],
+    pages: ['project-format', 'architecture', 'contributing'],
   },
 ];
 
@@ -44,6 +44,9 @@ const TITLES = {
   'tutorial-bounce-3d': 'Build a first-person game',
   'tutorial-cards': 'Build a card game',
   'tutorial-trex': 'Walkthrough: T-Rex Runner',
+  mobile: 'Games on phones',
+  shipping: 'Shipping to the stores',
+  'project-format': 'cathode.json',
   architecture: 'Architecture',
   contributing: 'Contributing',
   README: 'Documentation hub',

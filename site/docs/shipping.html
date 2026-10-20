@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shipping to the stores — Cathode docs</title>
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="../index.html">CATHODE <span>ENGINE</span></a>
+      <a href="../index.html">Overview</a>
+      <a href="../games.html">Games</a>
+      <a href="../../packages/studio/">Studio</a>
+      <a href="../docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/acathon/cathode-retro-engine">GitHub</a>
+    </div>
+  </nav>
+
+  <div class="wrap doc-layout">
+    <aside class="doc-nav">
+        <h4>START HERE</h4>
+        <a href="./getting-started.html">Getting started</a>
+        <a href="./first-game.html">Your first game</a>
+        <a href="./mobile.html">Games on phones</a>
+        <a href="./shipping.html" aria-current="page">Shipping to the stores</a>
+        <h4>TUTORIALS</h4>
+        <a href="./tutorial-bounce.html">Build a physics game</a>
+        <a href="./tutorial-bounce-3d.html">Build a first-person game</a>
+        <a href="./tutorial-cards.html">Build a card game</a>
+        <a href="./tutorial-trex.html">Walkthrough: T-Rex Runner</a>
+        <h4>REFERENCE</h4>
+        <a href="./project-format.html">cathode.json</a>
+        <a href="./architecture.html">Architecture</a>
+        <a href="./contributing.html">Contributing</a>
+    </aside>
+
+    <article class="prose">
+<h1>Shipping to Android and iOS</h1>
+<p><code>cathode export</code> turns your game into a phone app. The same command makes a
+build to try on your own phone and the build you upload to Google Play or the
+App Store.</p>
+<pre><code class="language-bash">cathode export android            # a test APK, in out/
+cathode export android --run      # ...installed and started on your phone
+cathode export ios                # a build for the iOS Simulator (on a Mac)
+cathode export android --release  # an .aab for Google Play
+cathode export ios --release      # an .ipa for the App Store (on a Mac)
+</code></pre>
+<p>The game inside the app is the same one that runs in the browser, controls
+and all — see <a href="./mobile.html">Games on Phones</a>. Nothing in your code changes.</p>
+<h2>Getting the <code>cathode</code> Command</h2>
+<p>Until Cathode is published, install the command from your clone of this
+repository. <code>cathode export</code> has to run inside your game&#39;s folder, so it
+needs to be on your PATH:</p>
+<pre><code class="language-bash">cd cathode-retro-engine
+npm install
+npm run build:cli
+npm install -g ./packages/cli
+</code></pre>
+<p>Then <code>cathode new my-game</code> makes a game, and <code>cathode export</code> works inside it.</p>
+<h2>What You Need</h2>
+<table>
+<thead>
+<tr>
+<th>To build for</th>
+<th>You need</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Android</td>
+<td><a href="https://developer.android.com/studio">Android Studio</a>. It brings the Android SDK and the Java 21 that the build needs.</td>
+</tr>
+<tr>
+<td>iOS</td>
+<td>A Mac with Xcode 26 or later, from the Mac App Store. Apple accepts nothing built with older versions.</td>
+</tr>
+<tr>
+<td>Google Play</td>
+<td>A <a href="https://play.google.com/console">Google Play developer account</a> (a one-off fee).</td>
+</tr>
+<tr>
+<td>The App Store</td>
+<td>The <a href="https://developer.apple.com/programs/">Apple Developer Program</a> (a yearly fee).</td>
+</tr>
+</tbody></table>
+<p>No Mac? GitHub can build the iOS app for you — see
+<a href="#building-on-github">Building on GitHub</a>.</p>
+<p>If Android Studio is installed somewhere unusual, set <code>ANDROID_HOME</code> to the
+SDK folder and <code>JAVA_HOME</code> to Android Studio&#39;s <code>jbr</code> folder.</p>
+<h2>cathode.json Decides</h2>
+<p>Everything the stores see comes from your <a href="./project-format.html"><code>cathode.json</code></a>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Becomes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>title</code></td>
+<td>The name under the icon.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>The app&#39;s identity on both stores: the Android application ID and the iOS bundle ID. <strong>It can never change after the first upload.</strong></td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>The version players see, and the build number the stores compare. <code>1.2.3</code> becomes build <code>1002003</code>, so each new version counts higher.</td>
+</tr>
+<tr>
+<td><code>orientation</code></td>
+<td>Which way the phone is held: <code>landscape</code> (either way up), <code>portrait</code>, or <code>any</code>. On an iPad the game turns every way and the engine fits it, because iPadOS 26 asks every app to.</td>
+</tr>
+<tr>
+<td><code>icon</code></td>
+<td>The app icon and the launch screen, in every size each store asks for.</td>
+</tr>
+</tbody></table>
+<p><code>cathode new</code> writes a stand-in <code>id</code> like <code>com.example.mygame</code>, which is fine
+for testing. Before a store build, change it to something only you would use:
+reverse a domain you own, or your GitHub account —
+<code>&quot;id&quot;: &quot;io.github.yourname.mygame&quot;</code>.</p>
+<h3>The Icon</h3>
+<p>Point <code>icon</code> at a square PNG:</p>
+<pre><code class="language-json">&quot;icon&quot;: &quot;assets/icon.png&quot;
+</code></pre>
+<ul>
+<li><strong>Pixel art</strong> can be any size, even 16 × 16. It is scaled up by whole
+steps, so every pixel stays square and sharp.</li>
+<li><strong>A sprite on a transparent background</strong> is set on black, with room
+around it so no phone&#39;s icon shape clips it.</li>
+<li><strong>Artwork with no transparency</strong> fills each icon shape edge to edge. Make
+it at least 1024 × 1024 so it isn&#39;t scaled up.</li>
+</ul>
+<p>The launch screen is your icon, centred on black. Without an icon, test
+builds get a placeholder: the first letter of the title on a colour of its
+own. Store builds refuse to go without one.</p>
+<h2>Trying It on Your Phone</h2>
+<p><strong>Android:</strong> turn on <a href="https://developer.android.com/studio/debug/dev-options">USB debugging</a>,
+plug the phone in, and run <code>cathode export android --run</code>. An emulator from
+Android Studio works the same way. You can also copy the APK in <code>out/</code> to the
+phone and open it.</p>
+<p><strong>iPhone:</strong> <code>cathode export ios --run</code> starts it in the iOS Simulator. To put
+it on your own iPhone, run <code>cathode export ios --open</code>, choose your team
+under <em>Signing &amp; Capabilities</em> in Xcode, and press Run with the phone
+selected.</p>
+<h2>Store Builds</h2>
+<h3>Google Play</h3>
+<p>Play needs every upload signed with your <strong>upload key</strong>. Make one, once:</p>
+<pre><code class="language-bash">keytool -genkeypair -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+</code></pre>
+<p>Keep <code>upload.jks</code> and its password safe, and <strong>out of your repository</strong>. If
+you lose it, Play can reset it, but it takes days. Then:</p>
+<pre><code class="language-bash">export CATHODE_KEYSTORE=/path/to/upload.jks
+export CATHODE_KEYSTORE_PASSWORD=&#39;...&#39;
+export CATHODE_KEY_ALIAS=upload
+# CATHODE_KEY_PASSWORD too, if the key&#39;s password differs from the keystore&#39;s.
+cathode export android --release
+</code></pre>
+<p>Upload <code>out/my-game-1.0.0.aab</code> in the Play Console. The passwords are read
+from the environment while the build runs and are never written into the
+project.</p>
+<h3>The App Store</h3>
+<ol>
+<li><p>Find your Team ID in your <a href="https://developer.apple.com/account">Apple Developer account</a>, under <em>Membership</em>.</p>
+</li>
+<li><p>In <a href="https://appstoreconnect.apple.com">App Store Connect</a>, create the app with the same bundle ID as the <code>id</code> in <code>cathode.json</code>.</p>
+</li>
+<li><p>On your Mac, signed in to Xcode with your Apple account:</p>
+<pre><code class="language-bash">CATHODE_APPLE_TEAM=ABCDE12345 cathode export ios --release
+</code></pre>
+</li>
+<li><p>Upload <code>out/my-game-1.0.0.ipa</code> with Apple&#39;s
+<a href="https://apps.apple.com/app/transporter/id1450874784">Transporter</a> app.</p>
+</li>
+</ol>
+<p>Xcode creates the signing certificate and profile itself. To sign where
+nobody is signed in to Xcode, such as on GitHub, also set an
+<a href="https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api">App Store Connect API key</a>:
+<code>CATHODE_ASC_KEY</code> (the <code>.p8</code> file), <code>CATHODE_ASC_KEY_ID</code> and <code>CATHODE_ASC_ISSUER</code>.</p>
+<p><strong>Every upload needs a higher <code>version</code></strong> in <code>cathode.json</code>, on both stores.</p>
+<h2>What Gets Made</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>dist/</code></td>
+<td>The web build that the app wraps.</td>
+</tr>
+<tr>
+<td><code>native/android</code>, <code>native/ios</code></td>
+<td>The Android Studio and Xcode projects, made by <a href="https://capacitorjs.com">Capacitor</a> 8.</td>
+</tr>
+<tr>
+<td><code>out/</code></td>
+<td>The APK, App Bundle, simulator app or <code>.ipa</code>.</td>
+</tr>
+<tr>
+<td><code>capacitor.config.json</code></td>
+<td>Capacitor&#39;s settings, written from <code>cathode.json</code>.</td>
+</tr>
+</tbody></table>
+<p>All of it is rebuilt from <code>cathode.json</code> on every export, and <code>cathode new</code>
+leaves all of it out of git. <strong>Don&#39;t edit <code>native/</code></strong>: changes there are
+overwritten, and if the <code>id</code> changes it is made again from scratch. Change
+<code>cathode.json</code> instead.</p>
+<p>The first export adds Capacitor to your project&#39;s <code>devDependencies</code>. The app
+shows the game full screen, with no status or navigation bar; a swipe from
+the edge brings them back for a moment.</p>
+<h2>Building on GitHub</h2>
+<p>This repository builds both apps on every change, in
+<a href="https://github.com/acathon/cathode-retro-engine/blob/main/.github/workflows/mobile.yml"><code>.github/workflows/mobile.yml</code></a>. It makes a
+game with <code>cathode new</code>, then:</p>
+<ul>
+<li>exports an Android test build, and plays it on an Android emulator;</li>
+<li>exports an iOS build on a Mac runner, and plays it in the iOS Simulator;</li>
+<li>exports a signed App Bundle with a throwaway key.</li>
+</ul>
+<p>Copy that workflow into your game&#39;s repository to build there. Instead of
+<code>cathode new</code>, check out this repository beside your game to get the
+command. Store your upload key, passwords and Apple key as
+<a href="https://docs.github.com/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions">repository secrets</a>.</p>
+<h2>When It Goes Wrong</h2>
+<table>
+<thead>
+<tr>
+<th>It says</th>
+<th>Do this</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><em>needs the Android SDK</em></td>
+<td>Install Android Studio, open it once so it downloads the SDK, or set <code>ANDROID_HOME</code>.</td>
+</tr>
+<tr>
+<td><em>needs Java 21</em></td>
+<td>Set <code>JAVA_HOME</code> to Android Studio&#39;s <code>jbr</code> folder (on a Mac, <code>/Applications/Android Studio.app/Contents/jbr/Contents/Home</code>).</td>
+</tr>
+<tr>
+<td><em>needs a Mac with Xcode</em></td>
+<td>iOS apps can only be built on macOS. Use <a href="#building-on-github">Building on GitHub</a>.</td>
+</tr>
+<tr>
+<td><em>needs Xcode 26 or later</em></td>
+<td>Update Xcode from the Mac App Store.</td>
+</tr>
+<tr>
+<td><em>needs your own &quot;id&quot;</em></td>
+<td>Set <code>id</code> in <code>cathode.json</code>; see <a href="#cathodejson-decides">cathode.json Decides</a>.</td>
+</tr>
+<tr>
+<td><em>No Android phone or emulator is connected</em></td>
+<td>Check that <code>adb devices</code> lists it, and accept the prompt on the phone.</td>
+</tr>
+</tbody></table>
+<h2>What Is and Isn&#39;t Proven</h2>
+<p>On every change, CI builds the Android app and plays it on an Android 15
+emulator. It checks that the game draws, shows no status or navigation bar,
+is held landscape, and answers a finger on the d-pad. CI also builds the iOS app with
+Xcode 26 and plays it in the iOS Simulator, checking that it draws and logs
+no errors. It signs an App Bundle and verifies the signature.</p>
+<p>What CI can&#39;t do is sign for the App Store: that needs an Apple Developer
+account. The <code>--release</code> path for iOS follows Apple&#39;s documented <code>xcodebuild</code>
+archive-and-export steps, but it has not been run against a real account.
+If it fails for you, the Xcode project in <code>native/ios</code> can still be archived
+from Xcode&#39;s <em>Product → Archive</em> menu.</p>
+
+      <p class="doc-foot">
+        Edit this page: <a href="https://github.com/acathon/cathode-retro-engine/blob/main/docs/shipping.md">docs/shipping.md</a>
+      </p>
+    </article>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p>Cathode · <a href="https://github.com/acathon/cathode-retro-engine">github.com/acathon/cathode-retro-engine</a></p>
+    </div>
+  </footer>
+</body>
+
+</html>

@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "doom-game",
+  "title": "Doom-style demo",
+  "version": "0.1.0",
+  "description": "The raycaster at its simplest: textured walls, billboard sprites, and distance fog, with every texture generated at start-up.",
+  "id": "io.github.acathon.doomgame",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}

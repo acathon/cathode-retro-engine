@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "crypt-courier",
+  "title": "Crypt Courier",
+  "version": "0.1.0",
+  "description": "A procedurally generated maze to navigate in first person, with fog that makes the draw distance part of the puzzle.",
+  "id": "io.github.acathon.cryptcourier",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}

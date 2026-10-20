@@ -22,6 +22,7 @@ Choose the shortest path for what you want to do:
 | Build a physics game, step by step | [docs/tutorial-bounce.md](./docs/tutorial-bounce.md) |
 | Build a first-person game | [docs/tutorial-bounce-3d.md](./docs/tutorial-bounce-3d.md) |
 | Build a card game | [docs/tutorial-cards.md](./docs/tutorial-cards.md) |
+| Put a game on Google Play or the App Store | [docs/shipping.md](./docs/shipping.md) |
 | Learn by reading a full example | [docs/tutorial-trex.md](./docs/tutorial-trex.md) |
 | Understand the engine internals | [docs/architecture.md](./docs/architecture.md) |
 | Contribute fixes or features | [docs/contributing.md](./docs/contributing.md) |
@@ -34,11 +35,11 @@ Choose the shortest path for what you want to do:
 | First person | DDA raycaster with textured walls, billboards, fog, a z-buffer, pitch and eye height |
 | Shooting and AI | Hitscan ray queries, line-of-sight tests, A* pathfinding over the same cells the renderer draws |
 | Netplay | Fixed-step clock, deterministic lockstep, snapshot interpolation (transport-agnostic — see [Multiplayer](#multiplayer)) |
-| Runtime targets | Browser via WASM and native desktop via winit/pixels/cpal |
+| Runtime targets | Browser via WASM; Android and iOS apps with `cathode export`, touch controls included; native desktop via winit/pixels/cpal |
 | SDK | TypeScript APIs for scenes, sprites, tilemaps, input, audio, text, save data, raycasting |
 | Visual editing | Cathode Studio: scene tree, inspector, block editor, pixel sprite editor, sound maker, map editor |
 | Learning material | Setup guide, five tutorials, architecture reference, sixteen example games |
-| Tests | 337 Rust and 331 TypeScript, run by CI on every push |
+| Tests | 337 Rust and 508 TypeScript, run by CI on every push |
 
 ## Quick Start
 
@@ -288,6 +289,7 @@ cathode-retro-engine/
 │   ├── editor-desktop/     # Tauri desktop editor
 │   ├── blocks/             # Block language: IR, interpreter, TypeScript codegen
 │   ├── cards/              # Deck, bankroll and table renderer for the card games
+│   ├── project/            # cathode.json: the project format and its validator
 │   └── studio/             # Cathode Studio: scene tree, inspector, blocks,
 │                           #   pixel sprite editor, sound maker, map editor
 ├── examples/               # Reference games and demos

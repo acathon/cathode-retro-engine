@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "bounce-raycaster",
+  "title": "Bounce 3D",
+  "version": "0.1.0",
+  "description": "The physics game below, in first person. Eye height, horizon pitch and sprite elevation turn the same simulation into a different game.",
+  "id": "io.github.acathon.bounceraycaster",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}

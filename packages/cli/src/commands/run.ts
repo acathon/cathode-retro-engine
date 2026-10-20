@@ -1,31 +1,11 @@
-import { execSync } from 'child_process';
+import { spawnSync } from 'node:child_process';
 import chalk from 'chalk';
-import fs from 'fs-extra';
-import path from 'path';
-import ora from 'ora';
 
+/** `cathode run`: the development server, which reloads the game as you save. */
 export default async function runCommand() {
-  const spinner = ora('Checking dependencies...').start();
-  
-  const platformWebPath = path.resolve(process.cwd(), 'node_modules', 'cathode-platform-web');
-  const hasWasm = fs.existsSync(platformWebPath);
-
-  if (!hasWasm) {
-    spinner.text = 'Building WASM bindings (this may take a minute)...';
-    try {
-      // In a real scenario, this might download the wasm from npm if not in monorepo
-      // For this monorepo, assume it's linked
-    } catch (err: any) {
-      spinner.fail(chalk.red('Failed to verify WASM build.'));
-    }
-  }
-
-  spinner.succeed('Dependencies ready. Starting dev server...');
-
-  try {
-    execSync('npx vite', { stdio: 'inherit' });
-  } catch (err) {
-    console.error(chalk.red('Failed to start dev server.'));
+  const result = spawnSync('npx', ['vite'], { stdio: 'inherit', shell: process.platform === 'win32' });
+  if (result.status !== 0 && result.signal !== 'SIGINT') {
+    console.error(chalk.red('The development server stopped. Is this a game folder, with `npm install` done?'));
     process.exit(1);
   }
 }

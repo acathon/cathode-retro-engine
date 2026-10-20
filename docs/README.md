@@ -17,6 +17,9 @@ generated HTML.
 | build a physics game with the engine's own collisions | [tutorial-bounce.md](./tutorial-bounce.md) |
 | build a first-person game | [tutorial-bounce-3d.md](./tutorial-bounce-3d.md) |
 | build a card game | [tutorial-cards.md](./tutorial-cards.md) |
+| know what goes in `cathode.json` | [project-format.md](./project-format.md) |
+| make a game work on phones | [mobile.md](./mobile.md) |
+| put a game on Google Play or the App Store | [shipping.md](./shipping.md) |
 | understand internals | [architecture.md](./architecture.md) |
 | contribute changes | [contributing.md](./contributing.md) |
 
@@ -62,6 +65,25 @@ card game here uses: rules as a plain value with no engine imports, so a poker
 evaluator or a gin rummy meld search can be unit-tested without a browser.
 Also covers picking your own screen size instead of a console preset.
 
+### [project-format.md](./project-format.md)
+
+`cathode.json`, the file at the root of every game that says what it is: name,
+screen, controls, store identity and credits. Why each rule is as strict as it
+is, and where it is enforced.
+
+### [mobile.md](./mobile.md)
+
+What the engine does on a touch screen by itself — filling the screen, drawing
+on-screen controls for exactly the buttons a game reads, pausing in the
+background — and the four things a game has to get right that it cannot fix
+from the outside.
+
+### [shipping.md](./shipping.md)
+
+`cathode export android` and `cathode export ios`: test builds for your own
+phone, store builds for Google Play and the App Store, what `cathode.json`
+decides in them, signing, and building iOS apps on GitHub without a Mac.
+
 ### [architecture.md](./architecture.md)
 
 Subsystem reference for the Rust core, WASM bindings, SDK, runtime targets, and editor layout.
@@ -86,6 +108,7 @@ Community contribution expectations, local validation commands, and repo convent
 | Block language | `packages/blocks/src` |
 | Cathode Studio | `packages/studio/src` |
 | Card game layer | `packages/cards/src` |
+| Project format | `packages/project/src` |
 | Headless game checks | `scripts/verify` |
 | Project website | `site` |
 

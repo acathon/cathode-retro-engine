@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "space-game",
+  "title": "Space game",
+  "version": "0.1.0",
+  "description": "Waves, projectiles and touch controls, with every sprite generated procedurally at start-up.",
+  "id": "io.github.acathon.spacegame",
+  "screen": {
+    "profile": "gameboy"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "cavern-dash",
+  "title": "Cavern Dash",
+  "version": "0.1.0",
+  "description": "Engine-driven tilemap collision and gravity through usePhysics, with the level as data rather than as code.",
+  "id": "io.github.acathon.caverndash",
+  "screen": {
+    "profile": "nes"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "trex-game",
+  "title": "T-Rex Runner",
+  "version": "0.1.0",
+  "description": "The endless-runner shape: obstacle spawning, an accelerating difficulty curve, and a restart loop that costs one keypress.",
+  "id": "io.github.acathon.trexgame",
+  "screen": {
+    "profile": "gameboy"
+  },
+  "orientation": "landscape",
+  "input": [
+    "keyboard",
+    "touch"
+  ]
+}
